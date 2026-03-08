@@ -44,8 +44,8 @@ class _SplashScreenState extends State<SplashScreen>
           : const LoginScreen();
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
-          pageBuilder: (_, __, ___) => destination,
-          transitionsBuilder: (_, animation, __, child) {
+          pageBuilder: (_, _, _) => destination,
+          transitionsBuilder: (_, animation, _, child) {
             return FadeTransition(
               opacity: CurvedAnimation(
                 parent: animation,

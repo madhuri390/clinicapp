@@ -386,7 +386,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: _appointments.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        separatorBuilder: (_, _) => const SizedBox(width: 12),
         itemBuilder: (_, i) => _AppointmentCard(appt: _appointments[i]),
       ),
     );

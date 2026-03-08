@@ -154,8 +154,9 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
                 prefixIcon: Icon(Icons.person_outline),
               ),
               validator: (v) {
-                if (v == null || v.trim().isEmpty)
+                if (v == null || v.trim().isEmpty) {
                   return 'First name is required';
+                }
                 return null;
               },
             ),

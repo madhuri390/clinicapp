@@ -53,8 +53,8 @@ class _LoginScreenState extends State<LoginScreen> {
   void _navigateToShell() {
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (_, __, ___) => const MainShell(),
-        transitionsBuilder: (_, animation, __, child) => FadeTransition(
+        pageBuilder: (_, _, _) => const MainShell(),
+        transitionsBuilder: (_, animation, _, child) => FadeTransition(
           opacity: CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
           child: child,
         ),
@@ -64,34 +64,12 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _onSignIn() async {
-    if (!_formKey.currentState!.validate()) return;
+    // TODO: DEV ONLY — bypass auth, accept any credentials
     setState(() => _isLoading = true);
-
-    try {
-      final input = _emailOrPhoneController.text.trim();
-      final password = _passwordController.text;
-
-      if (input.contains('@')) {
-        await AuthService.signInWithEmail(email: input, password: password);
-      } else {
-        // Phone + password → Supabase uses email-style auth for phone+password
-        // redirect to OTP flow instead
-        if (!mounted) return;
-        setState(() => _isLoading = false);
-        _showPhoneOtp(input);
-        return;
-      }
-      if (!mounted) return;
-      _navigateToShell();
-    } on AuthException catch (e) {
-      if (!mounted) return;
-      _showError(e.message);
-    } catch (e) {
-      if (!mounted) return;
-      _showError(e.toString());
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+    await Future.delayed(const Duration(milliseconds: 300)); // fake delay
+    if (!mounted) return;
+    setState(() => _isLoading = false);
+    _navigateToShell();
   }
 
   Future<void> _onGoogleSignIn() async {

@@ -222,7 +222,7 @@ class _SearchBar extends StatelessWidget {
           prefixIcon: Icon(Icons.search, color: Colors.grey.shade500),
           suffixIcon: ValueListenableBuilder<TextEditingValue>(
             valueListenable: controller,
-            builder: (_, v, __) => v.text.isEmpty
+            builder: (_, v, _) => v.text.isEmpty
                 ? const SizedBox.shrink()
                 : IconButton(
                     icon: const Icon(Icons.clear, size: 18),

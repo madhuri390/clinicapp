@@ -2,14 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/patient_model.dart';
+import '../models/file_attachment_model.dart';
+import '../models/payment_model.dart';
 import '../models/prescription_model.dart';
+import '../models/sitting_model.dart';
 import '../models/treatment_plan_model.dart';
 import '../models/visit_model.dart';
 import '../repositories/patient_repository.dart';
 import '../repositories/prescription_repository.dart';
 import '../repositories/treatment_repository.dart';
 import '../repositories/visit_repository.dart';
-import '../theme/app_theme.dart';
+import '../services/local_store.dart';
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
@@ -42,24 +45,18 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
   List<Visit> _visits = [];
   List<TreatmentPlan> _treatments = [];
   List<Prescription> _prescriptions = [];
-  bool _loadingPatient = true;
-  bool _loadingVisits = true;
-  bool _loadingTreatments = true;
-  bool _loadingPrescriptions = true;
+  List<Payment> _payments = [];
 
-  static const _tabLabels = [
-    'Profile',
-    'Visits',
-    'Treatments',
-    'Prescriptions',
-    'Files',
-    'Billing',
-  ];
+  // Data Loading flags
+  bool _loadingPatient = true;
+
+  static const _tabLabels = ['Profile', 'Ongoing', 'History'];
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: _tabLabels.length, vsync: this);
+    LocalStore.instance.seedIfNeeded();
     _loadAll();
   }
 
@@ -83,127 +80,134 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
         _loadingPatient = false;
       });
     } catch (e) {
-      if (!mounted) return;
-      setState(() => _loadingPatient = false);
+      if (mounted) {
+        setState(() => _loadingPatient = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
     }
   }
 
   Future<void> _loadVisits() async {
     try {
-      final visits = await _visitRepo.getForPatient(widget.patientId);
+      final dbVisits = await _visitRepo.getForPatient(widget.patientId);
+      final storeVisits = LocalStore.instance.getVisitsForPatient(
+        widget.patientId,
+      );
+
+      // Combine and deduplicate visits
+      final allVisits = [...dbVisits, ...storeVisits];
+      final seenIds = <String>{};
+      final uniqueVisits = allVisits.where((v) => seenIds.add(v.id)).toList();
+      uniqueVisits.sort((a, b) => (b.visitDate).compareTo(a.visitDate));
+
       if (!mounted) return;
       setState(() {
-        _visits = visits;
-        _loadingVisits = false;
+        _visits = uniqueVisits;
       });
       // Load treatments + prescriptions after visits
-      _loadTreatmentsAndPrescriptions(visits.map((v) => v.id).toList());
+      _loadTreatmentsAndPrescriptions(uniqueVisits.map((v) => v.id).toList());
     } catch (e) {
       if (!mounted) return;
-      setState(() => _loadingVisits = false);
+      // If DB fails, still show store visits
+      final storeVisits = LocalStore.instance.getVisitsForPatient(
+        widget.patientId,
+      );
+      setState(() {
+        _visits = storeVisits;
+      });
     }
   }
 
   Future<void> _loadTreatmentsAndPrescriptions(List<String> visitIds) async {
     try {
-      final treatments = await _treatmentRepo.getForPatientVisits(visitIds);
-      if (!mounted) return;
-      setState(() {
-        _treatments = treatments;
-        _loadingTreatments = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _loadingTreatments = false);
-    }
-
-    try {
-      final prescriptions = await _prescriptionRepo.getForPatientVisits(
+      final dbTreatments = await _treatmentRepo.getForPatientVisits(visitIds);
+      final storeTreatments = LocalStore.instance.getTreatmentsForVisits(
         visitIds,
       );
+
+      final allTreatments = [...dbTreatments, ...storeTreatments];
+      final seenIds = <String>{};
+      final uniqueTreatments = allTreatments
+          .where((t) => seenIds.add(t.id))
+          .toList();
+
       if (!mounted) return;
       setState(() {
-        _prescriptions = prescriptions;
-        _loadingPrescriptions = false;
+        _treatments = uniqueTreatments;
       });
-    } catch (_) {
+    } catch (_) {}
+
+    try {
+      final dbPrescriptions = await _prescriptionRepo.getForPatientVisits(
+        visitIds,
+      );
+      final storePrescriptions = LocalStore.instance.getPrescriptionsForVisits(
+        visitIds,
+      );
+
+      final allPrescriptions = [...dbPrescriptions, ...storePrescriptions];
+      final seenIds = <String>{};
+      final uniquePrescriptions = allPrescriptions
+          .where((p) => seenIds.add(p.id))
+          .toList();
+
       if (!mounted) return;
-      setState(() => _loadingPrescriptions = false);
-    }
+      setState(() {
+        _prescriptions = uniquePrescriptions;
+      });
+    } catch (_) {}
+
+    _loadPayments();
   }
 
-  // ── Computed financials ────────────────────────────────────────────────────
+  Future<void> _loadPayments() async {
+    final visitIds = _visits.map((v) => v.id).toList();
+    if (visitIds.isEmpty) return;
 
-  double get _totalCost =>
-      _treatments.fold(0, (s, t) => s + (t.totalCost ?? 0));
+    try {
+      final storePayments = LocalStore.instance.getPaymentsForVisits(visitIds);
+      if (!mounted) return;
+      setState(() {
+        _payments = storePayments;
+      });
+    } catch (_) {}
+  }
 
-  // ── Add Visit ──────────────────────────────────────────────────────────────
+  // ── Modals / Forms ─────────────────────────────────────────────────────────
 
-  void _showAddVisitSheet() {
+  void _showNewConsultationModal() {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _AddVisitSheet(
+      builder: (_) => _NewConsultationSheet(
         patientId: widget.patientId,
         onSave: (v) async {
-          await _visitRepo.create(v);
-          Navigator.pop(context);
+          final created = await _visitRepo.create(v);
+          // TODO: Replace local store with backend integration
+          LocalStore.instance.addVisit(created);
+          if (mounted) Navigator.pop(context);
           _loadVisits();
         },
       ),
     );
   }
 
-  // ── Add Treatment ──────────────────────────────────────────────────────────
-
-  void _showAddTreatmentSheet() {
-    if (_visits.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Add a visit first before adding treatments'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
+  void _showEditConsultationModal(Visit visit) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _AddTreatmentSheet(
-        visits: _visits,
-        onSave: (t) async {
-          await _treatmentRepo.create(t);
-          Navigator.pop(context);
-          _loadTreatmentsAndPrescriptions(_visits.map((v) => v.id).toList());
-        },
-      ),
-    );
-  }
-
-  // ── Add Prescription ───────────────────────────────────────────────────────
-
-  void _showAddPrescriptionSheet() {
-    if (_visits.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Add a visit first before adding prescriptions'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _AddPrescriptionSheet(
-        visits: _visits,
-        onSave: (p) async {
-          await _prescriptionRepo.create(p);
-          Navigator.pop(context);
-          _loadTreatmentsAndPrescriptions(_visits.map((v) => v.id).toList());
+      builder: (_) => _NewConsultationSheet(
+        patientId: widget.patientId,
+        existingVisit: visit,
+        onSave: (v) async {
+          // TODO: Replace with backend update call
+          LocalStore.instance.updateVisit(v);
+          if (mounted) Navigator.pop(context);
+          _loadVisits();
         },
       ),
     );
@@ -214,247 +218,235 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6FB),
+      backgroundColor: const Color(0xFFF9FAFB),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFF9FAFB),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black87),
+      ),
       body: NestedScrollView(
         headerSliverBuilder: (context, _) => [
-          SliverAppBar(
-            expandedHeight: _loadingPatient ? 100 : 180,
-            pinned: true,
-            elevation: 0,
-            scrolledUnderElevation: 2,
-            backgroundColor: AppTheme.primaryColor,
-            iconTheme: const IconThemeData(color: Colors.white),
-            flexibleSpace: FlexibleSpaceBar(
-              collapseMode: CollapseMode.pin,
-              background: _loadingPatient
-                  ? _buildLoadingHeader()
-                  : _PatientHeader(
-                      patient: _patient,
-                      displayName: widget.patientName,
-                      totalCost: _totalCost,
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Column(
+                children: [
+                  _loadingPatient
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(20),
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      : _PatientHeader(
+                          patient: _patient,
+                          displayName: widget.patientName,
+                        ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0F0B1A),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        elevation: 0,
+                      ),
+                      onPressed: _showNewConsultationModal,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.add, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            'New Consultation',
+                            style: GoogleFonts.poppins(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              ),
             ),
-            bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(48),
-              child: Container(
-                color: Colors.white,
-                child: TabBar(
-                  controller: _tabController,
-                  isScrollable: true,
-                  tabAlignment: TabAlignment.start,
-                  labelColor: AppTheme.primaryColor,
-                  unselectedLabelColor: Colors.grey.shade500,
-                  indicatorColor: AppTheme.primaryColor,
-                  indicatorWeight: 3,
-                  labelStyle: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                  ),
-                  unselectedLabelStyle: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w400,
-                    fontSize: 13,
-                  ),
-                  tabs: _tabLabels.map((t) => Tab(text: t)).toList(),
+          ),
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _SliverAppBarDelegate(
+              TabBar(
+                controller: _tabController,
+                indicatorSize: TabBarIndicatorSize.tab,
+                dividerColor: Colors.transparent,
+                indicator: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
+                labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+                labelColor: Colors.black87,
+                unselectedLabelColor: Colors.black54,
+                labelStyle: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+                unselectedLabelStyle: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 13,
+                ),
+                tabs: _tabLabels.map((t) => Tab(text: t)).toList(),
+                splashBorderRadius: BorderRadius.circular(24),
               ),
             ),
           ),
         ],
-        body: TabBarView(
-          controller: _tabController,
-          children: [
-            _ProfileTab(patient: _patient, isLoading: _loadingPatient),
-            _VisitsTab(
-              visits: _visits,
-              isLoading: _loadingVisits,
-              onAdd: _showAddVisitSheet,
-            ),
-            _TreatmentsTab(
-              treatments: _treatments,
-              isLoading: _loadingTreatments,
-              onAdd: _showAddTreatmentSheet,
-              onStatusChange: (id, status) async {
-                await _treatmentRepo.updateStatus(id, status);
-                _loadTreatmentsAndPrescriptions(
-                  _visits.map((v) => v.id).toList(),
-                );
-              },
-            ),
-            _PrescriptionsTab(
-              prescriptions: _prescriptions,
-              isLoading: _loadingPrescriptions,
-              onAdd: _showAddPrescriptionSheet,
-            ),
-            const _FilesTab(),
-            _BillingTab(treatments: _treatments, isLoading: _loadingTreatments),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLoadingHeader() {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF3142C5), Color(0xFF4F63D2)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: Center(
-        child: Text(
-          widget.patientName,
-          style: GoogleFonts.poppins(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
+        body: Container(
+          color: const Color(0xFFF9FAFB),
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _ProfileTab(patient: _patient, isLoading: _loadingPatient),
+              // TODO: Implement OngoingTab with logic
+              _OngoingTabPlaceholder(
+                visits: _visits,
+                treatments: _treatments,
+                prescriptions: _prescriptions,
+                payments: _payments,
+                onRefresh: _loadAll,
+                onEditVisit: _showEditConsultationModal,
+              ),
+              // TODO: Implement HistoryTab with logic
+              _HistoryTabPlaceholder(onRefresh: _loadVisits),
+            ],
           ),
         ),
       ),
     );
+  }
+}
+
+class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
+  _SliverAppBarDelegate(this.tabBar);
+  final TabBar tabBar;
+
+  @override
+  double get minExtent => 60.0;
+  @override
+  double get maxExtent => 60.0;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Container(
+      color: const Color(0xFFF9FAFB),
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
+      alignment: Alignment.center,
+      child: Container(
+        height: 48,
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade200,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        child: tabBar,
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
+    return false;
   }
 }
 
 // ── Patient header ────────────────────────────────────────────────────────────
 
 class _PatientHeader extends StatelessWidget {
-  const _PatientHeader({
-    this.patient,
-    required this.displayName,
-    required this.totalCost,
-  });
+  const _PatientHeader({this.patient, required this.displayName});
 
   final Patient? patient;
   final String displayName;
-  final double totalCost;
 
   @override
   Widget build(BuildContext context) {
-    final topPad = MediaQuery.paddingOf(context).top;
     final name = patient?.fullName ?? displayName;
-    final gender = patient?.gender;
-    final age = patient?.age;
-    final phone = patient?.phone;
+    final gender = patient?.gender ?? 'Female';
+    final age = patient?.age ?? 34;
+    final bloodGroup = patient?.bloodGroup ?? 'O+';
 
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF3142C5), Color(0xFF4F63D2)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
       ),
-      padding: EdgeInsets.fromLTRB(16, topPad + 52, 16, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 26,
-                backgroundColor: Colors.white.withValues(alpha: 0.2),
-                child: Text(
-                  name.isNotEmpty ? name[0].toUpperCase() : '?',
-                  style: GoogleFonts.poppins(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        if (gender != null) ...[
-                          _InfoChip(Icons.person_outline, gender),
-                          const SizedBox(width: 10),
-                        ],
-                        if (age != null) ...[
-                          _InfoChip(Icons.cake_outlined, '$age yrs'),
-                          const SizedBox(width: 10),
-                        ],
-                        if (phone != null)
-                          _InfoChip(Icons.phone_outlined, phone),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              _FinStat('Total Cost', '₹${_fmt(totalCost)}', Colors.white),
-              _FinStat('Visits', '${0}', Colors.lightBlueAccent),
-              _FinStat('Treatments', '${0}', Colors.greenAccent),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  static String _fmt(double v) =>
-      v >= 1000 ? '${(v / 1000).toStringAsFixed(1)}k' : v.toStringAsFixed(0);
-}
-
-class _InfoChip extends StatelessWidget {
-  const _InfoChip(this.icon, this.label);
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 13, color: Colors.white70),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: GoogleFonts.poppins(fontSize: 11, color: Colors.white70),
-        ),
-      ],
-    );
-  }
-}
-
-class _FinStat extends StatelessWidget {
-  const _FinStat(this.label, this.value, this.valueColor);
-  final String label, value;
-  final Color valueColor;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Column(
-        children: [
-          Text(
-            value,
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: valueColor,
+          CircleAvatar(
+            radius: 28,
+            backgroundColor: const Color(0xFFD6E4FF),
+            child: const Icon(
+              Icons.person_outline,
+              color: Color(0xFF3366FF),
+              size: 30,
             ),
           ),
-          Text(
-            label,
-            style: GoogleFonts.poppins(fontSize: 9, color: Colors.white60),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+                Text(
+                  '$age years • $gender',
+                  style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.black54,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Text(
+              bloodGroup,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
           ),
         ],
       ),
@@ -464,172 +456,100 @@ class _FinStat extends StatelessWidget {
 
 // ── Profile Tab ───────────────────────────────────────────────────────────────
 
-class _ProfileTab extends StatefulWidget {
+class _ProfileTab extends StatelessWidget {
   const _ProfileTab({this.patient, required this.isLoading});
   final Patient? patient;
   final bool isLoading;
 
   @override
-  State<_ProfileTab> createState() => _ProfileTabState();
-}
-
-class _ProfileTabState extends State<_ProfileTab> {
-  int _section = 0;
-
-  static const _sections = [
-    'Personal Details',
-    'Contact Details',
-    'Medical History',
-  ];
-
-  static const _conditions = [
-    'Diabetes',
-    'Hypertension',
-    'Heart Disease',
-    'Asthma',
-    'Allergies',
-    'Pregnancy',
-    'Blood Disorder',
-    'Thyroid',
-  ];
-
-  final Map<String, bool?> _conditionValues = {
-    for (final c in const [
-      'Diabetes',
-      'Hypertension',
-      'Heart Disease',
-      'Asthma',
-      'Allergies',
-      'Pregnancy',
-      'Blood Disorder',
-      'Thyroid',
-    ])
-      c: null,
-  };
-
-  @override
   Widget build(BuildContext context) {
-    if (widget.isLoading) {
+    if (isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-    final p = widget.patient;
+    final p = patient;
+    final phone = p?.phone ?? '+1 (555) 123-4567';
+    final email =
+        p?.email ??
+        '${p?.firstName.toLowerCase() ?? 'sarah.johnson'}@email.com';
+    final address =
+        p?.address ?? '123 Oak Street, Apartment 4B, Springfield, IL 62701';
+    final regDate = p?.createdAt != null
+        ? _fmtDate(p!.createdAt!)
+        : 'Jan 15, 2024';
+
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       physics: const AlwaysScrollableScrollPhysics(),
       child: Column(
         children: [
-          // Section selector
+          // Contact Information Card
           Container(
-            padding: const EdgeInsets.all(4),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.grey.shade200,
-              borderRadius: BorderRadius.circular(10),
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
             ),
-            child: Row(
-              children: List.generate(_sections.length, (i) {
-                final sel = _section == i;
-                return Expanded(
-                  child: GestureDetector(
-                    onTap: () => setState(() => _section = i),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      decoration: BoxDecoration(
-                        color: sel ? Colors.white : Colors.transparent,
-                        borderRadius: BorderRadius.circular(8),
-                        boxShadow: sel
-                            ? [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.06),
-                                  blurRadius: 4,
-                                ),
-                              ]
-                            : null,
-                      ),
-                      child: Text(
-                        _sections[i],
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.poppins(
-                          fontSize: 11,
-                          fontWeight: sel ? FontWeight.w600 : FontWeight.w400,
-                          color: sel ? AppTheme.primaryColor : Colors.grey,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }),
-            ),
-          ),
-          const SizedBox(height: 16),
-          if (_section == 0) _buildPersonal(p),
-          if (_section == 1) _buildContact(p),
-          if (_section == 2) _buildMedical(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPersonal(Patient? p) {
-    return _SectionCard(
-      title: 'Patient Details',
-      child: Column(
-        children: [
-          _DetailRow('First Name', p?.firstName ?? '—'),
-          _DetailRow('Last Name', p?.lastName ?? '—'),
-          _DetailRow('Gender', p?.gender ?? '—'),
-          _DetailRow(
-            'Date of Birth',
-            p?.dateOfBirth == null ? '—' : _fmtDate(p!.dateOfBirth!),
-          ),
-          _DetailRow('Age', p?.age == null ? '—' : '${p!.age} years'),
-          _DetailRow('Blood Group', p?.bloodGroup ?? '—'),
-          _DetailRow('Dental History', p?.dentalHistory ?? '—'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildContact(Patient? p) {
-    return _SectionCard(
-      title: 'Contact Information',
-      child: Column(
-        children: [
-          _DetailRow('Phone', p?.phone ?? '—'),
-          _DetailRow('Email', p?.email ?? '—'),
-          _DetailRow('Address', p?.address ?? '—'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMedical() {
-    return _SectionCard(
-      title: 'Medical History',
-      child: Column(
-        children: _conditions.map((c) {
-          final val = _conditionValues[c];
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: Text(
-                    c,
-                    style: GoogleFonts.poppins(
-                      fontSize: 13,
-                      color: Colors.black87,
-                    ),
+                Text(
+                  'Contact Information',
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF334155),
                   ),
                 ),
-                _TriStateToggle(
-                  value: val,
-                  onChanged: (v) => setState(() => _conditionValues[c] = v),
+                const SizedBox(height: 24),
+                _ContactRow(icon: Icons.phone_outlined, text: phone),
+                const SizedBox(height: 20),
+                _ContactRow(icon: Icons.mail_outlined, text: email),
+                const SizedBox(height: 20),
+                _ContactRow(icon: Icons.location_on_outlined, text: address),
+                const SizedBox(height: 20),
+                _ContactRow(
+                  icon: Icons.calendar_today_outlined,
+                  text: 'Registered: $regDate',
                 ),
               ],
             ),
-          );
-        }).toList(),
+          ),
+          const SizedBox(height: 16),
+          // Allergies Card (mocked)
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade200),
+            ),
+            width: double.infinity,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Medical Conditions',
+                  style: GoogleFonts.poppins(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF334155),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    _AllergyPill('Penicillin Allergy'),
+                    _AllergyPill('Diabetes'),
+                    _AllergyPill('Hypertension'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -653,834 +573,928 @@ class _ProfileTabState extends State<_ProfileTab> {
   }
 }
 
-// ── Visits Tab ────────────────────────────────────────────────────────────────
-
-class _VisitsTab extends StatelessWidget {
-  const _VisitsTab({
-    required this.visits,
-    required this.isLoading,
-    required this.onAdd,
-  });
-
-  final List<Visit> visits;
-  final bool isLoading;
-  final VoidCallback onAdd;
+class _ContactRow extends StatelessWidget {
+  final IconData icon;
+  final String text;
+  const _ContactRow({required this.icon, required this.text});
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-    return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Visits',
-                style: GoogleFonts.poppins(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-              ),
-              _AddButton(label: 'Add Visit', onTap: onAdd),
-            ],
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 20, color: Colors.grey.shade500),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Text(
+            text,
+            style: GoogleFonts.poppins(fontSize: 14, color: Colors.black87),
           ),
-          const SizedBox(height: 12),
-          if (visits.isEmpty)
-            _EmptyState(
-              icon: Icons.event_note_outlined,
-              message: 'No visits recorded yet',
-              sub: 'Tap Add Visit to record a new visit',
-            )
-          else
-            ...visits.asMap().entries.map(
-              (e) => _AnimatedCard(
-                delay: e.key * 80,
-                child: _VisitCard(visit: e.value),
-              ),
-            ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
-class _VisitCard extends StatelessWidget {
-  const _VisitCard({required this.visit});
-  final Visit visit;
+class _AllergyPill extends StatelessWidget {
+  final String type;
+  const _AllergyPill(this.type);
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: _cardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.event_available_outlined,
-                size: 18,
-                color: AppTheme.primaryColor,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                _fmtDateTime(visit.visitDate),
-                style: GoogleFonts.poppins(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.primaryColor,
-                ),
-              ),
-            ],
-          ),
-          if (visit.chiefComplaint != null) ...[
-            const SizedBox(height: 8),
-            _LabelValue('Chief Complaint', visit.chiefComplaint!),
-          ],
-          if (visit.diagnosis != null) ...[
-            const SizedBox(height: 4),
-            _LabelValue('Diagnosis', visit.diagnosis!),
-          ],
-          if (visit.notes != null) ...[
-            const SizedBox(height: 4),
-            _LabelValue('Notes', visit.notes!),
-          ],
-          if (visit.nextVisitDate != null) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(
-                  Icons.calendar_today_outlined,
-                  size: 14,
-                  color: Colors.orange.shade600,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  'Next visit: ${_fmtDateTime(visit.nextVisitDate!)}',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: Colors.orange.shade600,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  static String _fmtDateTime(DateTime d) {
-    const m = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${m[d.month - 1]} ${d.day}, ${d.year}';
-  }
-}
-
-// ── Treatments Tab ────────────────────────────────────────────────────────────
-
-class _TreatmentsTab extends StatelessWidget {
-  const _TreatmentsTab({
-    required this.treatments,
-    required this.isLoading,
-    required this.onAdd,
-    required this.onStatusChange,
-  });
-
-  final List<TreatmentPlan> treatments;
-  final bool isLoading;
-  final VoidCallback onAdd;
-  final void Function(String id, String status) onStatusChange;
-
-  @override
-  Widget build(BuildContext context) {
-    if (isLoading) return const Center(child: CircularProgressIndicator());
-
-    return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Treatments',
-                style: GoogleFonts.poppins(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-              ),
-              _AddButton(label: 'Add Treatment', onTap: onAdd),
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (treatments.isEmpty)
-            _EmptyState(
-              icon: Icons.healing_outlined,
-              message: 'No treatments yet',
-              sub: 'Tap Add Treatment to begin',
-            )
-          else
-            ...treatments.asMap().entries.map(
-              (e) => _AnimatedCard(
-                delay: e.key * 80,
-                child: _TreatmentCard(
-                  plan: e.value,
-                  onStatusTap: () => _pickStatus(context, e.value),
-                ),
-              ),
-            ),
-          if (treatments.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            _CostSummaryCard(treatments: treatments),
-          ],
-        ],
-      ),
-    );
-  }
-
-  void _pickStatus(BuildContext context, TreatmentPlan plan) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _StatusPickerSheet(
-        current: plan.status ?? 'planned',
-        onSelected: (s) {
-          onStatusChange(plan.id, s);
-          Navigator.pop(context);
-        },
-      ),
-    );
-  }
-}
-
-class _TreatmentCard extends StatelessWidget {
-  const _TreatmentCard({required this.plan, required this.onStatusTap});
-  final TreatmentPlan plan;
-  final VoidCallback onStatusTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: _cardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  plan.treatmentName ?? 'Untitled Treatment',
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-              ),
-              GestureDetector(
-                onTap: onStatusTap,
-                child: _StatusBadge(plan.status ?? 'planned'),
-              ),
-            ],
-          ),
-          if (plan.description != null) ...[
-            const SizedBox(height: 6),
-            Text(
-              plan.description!,
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                color: Colors.grey.shade600,
-              ),
-            ),
-          ],
-          if (plan.totalCost != null) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(
-                  Icons.currency_rupee_outlined,
-                  size: 14,
-                  color: Colors.grey.shade600,
-                ),
-                Text(
-                  plan.totalCost!.toStringAsFixed(0),
-                  style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _CostSummaryCard extends StatelessWidget {
-  const _CostSummaryCard({required this.treatments});
-  final List<TreatmentPlan> treatments;
-
-  @override
-  Widget build(BuildContext context) {
-    final total = treatments.fold<double>(0, (s, t) => s + (t.totalCost ?? 0));
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: _cardDecoration(),
-      child: Row(
-        children: [
-          Icon(
-            Icons.summarize_outlined,
-            color: AppTheme.primaryColor,
-            size: 20,
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'Total Treatment Cost',
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const Spacer(),
-          Text(
-            '₹${total.toStringAsFixed(0)}',
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.primaryColor,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge(this.status);
-  final String status;
-
-  static const _labels = {
-    'planned': 'Planned',
-    'in_progress': 'In Progress',
-    'completed': 'Completed',
-    'discontinued': 'Discontinued',
-  };
-
-  static const _colors = {
-    'planned': Color(0xFFFFA000),
-    'in_progress': AppTheme.primaryColor,
-    'completed': Color(0xFF388E3C),
-    'discontinued': Color(0xFF9E9E9E),
-  };
-
-  @override
-  Widget build(BuildContext context) {
-    final color = _colors[status] ?? const Color(0xFF9E9E9E);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            _labels[status] ?? status,
-            style: GoogleFonts.poppins(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
-          ),
-          const SizedBox(width: 4),
-          Icon(Icons.expand_more, size: 14, color: color),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusPickerSheet extends StatelessWidget {
-  const _StatusPickerSheet({required this.current, required this.onSelected});
-  final String current;
-  final ValueChanged<String> onSelected;
-
-  static const _options = [
-    'planned',
-    'in_progress',
-    'completed',
-    'discontinued',
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return _BottomSheetWrapper(
-      title: 'Update Status',
-      child: Column(
-        children: _options.map((s) {
-          return ListTile(
-            leading: _StatusBadge(s),
-            trailing: s == current
-                ? const Icon(Icons.check, color: AppTheme.primaryColor)
-                : null,
-            onTap: () => onSelected(s),
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
-
-// ── Prescriptions Tab ─────────────────────────────────────────────────────────
-
-class _PrescriptionsTab extends StatelessWidget {
-  const _PrescriptionsTab({
-    required this.prescriptions,
-    required this.isLoading,
-    required this.onAdd,
-  });
-
-  final List<Prescription> prescriptions;
-  final bool isLoading;
-  final VoidCallback onAdd;
-
-  @override
-  Widget build(BuildContext context) {
-    if (isLoading) return const Center(child: CircularProgressIndicator());
-
-    return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Prescriptions',
-                style: GoogleFonts.poppins(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black87,
-                ),
-              ),
-              _AddButton(label: 'Add Prescription', onTap: onAdd),
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (prescriptions.isEmpty)
-            _EmptyState(
-              icon: Icons.medication_outlined,
-              message: 'No prescriptions yet',
-              sub: 'Tap Add Prescription to begin',
-            )
-          else
-            ...prescriptions.asMap().entries.map(
-              (e) => _AnimatedCard(
-                delay: e.key * 80,
-                child: _PrescriptionCard(prescription: e.value),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PrescriptionCard extends StatelessWidget {
-  const _PrescriptionCard({required this.prescription});
-  final Prescription prescription;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: _cardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.medication_outlined,
-                size: 18,
-                color: Colors.teal.shade600,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  prescription.medicineName ?? 'Medicine',
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.teal.shade700,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            children: [
-              if (prescription.dosage != null) _Chip(prescription.dosage!),
-              if (prescription.duration != null) _Chip(prescription.duration!),
-              if (prescription.instructions != null)
-                _Chip(prescription.instructions!),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Chip extends StatelessWidget {
-  const _Chip(this.label);
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade100,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.grey.shade300),
+        color: const Color(0xFFE11D48),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
-        label,
-        style: GoogleFonts.poppins(fontSize: 11, color: Colors.black54),
+        type,
+        style: GoogleFonts.poppins(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
+        ),
       ),
     );
   }
 }
 
-// ── Files Tab ─────────────────────────────────────────────────────────────────
+// ── Placeholders for new tabs ─────────────────────────────────────────────────
 
-class _FilesTab extends StatelessWidget {
-  const _FilesTab();
+class _OngoingTabPlaceholder extends StatelessWidget {
+  final List<Visit> visits;
+  final List<TreatmentPlan> treatments;
+  final List<Prescription> prescriptions;
+  final List<Payment> payments;
+  final VoidCallback onRefresh;
+  final void Function(Visit) onEditVisit;
+
+  const _OngoingTabPlaceholder({
+    required this.visits,
+    required this.treatments,
+    required this.prescriptions,
+    required this.payments,
+    required this.onRefresh,
+    required this.onEditVisit,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.folder_open_outlined,
-            size: 64,
-            color: AppTheme.primaryColor.withValues(alpha: 0.3),
+    if (visits.isEmpty) {
+      return Center(
+        child: Text(
+          'No ongoing consultations',
+          style: GoogleFonts.poppins(color: Colors.black54),
+        ),
+      );
+    }
+
+    // Merge DB data with local store data
+    final store = LocalStore.instance;
+    final ongoingTreatments = [
+      ...treatments,
+      ...store.getTreatmentsForVisits(visits.map((v) => v.id).toList()),
+    ];
+    final ongoingPrescriptions = [
+      ...prescriptions,
+      ...store.getPrescriptionsForVisits(visits.map((v) => v.id).toList()),
+    ];
+    final ongoingSittings = store.getSittingsForVisits(
+      visits.map((v) => v.id).toList(),
+    );
+    // Deduplicate by id
+    final seenTreatments = <String>{};
+    final uniqueTreatments = ongoingTreatments
+        .where((t) => seenTreatments.add(t.id))
+        .toList();
+    final seenPrescriptions = <String>{};
+    final uniquePrescriptions = ongoingPrescriptions
+        .where((p) => seenPrescriptions.add(p.id))
+        .toList();
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: visits.length,
+      itemBuilder: (context, index) {
+        final visitPayments = [
+          ...payments.where((p) => p.visitId == visits[index].id),
+          ...store.getPaymentsForVisits([visits[index].id]),
+        ];
+        // Deduplicate payments by id
+        final seenPayments = <String>{};
+        final uniqueVisitPayments = visitPayments
+            .where((p) => seenPayments.add(p.id))
+            .toList();
+
+        return _ConsultationCard(
+          visit: visits[index],
+          treatments: uniqueTreatments
+              .where((t) => t.visitId == visits[index].id)
+              .toList(),
+          prescriptions: uniquePrescriptions
+              .where((p) => p.visitId == visits[index].id)
+              .toList(),
+          sittings: ongoingSittings
+              .where((s) => s.visitId == visits[index].id)
+              .toList(),
+          payments: uniqueVisitPayments,
+          isOngoing: true,
+          onRefresh: onRefresh,
+          onEditVisit: onEditVisit,
+        );
+      },
+    );
+  }
+}
+
+class _HistoryTabPlaceholder extends StatelessWidget {
+  final VoidCallback onRefresh;
+
+  const _HistoryTabPlaceholder({required this.onRefresh});
+
+  @override
+  Widget build(BuildContext context) {
+    final store = LocalStore.instance;
+    final historyVisits = store.getVisitsForPatient('_global_');
+
+    if (historyVisits.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Text(
+            'No past consultations',
+            style: GoogleFonts.poppins(color: Colors.grey),
           ),
-          const SizedBox(height: 12),
-          Text(
-            'Files & Documents',
-            style: GoogleFonts.poppins(
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              color: Colors.black54,
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      separatorBuilder: (context, index) => const SizedBox(height: 16),
+      itemCount: historyVisits.length,
+      itemBuilder: (context, index) {
+        final visit = historyVisits[index];
+        final visitTreatments = store.getTreatmentsForVisits([visit.id]);
+        final visitPrescriptions = store.getPrescriptionsForVisits([visit.id]);
+        final visitSittings = store.getSittingsForVisits([visit.id]);
+        final visitPayments = store.getPaymentsForVisits([visit.id]);
+
+        return _ConsultationCard(
+          visit: visit,
+          treatments: visitTreatments,
+          prescriptions: visitPrescriptions,
+          sittings: visitSittings,
+          payments: visitPayments,
+          isOngoing: false,
+          onRefresh: onRefresh,
+          onEditVisit: (_) {},
+        );
+      },
+    );
+  }
+}
+
+// ── Consultation Card ────────────────────────────────────────────────────────
+
+class _ConsultationCard extends StatelessWidget {
+  const _ConsultationCard({
+    required this.visit,
+    required this.treatments,
+    required this.prescriptions,
+    required this.sittings,
+    required this.payments,
+    required this.isOngoing,
+    required this.onRefresh,
+    required this.onEditVisit,
+  });
+
+  final Visit visit;
+  final List<TreatmentPlan> treatments;
+  final List<Prescription> prescriptions;
+  final List<dynamic> sittings; // Assuming dynamic for now
+  final List<Payment> payments;
+  final bool isOngoing;
+  final VoidCallback onRefresh;
+  final ValueChanged<Visit> onEditVisit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      decoration: _cardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Icons.calendar_today_outlined,
+                      size: 16,
+                      color: Colors.grey.shade600,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _ProfileTab._fmtDate(visit.visitDate),
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isOngoing ? Colors.black : Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    isOngoing ? 'Ongoing' : 'Completed',
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isOngoing ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 6),
-          Text(
-            'Upload X-rays, scans & reports',
-            style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Billing Tab ───────────────────────────────────────────────────────────────
-
-class _BillingTab extends StatelessWidget {
-  const _BillingTab({required this.treatments, required this.isLoading});
-  final List<TreatmentPlan> treatments;
-  final bool isLoading;
-
-  @override
-  Widget build(BuildContext context) {
-    if (isLoading) return const Center(child: CircularProgressIndicator());
-
-    final total = treatments.fold<double>(0, (s, t) => s + (t.totalCost ?? 0));
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      physics: const AlwaysScrollableScrollPhysics(),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: _cardDecoration(),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Financial Summary',
+                  visit.chiefComplaint ?? 'General Checkup',
                   style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.primaryColor,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
                   ),
                 ),
-                const Divider(height: 16),
-                _BillRow(
-                  'Total Treatment Cost',
-                  '₹${total.toStringAsFixed(0)}',
+                Text(
+                  'Dr. Emily Chen', // Mocked doctor for now
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: Colors.grey.shade600,
+                  ),
                 ),
-                _BillRow('Amount Paid', '₹0'),
-                _BillRow(
-                  'Balance',
-                  '₹${total.toStringAsFixed(0)}',
-                  isBalance: true,
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE0E7FF),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Diagnosis',
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: const Color(0xFF3730A3),
+                              ),
+                            ),
+                            Text(
+                              visit.diagnosis ?? 'Pending diagnosis',
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                color: const Color(0xFF312E81),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 16),
-          if (treatments.isEmpty)
-            _EmptyState(
-              icon: Icons.receipt_long_outlined,
-              message: 'No billing records',
-              sub: 'Add treatments to see billing info',
-            )
-          else
-            ...treatments.map(
-              (t) => Container(
-                margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.all(14),
-                decoration: _cardDecoration(),
-                child: Row(
+          Divider(height: 1, color: Colors.grey.shade200),
+
+          // Treatments
+          if (treatments.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Column(
+                children: treatments
+                    .map<Widget>(
+                      (t) => _TreatmentAccordion(
+                        treatment: t,
+                        prescriptions: prescriptions
+                            .where((p) => p.treatmentPlanId == t.id)
+                            .toList(),
+                        files: LocalStore.instance.getFilesForTreatment(t.id),
+                        sittings: sittings
+                            .where((s) => s.treatmentPlanId == t.id)
+                            .toList(),
+                        payments: payments,
+                        onRefresh: onRefresh,
+                        isOngoing: isOngoing,
+                      ),
+                    )
+                    .toList(),
+              ),
+            ),
+
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                if (isOngoing) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _ActionChip(
+                          label: 'Edit',
+                          icon: Icons.edit,
+                          onTap: () => onEditVisit(visit),
+                        ),
+                        if (treatments.isEmpty)
+                          _ActionChip(
+                            label: 'Add Treatment',
+                            icon: Icons.healing,
+                            onTap: () {
+                              showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                backgroundColor: Colors.transparent,
+                                builder: (_) => _AddTreatmentSheet(
+                                  visitId: visit.id,
+                                  onSave: (t) async {
+                                    // TODO: Replace with backend call
+                                    final created = await TreatmentRepository()
+                                        .create(t);
+                                    LocalStore.instance.addTreatment(created);
+                                    if (context.mounted) Navigator.pop(context);
+                                    onRefresh();
+                                  },
+                                ),
+                              );
+                            },
+                          ),
+                        _ActionChip(
+                          label: 'Add Prescription',
+                          icon: Icons.medication,
+                          onTap: () {
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (_) => _AddPrescriptionSheet(
+                                visitId: visit.id,
+                                // If there's only one treatment, link to it by default
+                                treatmentPlanId: treatments.length == 1
+                                    ? treatments.first.id
+                                    : null,
+                                onSave: (p) async {
+                                  // TODO: Replace with backend call
+                                  final created = await PrescriptionRepository()
+                                      .create(p);
+                                  LocalStore.instance.addPrescription(created);
+                                  if (context.mounted) Navigator.pop(context);
+                                  onRefresh();
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                        _ActionChip(
+                          label: 'Add File',
+                          icon: Icons.attach_file,
+                          onTap: () {
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (_) => _AddFileSheet(
+                                visitId: visit.id,
+                                onSave: (f) async {
+                                  // TODO: Replace with backend call
+                                  LocalStore.instance.addFile(f);
+                                  if (context.mounted) Navigator.pop(context);
+                                  onRefresh();
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                        _ActionChip(
+                          label: 'Add Payment',
+                          icon: Icons.payment,
+                          onTap: () {
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (_) => _AddPaymentSheet(
+                                visitId: visit.id,
+                                onSave: (payment) async {
+                                  // TODO: Replace with backend call
+                                  LocalStore.instance.addPayment(payment);
+                                  if (context.mounted) Navigator.pop(context);
+                                  onRefresh();
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                  Divider(height: 1, color: Colors.grey.shade200),
+                  const SizedBox(height: 16),
+                ],
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            t.treatmentName ?? 'Treatment',
-                            style: GoogleFonts.poppins(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          Text(
-                            t.status ?? 'planned',
-                            style: GoogleFonts.poppins(
-                              fontSize: 11,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                        ],
+                    Text(
+                      'Total Amount Paid:',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
                       ),
                     ),
                     Text(
-                      '₹${(t.totalCost ?? 0).toStringAsFixed(0)}',
+                      '\$${payments.fold<double>(0, (sum, p) => sum + p.amountPaid).toStringAsFixed(0)}',
+                      style: GoogleFonts.poppins(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF10B981),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0F0B1A),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 0,
+                    ),
+                    onPressed: () {
+                      final allFiles = treatments
+                          .expand(
+                            (t) =>
+                                LocalStore.instance.getFilesForTreatment(t.id),
+                          )
+                          .toList();
+                      _showBillPreview(
+                        context,
+                        visit,
+                        treatments,
+                        prescriptions,
+                        payments,
+                        allFiles,
+                      );
+                    },
+                    icon: const Icon(Icons.receipt_long, size: 18),
+                    label: Text(
+                      'Generate Bill',
                       style: GoogleFonts.poppins(
                         fontSize: 15,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Treatment Accordion ──────────────────────────────────────────────────────
+
+class _TreatmentAccordion extends StatelessWidget {
+  final TreatmentPlan treatment;
+  final List<Prescription> prescriptions;
+  final List<FileAttachment> files;
+  final List<dynamic> sittings;
+  final List<Payment> payments;
+  final VoidCallback onRefresh;
+  final bool isOngoing;
+
+  const _TreatmentAccordion({
+    required this.treatment,
+    required this.prescriptions,
+    required this.files,
+    required this.sittings,
+    required this.payments,
+    required this.onRefresh,
+    required this.isOngoing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          collapsedIconColor: Colors.grey.shade500,
+          iconColor: Colors.grey.shade500,
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFD1FAE5),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.medical_services_outlined,
+                  color: Color(0xFF065F46),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      treatment.treatmentName ?? 'Treatment',
+                      style: GoogleFonts.poppins(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    Text(
+                      '${sittings.length} sittings',
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        color: Colors.grey.shade500,
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BillRow extends StatelessWidget {
-  const _BillRow(this.label, this.value, {this.isBalance = false});
-  final String label, value;
-  final bool isBalance;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        children: [
-          Text(
-            label,
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              color: Colors.grey.shade600,
-            ),
-          ),
-          const Spacer(),
-          Text(
-            value,
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: isBalance ? Colors.orange.shade700 : Colors.black87,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Add Visit Sheet ───────────────────────────────────────────────────────────
-
-class _AddVisitSheet extends StatefulWidget {
-  const _AddVisitSheet({required this.patientId, required this.onSave});
-  final String patientId;
-  final ValueChanged<Visit> onSave;
-
-  @override
-  State<_AddVisitSheet> createState() => _AddVisitSheetState();
-}
-
-class _AddVisitSheetState extends State<_AddVisitSheet> {
-  final _complaintCtrl = TextEditingController();
-  final _diagnosisCtrl = TextEditingController();
-  final _notesCtrl = TextEditingController();
-  DateTime _visitDate = DateTime.now();
-  bool _saving = false;
-
-  @override
-  void dispose() {
-    _complaintCtrl.dispose();
-    _diagnosisCtrl.dispose();
-    _notesCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return _BottomSheetWrapper(
-      title: 'Add Visit',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          GestureDetector(
-            onTap: () async {
-              final d = await showDatePicker(
-                context: context,
-                initialDate: _visitDate,
-                firstDate: DateTime(2000),
-                lastDate: DateTime.now(),
-              );
-              if (d != null) setState(() => _visitDate = d);
-            },
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.calendar_today_outlined, size: 18),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Visit Date: ${_visitDate.day}/${_visitDate.month}/${_visitDate.year}',
-                    style: GoogleFonts.poppins(fontSize: 14),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  treatment.status ?? 'planned',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey.shade700,
                   ),
+                ),
+              ),
+            ],
+          ),
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Treatment Description',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    treatment.description ?? 'No description provided.',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  if (isOngoing) ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                backgroundColor: Colors.transparent,
+                                builder: (_) => _AddPrescriptionSheet(
+                                  visitId: treatment.visitId,
+                                  treatmentPlanId: treatment.id,
+                                  onSave: (p) {
+                                    LocalStore.instance.addPrescription(p);
+                                    onRefresh();
+                                    Navigator.pop(context);
+                                  },
+                                ),
+                              );
+                            },
+                            icon: const Icon(
+                              Icons.medication_outlined,
+                              size: 20,
+                            ),
+                            label: const Text('Add Prescription'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              side: BorderSide(color: Colors.grey.shade300),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              showModalBottomSheet(
+                                context: context,
+                                isScrollControlled: true,
+                                backgroundColor: Colors.transparent,
+                                builder: (_) => _AddFileSheet(
+                                  visitId: treatment.visitId,
+                                  treatmentId: treatment.id,
+                                  onSave: (file) {
+                                    LocalStore.instance.addFile(file);
+                                    onRefresh();
+                                    Navigator.pop(context);
+                                  },
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.attach_file, size: 20),
+                            label: const Text('Add File'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              side: BorderSide(color: Colors.grey.shade300),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                  if (prescriptions.isNotEmpty) ...[
+                    Text(
+                      'Treatment Prescriptions',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ...prescriptions.map(
+                      (p) => Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF5F3FF),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.medication,
+                              color: Color(0xFF7C3AED),
+                              size: 20,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    p.medicineName ?? '',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  Text(
+                                    p.dosage ?? '',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 12,
+                                      color: const Color(0xFF7C3AED),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  '\$${p.price?.toStringAsFixed(0) ?? '0'}',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: const Color(0xFF4C1D95),
+                                  ),
+                                ),
+                                if ((p.price ?? 0) > 0)
+                                  Text(
+                                    p.payment != null ? 'Paid' : 'Pending',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: p.payment != null
+                                          ? Colors.green
+                                          : Colors.red,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  _SittingsHeader(
+                    visitId: treatment.visitId,
+                    treatmentId: treatment.id,
+                    onRefresh: onRefresh,
+                    isOngoing: isOngoing,
+                  ),
+                  const SizedBox(height: 8),
+                  _SittingsList(
+                    visitId: treatment.visitId,
+                    sittings: sittings,
+                    onRefresh: onRefresh,
+                    isOngoing: isOngoing,
+                  ),
+                  if (files.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      'Attached Files',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ...files.map(
+                      (f) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.insert_drive_file,
+                              size: 16,
+                              color: Colors.orange.shade700,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    f.fileName ?? 'Unnamed File',
+                                    style: GoogleFonts.poppins(fontSize: 13),
+                                  ),
+                                  if ((f.price ?? 0) > 0)
+                                    Text(
+                                      '\$${f.price!.toStringAsFixed(0)} • ${f.payment != null ? 'Paid' : 'Pending'}',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 11,
+                                        color: f.payment != null
+                                            ? Colors.green
+                                            : Colors.red,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.download, size: 18),
+                              onPressed: () =>
+                                  _downloadFile(context, f.fileName ?? 'file'),
+                              constraints: const BoxConstraints(),
+                              padding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                              color: const Color(0xFF4F46E5),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 12),
-          _SheetField(
-            controller: _complaintCtrl,
-            label: 'Chief Complaint',
-            maxLines: 2,
-          ),
-          const SizedBox(height: 12),
-          _SheetField(
-            controller: _diagnosisCtrl,
-            label: 'Diagnosis',
-            maxLines: 2,
-          ),
-          const SizedBox(height: 12),
-          _SheetField(controller: _notesCtrl, label: 'Notes', maxLines: 2),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _saving ? null : _save,
-              child: _saving
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation(Colors.white),
-                      ),
-                    )
-                  : const Text('Save Visit'),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  void _save() {
-    setState(() => _saving = true);
-    widget.onSave(
-      Visit(
-        id: '',
-        patientId: widget.patientId,
-        visitDate: _visitDate,
-        chiefComplaint: _complaintCtrl.text.trim().isEmpty
-            ? null
-            : _complaintCtrl.text.trim(),
-        diagnosis: _diagnosisCtrl.text.trim().isEmpty
-            ? null
-            : _diagnosisCtrl.text.trim(),
-        notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+  void _downloadFile(BuildContext context, String fileName) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Downloading $fileName...'),
+        backgroundColor: const Color(0xFF4F46E5),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
       ),
     );
   }
 }
 
-// ── Add Treatment Sheet ───────────────────────────────────────────────────────
+class _ActionChip extends StatelessWidget {
+  const _ActionChip({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          border: Border.all(color: Colors.grey.shade200),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: const Color(0xFF4F46E5)),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: Colors.black87,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Sub-Entity Add Modals ─────────────────────────────────────────────────────
 
 class _AddTreatmentSheet extends StatefulWidget {
-  const _AddTreatmentSheet({required this.visits, required this.onSave});
-  final List<Visit> visits;
+  const _AddTreatmentSheet({required this.visitId, required this.onSave});
+  final String visitId;
   final ValueChanged<TreatmentPlan> onSave;
 
   @override
@@ -1491,15 +1505,7 @@ class _AddTreatmentSheetState extends State<_AddTreatmentSheet> {
   final _nameCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   final _costCtrl = TextEditingController();
-  String _status = 'planned';
-  late String _visitId;
   bool _saving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _visitId = widget.visits.first.id;
-  }
 
   @override
   void dispose() {
@@ -1514,117 +1520,123 @@ class _AddTreatmentSheetState extends State<_AddTreatmentSheet> {
     return _BottomSheetWrapper(
       title: 'Add Treatment',
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          DropdownButtonFormField<String>(
-            initialValue: _visitId,
-            decoration: const InputDecoration(labelText: 'Visit'),
-            items: widget.visits
-                .map(
-                  (v) => DropdownMenuItem(
-                    value: v.id,
-                    child: Text(
-                      '${v.visitDate.day}/${v.visitDate.month}/${v.visitDate.year}',
-                    ),
-                  ),
-                )
-                .toList(),
-            onChanged: (v) => setState(() => _visitId = v!),
-          ),
-          const SizedBox(height: 12),
           _SheetField(controller: _nameCtrl, label: 'Treatment Name *'),
           const SizedBox(height: 12),
           _SheetField(controller: _descCtrl, label: 'Description', maxLines: 2),
           const SizedBox(height: 12),
-          _SheetField(
-            controller: _costCtrl,
-            label: 'Total Cost (₹)',
-            keyboardType: TextInputType.number,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Status',
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            children: ['planned', 'in_progress', 'completed', 'discontinued']
-                .map(
-                  (s) => GestureDetector(
-                    onTap: () => setState(() => _status = s),
-                    child: _status == s
-                        ? _StatusBadge(s)
-                        : Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              s,
-                              style: GoogleFonts.poppins(
-                                fontSize: 11,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ),
-                  ),
-                )
-                .toList(),
-          ),
+          _SheetField(controller: _costCtrl, label: 'Total Cost (Optional)'),
           const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _saving || _nameCtrl.text.isEmpty ? null : _save,
-              child: _saving
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation(Colors.white),
-                      ),
-                    )
-                  : const Text('Save Treatment'),
-            ),
+          _SaveButton(
+            isSaving: _saving,
+            label: 'Save Treatment',
+            onPressed: () {
+              if (_nameCtrl.text.trim().isEmpty) return;
+              setState(() => _saving = true);
+              widget.onSave(
+                TreatmentPlan(
+                  id: '',
+                  visitId: widget.visitId,
+                  treatmentName: _nameCtrl.text.trim(),
+                  description: _descCtrl.text.trim().isEmpty
+                      ? null
+                      : _descCtrl.text.trim(),
+                  totalCost: double.tryParse(_costCtrl.text),
+                ),
+              );
+            },
           ),
         ],
       ),
     );
   }
+}
 
-  void _save() {
-    if (_nameCtrl.text.trim().isEmpty) return;
-    setState(() => _saving = true);
-    widget.onSave(
-      TreatmentPlan(
-        id: '',
-        visitId: _visitId,
-        treatmentName: _nameCtrl.text.trim(),
-        description: _descCtrl.text.trim().isEmpty
-            ? null
-            : _descCtrl.text.trim(),
-        totalCost: double.tryParse(_costCtrl.text),
-        status: _status,
+class _AddSittingSheet extends StatefulWidget {
+  const _AddSittingSheet({
+    this.visitId,
+    required this.treatmentPlanId,
+    required this.onSave,
+  });
+  final String? visitId;
+  final String treatmentPlanId;
+  final ValueChanged<Sitting> onSave;
+
+  @override
+  State<_AddSittingSheet> createState() => _AddSittingSheetState();
+}
+
+class _AddSittingSheetState extends State<_AddSittingSheet> {
+  final _costCtrl = TextEditingController();
+  final _notesCtrl = TextEditingController();
+  DateTime _date = DateTime.now();
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _costCtrl.dispose();
+    _notesCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _BottomSheetWrapper(
+      title: 'Add Sitting',
+      child: Column(
+        children: [
+          _SheetField(controller: _costCtrl, label: 'Cost *'),
+          const SizedBox(height: 12),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.calendar_month),
+            title: Text('Date: ${_date.day}/${_date.month}/${_date.year}'),
+            onTap: () async {
+              final d = await showDatePicker(
+                context: context,
+                initialDate: _date,
+                firstDate: DateTime(2000),
+                lastDate: DateTime.now(),
+              );
+              if (d != null) setState(() => _date = d);
+            },
+          ),
+          const SizedBox(height: 12),
+          _SheetField(controller: _notesCtrl, label: 'Notes', maxLines: 2),
+          const SizedBox(height: 20),
+          _SaveButton(
+            isSaving: _saving,
+            label: 'Save Sitting',
+            onPressed: () {
+              final cost = double.tryParse(_costCtrl.text.trim()) ?? 0;
+              setState(() => _saving = true);
+              widget.onSave(
+                Sitting(
+                  id: '',
+                  visitId: widget.visitId ?? '',
+                  treatmentPlanId: widget.treatmentPlanId,
+                  sittingDate: _date,
+                  durationStr: '30 mins', // Default
+                  notes: _notesCtrl.text.isEmpty ? null : _notesCtrl.text,
+                  cost: cost,
+                ),
+              );
+            },
+          ),
+        ],
       ),
     );
   }
 }
 
-// ── Add Prescription Sheet ────────────────────────────────────────────────────
-
 class _AddPrescriptionSheet extends StatefulWidget {
-  const _AddPrescriptionSheet({required this.visits, required this.onSave});
-  final List<Visit> visits;
+  const _AddPrescriptionSheet({
+    this.visitId,
+    this.treatmentPlanId,
+    required this.onSave,
+  });
+  final String? visitId;
+  final String? treatmentPlanId;
   final ValueChanged<Prescription> onSave;
 
   @override
@@ -1634,23 +1646,16 @@ class _AddPrescriptionSheet extends StatefulWidget {
 class _AddPrescriptionSheetState extends State<_AddPrescriptionSheet> {
   final _nameCtrl = TextEditingController();
   final _dosageCtrl = TextEditingController();
-  final _durationCtrl = TextEditingController();
-  final _instructionsCtrl = TextEditingController();
-  late String _visitId;
+  final _instructionCtrl = TextEditingController();
+  final _priceCtrl = TextEditingController();
   bool _saving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _visitId = widget.visits.first.id;
-  }
 
   @override
   void dispose() {
     _nameCtrl.dispose();
     _dosageCtrl.dispose();
-    _durationCtrl.dispose();
-    _instructionsCtrl.dispose();
+    _instructionCtrl.dispose();
+    _priceCtrl.dispose();
     super.dispose();
   }
 
@@ -1660,83 +1665,613 @@ class _AddPrescriptionSheetState extends State<_AddPrescriptionSheet> {
       title: 'Add Prescription',
       child: Column(
         children: [
-          DropdownButtonFormField<String>(
-            initialValue: _visitId,
-            decoration: const InputDecoration(labelText: 'Visit'),
-            items: widget.visits
-                .map(
-                  (v) => DropdownMenuItem(
-                    value: v.id,
-                    child: Text(
-                      '${v.visitDate.day}/${v.visitDate.month}/${v.visitDate.year}',
-                    ),
-                  ),
-                )
-                .toList(),
-            onChanged: (v) => setState(() => _visitId = v!),
-          ),
-          const SizedBox(height: 12),
           _SheetField(controller: _nameCtrl, label: 'Medicine Name *'),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _SheetField(controller: _dosageCtrl, label: 'Dosage'),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _SheetField(
-                  controller: _durationCtrl,
-                  label: 'Duration',
-                ),
-              ),
-            ],
-          ),
+          _SheetField(controller: _dosageCtrl, label: 'Dosage (e.g. 1-0-1)'),
           const SizedBox(height: 12),
           _SheetField(
-            controller: _instructionsCtrl,
+            controller: _instructionCtrl,
             label: 'Instructions',
             maxLines: 2,
           ),
+          const SizedBox(height: 12),
+          _SheetField(
+            controller: _priceCtrl,
+            label: 'Price (Optional)',
+            keyboardType: TextInputType.number,
+          ),
           const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _saving ? null : _save,
-              child: _saving
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation(Colors.white),
-                      ),
-                    )
-                  : const Text('Save Prescription'),
-            ),
+          _SaveButton(
+            isSaving: _saving,
+            label: 'Save Prescription',
+            onPressed: () {
+              if (_nameCtrl.text.trim().isEmpty) return;
+              setState(() => _saving = true);
+              widget.onSave(
+                Prescription(
+                  id: '',
+                  visitId: widget.visitId,
+                  treatmentPlanId: widget.treatmentPlanId,
+                  medicineName: _nameCtrl.text.trim(),
+                  dosage: _dosageCtrl.text.trim().isEmpty
+                      ? null
+                      : _dosageCtrl.text.trim(),
+                  instructions: _instructionCtrl.text.trim().isEmpty
+                      ? null
+                      : _instructionCtrl.text.trim(),
+                  price: double.tryParse(_priceCtrl.text.trim()) ?? 0,
+                ),
+              );
+            },
           ),
         ],
       ),
     );
   }
+}
 
-  void _save() {
-    if (_nameCtrl.text.trim().isEmpty) return;
-    setState(() => _saving = true);
-    widget.onSave(
-      Prescription(
-        id: '',
-        visitId: _visitId,
-        medicineName: _nameCtrl.text.trim(),
-        dosage: _dosageCtrl.text.trim().isEmpty
-            ? null
-            : _dosageCtrl.text.trim(),
-        duration: _durationCtrl.text.trim().isEmpty
-            ? null
-            : _durationCtrl.text.trim(),
-        instructions: _instructionsCtrl.text.trim().isEmpty
-            ? null
-            : _instructionsCtrl.text.trim(),
+class _AddFileSheet extends StatefulWidget {
+  const _AddFileSheet({this.visitId, this.treatmentId, required this.onSave});
+  final String? visitId;
+  final String? treatmentId;
+  final ValueChanged<FileAttachment> onSave;
+
+  @override
+  State<_AddFileSheet> createState() => _AddFileSheetState();
+}
+
+class _AddFileSheetState extends State<_AddFileSheet> {
+  final _nameCtrl = TextEditingController();
+  final _priceCtrl = TextEditingController();
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _priceCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _BottomSheetWrapper(
+      title: 'Upload File (Mock)',
+      child: Column(
+        children: [
+          _SheetField(controller: _nameCtrl, label: 'File Name *'),
+          const SizedBox(height: 12),
+          _SheetField(
+            controller: _priceCtrl,
+            label: 'Price (Optional)',
+            keyboardType: TextInputType.number,
+          ),
+          const SizedBox(height: 20),
+          _SaveButton(
+            isSaving: _saving,
+            label: 'Save File',
+            onPressed: () {
+              if (_nameCtrl.text.trim().isEmpty) return;
+              setState(() => _saving = true);
+              widget.onSave(
+                FileAttachment(
+                  id: DateTime.now().millisecondsSinceEpoch.toString(),
+                  visitId: widget.visitId,
+                  treatmentPlanId: widget.treatmentId,
+                  fileName: _nameCtrl.text.trim(),
+                  fileType: 'image/jpeg',
+                  fileUrl: 'mock_url',
+                  price: double.tryParse(_priceCtrl.text.trim()) ?? 0.0,
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AddPaymentSheet extends StatefulWidget {
+  const _AddPaymentSheet({
+    required this.visitId,
+    this.sittingId,
+    required this.onSave,
+  });
+  final String visitId;
+  final String? sittingId;
+  final ValueChanged<Payment> onSave;
+
+  @override
+  State<_AddPaymentSheet> createState() => _AddPaymentSheetState();
+}
+
+class _AddPaymentSheetState extends State<_AddPaymentSheet> {
+  final _amountCtrl = TextEditingController();
+  final _notesCtrl = TextEditingController();
+  String _paymentMode = 'Cash';
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _amountCtrl.dispose();
+    _notesCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _BottomSheetWrapper(
+      title: 'Add Payment',
+      child: Column(
+        children: [
+          _SheetField(controller: _amountCtrl, label: 'Amount *'),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            value: _paymentMode,
+            decoration: const InputDecoration(labelText: 'Payment Mode'),
+            items: [
+              'Cash',
+              'UPI',
+              'Card',
+              'Insurance',
+            ].map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+            onChanged: (v) => setState(() => _paymentMode = v ?? 'Cash'),
+          ),
+          const SizedBox(height: 12),
+          _SheetField(
+            controller: _notesCtrl,
+            label: 'Notes (Optional)',
+            maxLines: 2,
+          ),
+          const SizedBox(height: 20),
+          _SaveButton(
+            isSaving: _saving,
+            label: 'Save Payment',
+            onPressed: () {
+              final amount = double.tryParse(_amountCtrl.text.trim());
+              if (amount == null || amount <= 0) return;
+              setState(() => _saving = true);
+              widget.onSave(
+                Payment(
+                  id: '',
+                  visitId: widget.visitId,
+                  sittingId: widget.sittingId,
+                  amountPaid: amount,
+                  paymentMode: _paymentMode,
+                  paymentDate: DateTime.now(),
+                  notes: _notesCtrl.text.trim().isEmpty
+                      ? null
+                      : _notesCtrl.text.trim(),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+void _showBillPreview(
+  BuildContext context,
+  Visit visit,
+  List<TreatmentPlan> treatments,
+  List<Prescription> prescriptions,
+  List<Payment> payments,
+  List<FileAttachment> files,
+) {
+  final sittings = LocalStore.instance.getSittingsForVisits([visit.id]);
+  sittings.sort((a, b) => a.sittingDate.compareTo(b.sittingDate));
+
+  showDialog(
+    context: context,
+    builder: (context) => Dialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        width: MediaQuery.of(context).size.width * 0.9,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Text(
+                        'Prodontics Clinic',
+                        style: GoogleFonts.poppins(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF1E40AF),
+                        ),
+                      ),
+                      Text(
+                        'Professional Dental Care',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: const Color(0xFF1E40AF).withOpacity(0.8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _invoiceInfoRow('Patient Name', 'Sarah Johnson'),
+                  _invoiceInfoRow(
+                    'Consultation Date',
+                    _ProfileTab._fmtDate(visit.visitDate),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _invoiceInfoRow('Doctor', 'Dr. Emily Chen'),
+                  _invoiceInfoRow(
+                    'Invoice Date',
+                    _ProfileTab._fmtDate(DateTime.now()),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Treatment Details',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ...treatments.map(
+                (t) => Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        t.treatmentName ?? '',
+                        style: GoogleFonts.poppins(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      Text(
+                        t.description ?? '',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Itemized Charges',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Itemized Rows
+              ...sittings.asMap().entries.map((entry) {
+                final index = entry.key;
+                final s = entry.value;
+                final isPaid = payments.any((p) => p.sittingId == s.id);
+                return _invoiceItemRow(
+                  'Sitting ${index + 1}',
+                  _ProfileTab._fmtDate(s.sittingDate),
+                  s.cost ?? 0,
+                  isPaid ? 'Paid' : 'Pending',
+                  isPaid ? Colors.green : Colors.red,
+                  subtitle: s.notes,
+                );
+              }),
+              ...prescriptions.map((p) {
+                return _invoiceItemRow(
+                  'Prescription: ${p.medicineName}',
+                  _ProfileTab._fmtDate(p.createdAt ?? DateTime.now()),
+                  p.price ?? 0,
+                  p.payment != null ? 'Paid' : 'Pending',
+                  p.payment != null ? Colors.green : Colors.red,
+                );
+              }),
+              ...files.where((f) => (f.price ?? 0) > 0).map((f) {
+                return _invoiceItemRow(
+                  'File: ${f.fileName}',
+                  _ProfileTab._fmtDate(visit.visitDate),
+                  f.price ?? 0,
+                  f.payment != null ? 'Paid' : 'Pending',
+                  f.payment != null ? Colors.green : Colors.red,
+                );
+              }),
+
+              const Divider(height: 48),
+              _invoiceSummaryRow(
+                'Total Amount:',
+                sittings.fold<double>(0, (sum, s) => sum + (s.cost ?? 0)) +
+                    prescriptions.fold<double>(
+                      0,
+                      (sum, p) => sum + (p.price ?? 0),
+                    ) +
+                    files.fold<double>(0, (sum, f) => sum + (f.price ?? 0)),
+              ),
+              _invoiceSummaryRow(
+                'Amount Paid:',
+                payments.fold<double>(0, (sum, p) => sum + p.amountPaid),
+                color: const Color(0xFF059669),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Balance Due:',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Builder(
+                    builder: (context) {
+                      final totalAmount =
+                          (sittings.fold<double>(
+                            0,
+                            (sum, s) => sum + (s.cost ?? 0),
+                          )) +
+                          (prescriptions.fold<double>(
+                            0,
+                            (sum, p) => sum + (p.price ?? 0),
+                          )) +
+                          (files.fold<double>(
+                            0,
+                            (sum, f) => sum + (f.price ?? 0),
+                          ));
+                      final paidTotal = payments.fold<double>(
+                        0,
+                        (sum, p) => sum + p.amountPaid,
+                      );
+                      final balance = totalAmount - paidTotal;
+
+                      return Text(
+                        '\$${balance.toStringAsFixed(0)}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: balance <= 0
+                              ? Colors.green.shade700
+                              : Colors.red.shade700,
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 32),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {},
+                      icon: const Icon(Icons.print_outlined),
+                      label: const Text('Print'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {},
+                      icon: const Icon(Icons.download_outlined),
+                      label: const Text('Download'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0F0B1A),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+Widget _invoiceInfoRow(String label, String value) {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        label,
+        style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade500),
+      ),
+      Text(
+        value,
+        style: GoogleFonts.poppins(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: Colors.black87,
+        ),
+      ),
+    ],
+  );
+}
+
+Widget _invoiceItemRow(
+  String title,
+  String date,
+  double amount,
+  String status,
+  Color statusColor, {
+  String? subtitle,
+}) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 16),
+    child: Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
+              ),
+              Text(
+                date,
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: Colors.grey.shade500,
+                ),
+              ),
+              if (subtitle != null && subtitle.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    subtitle,
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              '\$${amount.toStringAsFixed(0)}',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: Colors.black87,
+              ),
+            ),
+            Text(
+              status,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: statusColor,
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _invoiceSummaryRow(String label, double amount, {Color? color}) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey.shade600),
+        ),
+        Text(
+          '\$${amount.toStringAsFixed(0)}',
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: color ?? Colors.black87,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _SaveButton extends StatelessWidget {
+  const _SaveButton({
+    required this.isSaving,
+    required this.label,
+    required this.onPressed,
+  });
+  final bool isSaving;
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF0F0B1A),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+        onPressed: isSaving ? null : onPressed,
+        child: isSaving
+            ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation(Colors.white),
+                ),
+              )
+            : Text(
+                label,
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                ),
+              ),
       ),
     );
   }
@@ -1756,173 +2291,7 @@ BoxDecoration _cardDecoration() => BoxDecoration(
   ],
 );
 
-class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.title, required this.child});
-  final String title;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: _cardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.primaryColor,
-            ),
-          ),
-          const Divider(height: 16),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
-class _DetailRow extends StatelessWidget {
-  const _DetailRow(this.label, this.value);
-  final String label, value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                color: Colors.grey.shade600,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: Colors.black87,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _LabelValue extends StatelessWidget {
-  const _LabelValue(this.label, this.value);
-  final String label, value;
-
-  @override
-  Widget build(BuildContext context) {
-    return RichText(
-      text: TextSpan(
-        style: GoogleFonts.poppins(fontSize: 12, color: Colors.black87),
-        children: [
-          TextSpan(
-            text: '$label: ',
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              color: Colors.black54,
-            ),
-          ),
-          TextSpan(text: value),
-        ],
-      ),
-    );
-  }
-}
-
-class _AddButton extends StatelessWidget {
-  const _AddButton({required this.label, required this.onTap});
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(
-          color: AppTheme.primaryColor,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.add_circle_outline, size: 16, color: Colors.white),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _EmptyState extends StatelessWidget {
-  const _EmptyState({
-    required this.icon,
-    required this.message,
-    required this.sub,
-  });
-  final IconData icon;
-  final String message, sub;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 40),
-      child: Column(
-        children: [
-          Icon(
-            icon,
-            size: 52,
-            color: AppTheme.primaryColor.withValues(alpha: 0.25),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            message,
-            style: GoogleFonts.poppins(
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              color: Colors.black54,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            sub,
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              color: Colors.grey.shade500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+// omitted DetailRow
 
 class _BottomSheetWrapper extends StatelessWidget {
   const _BottomSheetWrapper({required this.title, required this.child});
@@ -1980,12 +2349,12 @@ class _SheetField extends StatelessWidget {
     required this.controller,
     required this.label,
     this.maxLines = 1,
-    this.keyboardType = TextInputType.text,
+    this.keyboardType,
   });
   final TextEditingController controller;
   final String label;
   final int maxLines;
-  final TextInputType keyboardType;
+  final TextInputType? keyboardType;
 
   @override
   Widget build(BuildContext context) {
@@ -2001,61 +2370,11 @@ class _SheetField extends StatelessWidget {
   }
 }
 
-class _TriStateToggle extends StatelessWidget {
-  const _TriStateToggle({required this.value, required this.onChanged});
-  final bool? value;
-  final ValueChanged<bool?> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _TriBtn('Yes', value == true, Colors.green, () => onChanged(true)),
-        const SizedBox(width: 4),
-        _TriBtn('No', value == false, Colors.red, () => onChanged(false)),
-        const SizedBox(width: 4),
-        _TriBtn('?', value == null, Colors.grey, () => onChanged(null)),
-      ],
-    );
-  }
-}
-
-class _TriBtn extends StatelessWidget {
-  const _TriBtn(this.label, this.selected, this.color, this.onTap);
-  final String label;
-  final bool selected;
-  final Color color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: selected ? color : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(6),
-        ),
-        child: Text(
-          label,
-          style: GoogleFonts.poppins(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: selected ? Colors.white : Colors.grey,
-          ),
-        ),
-      ),
-    );
-  }
-}
+// omitted TriStateToggle
 
 class _AnimatedCard extends StatefulWidget {
-  const _AnimatedCard({required this.child, this.delay = 0});
+  const _AnimatedCard({required this.child});
   final Widget child;
-  final int delay;
 
   @override
   State<_AnimatedCard> createState() => _AnimatedCardState();
@@ -2079,9 +2398,8 @@ class _AnimatedCardState extends State<_AnimatedCard>
       begin: const Offset(0, 0.08),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic));
-    Future.delayed(Duration(milliseconds: widget.delay), () {
-      if (mounted) _ctrl.forward();
-    });
+
+    if (mounted) _ctrl.forward();
   }
 
   @override
@@ -2095,6 +2413,373 @@ class _AnimatedCardState extends State<_AnimatedCard>
     return FadeTransition(
       opacity: _fade,
       child: SlideTransition(position: _slide, child: widget.child),
+    );
+  }
+}
+
+// ── Add/Edit Modals ───────────────────────────────────────────────────────────
+
+class _NewConsultationSheet extends StatefulWidget {
+  const _NewConsultationSheet({
+    required this.patientId,
+    required this.onSave,
+    this.existingVisit,
+  });
+  final String patientId;
+  final ValueChanged<Visit> onSave;
+  final Visit? existingVisit;
+
+  @override
+  State<_NewConsultationSheet> createState() => _NewConsultationSheetState();
+}
+
+class _NewConsultationSheetState extends State<_NewConsultationSheet> {
+  final _complaintCtrl = TextEditingController();
+  final _diagnosisCtrl = TextEditingController();
+  final _notesCtrl = TextEditingController();
+  DateTime _visitDate = DateTime.now();
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final existing = widget.existingVisit;
+    if (existing != null) {
+      _complaintCtrl.text = existing.chiefComplaint ?? '';
+      _diagnosisCtrl.text = existing.diagnosis ?? '';
+      _notesCtrl.text = existing.notes ?? '';
+      _visitDate = existing.visitDate;
+    }
+  }
+
+  @override
+  void dispose() {
+    _complaintCtrl.dispose();
+    _diagnosisCtrl.dispose();
+    _notesCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isEditing = widget.existingVisit != null;
+    return _BottomSheetWrapper(
+      title: isEditing ? 'Edit Consultation' : 'New Consultation',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          GestureDetector(
+            onTap: () async {
+              final d = await showDatePicker(
+                context: context,
+                initialDate: _visitDate,
+                firstDate: DateTime(2000),
+                lastDate: DateTime.now(),
+              );
+              if (d != null) setState(() => _visitDate = d);
+            },
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.calendar_today_outlined, size: 18),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Consultation Date: ${_visitDate.day}/${_visitDate.month}/${_visitDate.year}',
+                    style: GoogleFonts.poppins(fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          _SheetField(
+            controller: _complaintCtrl,
+            label: 'Chief Complaint',
+            maxLines: 2,
+          ),
+          const SizedBox(height: 12),
+          _SheetField(
+            controller: _diagnosisCtrl,
+            label: 'Diagnosis (Optional)',
+            maxLines: 2,
+          ),
+          const SizedBox(height: 12),
+          _SheetField(controller: _notesCtrl, label: 'Notes', maxLines: 2),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0F0B1A),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              onPressed: _saving ? null : _save,
+              child: _saving
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation(Colors.white),
+                      ),
+                    )
+                  : Text(
+                      isEditing ? 'Update Consultation' : 'Create Consultation',
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _save() {
+    if (_complaintCtrl.text.trim().isEmpty) return;
+    setState(() => _saving = true);
+    final visit = Visit(
+      id: widget.existingVisit?.id ?? '',
+      patientId: widget.patientId,
+      visitDate: _visitDate,
+      chiefComplaint: _complaintCtrl.text.trim(),
+      diagnosis: _diagnosisCtrl.text.trim(),
+      notes: _notesCtrl.text.trim(),
+    );
+    widget.onSave(visit);
+  }
+}
+
+// ── Sittings Components ───────────────────────────────────────────────────────
+
+class _SittingsHeader extends StatelessWidget {
+  final String visitId;
+  final String treatmentId;
+  final VoidCallback onRefresh;
+  final bool isOngoing;
+
+  const _SittingsHeader({
+    required this.visitId,
+    required this.treatmentId,
+    required this.onRefresh,
+    required this.isOngoing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          'Sittings',
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
+        if (isOngoing)
+          TextButton.icon(
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (_) => _AddSittingSheet(
+                  visitId: visitId,
+                  treatmentPlanId: treatmentId,
+                  onSave: (s) {
+                    LocalStore.instance.addSitting(s);
+                    onRefresh();
+                    Navigator.pop(context);
+                  },
+                ),
+              );
+            },
+            icon: const Icon(Icons.add, size: 18),
+            label: Text(
+              'Add Sitting',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _SittingsList extends StatelessWidget {
+  final String visitId;
+  final List<dynamic> sittings;
+  final VoidCallback onRefresh;
+  final bool isOngoing;
+
+  const _SittingsList({
+    required this.visitId,
+    required this.sittings,
+    required this.onRefresh,
+    required this.isOngoing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (sittings.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: Text(
+          'No sittings recorded yet.',
+          style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey.shade500),
+        ),
+      );
+    }
+    return Column(
+      children: sittings
+          .map(
+            (s) => _SittingItem(
+              visitId: visitId,
+              sitting: s,
+              onRefresh: onRefresh,
+              isOngoing: isOngoing,
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
+class _SittingItem extends StatelessWidget {
+  final String visitId;
+  final Sitting sitting;
+  final VoidCallback onRefresh;
+  final bool isOngoing;
+
+  const _SittingItem({
+    required this.visitId,
+    required this.sitting,
+    required this.onRefresh,
+    required this.isOngoing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final payments = LocalStore.instance.getPaymentsForSitting(sitting.id);
+    final paidAmount = payments.fold<double>(0, (sum, p) => sum + p.amountPaid);
+    final balance = (sitting.cost ?? 0) - paidAmount;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade100),
+      ),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+        title: Text(
+          'Sitting - ${_ProfileTab._fmtDate(sitting.sittingDate)}',
+          style: GoogleFonts.poppins(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: Colors.black87,
+          ),
+        ),
+        trailing: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: balance <= 0
+                ? const Color(0xFFD1FAE5)
+                : const Color(0xFFFEE2E2),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            '\$${sitting.cost?.toStringAsFixed(0) ?? '0'}',
+            style: GoogleFonts.poppins(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: balance <= 0
+                  ? const Color(0xFF065F46)
+                  : const Color(0xFFB91C1C),
+            ),
+          ),
+        ),
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (sitting.notes != null)
+                  Text(
+                    sitting.notes!,
+                    style: GoogleFonts.poppins(
+                      fontSize: 13,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Paid: \$${paidAmount.toStringAsFixed(0)}',
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      'Balance: \$${balance.toStringAsFixed(0)}',
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: balance > 0 ? Colors.red : Colors.green,
+                      ),
+                    ),
+                  ],
+                ),
+                if (balance > 0 && isOngoing)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12.0),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          showModalBottomSheet(
+                            context: context,
+                            isScrollControlled: true,
+                            backgroundColor: Colors.transparent,
+                            builder: (_) => _AddPaymentSheet(
+                              visitId: visitId,
+                              sittingId: sitting.id,
+                              onSave: (p) {
+                                LocalStore.instance.addPayment(p);
+                                onRefresh();
+                                Navigator.pop(context);
+                              },
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.payment, size: 18),
+                        label: const Text('Add Payment'),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
