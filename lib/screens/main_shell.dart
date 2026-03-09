@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import '../theme/app_theme.dart';
 import 'appointments_screen.dart';
 import 'dashboard_screen.dart';
+import 'inventory_screen.dart';
+import 'messages_screen.dart';
 import 'patient_list_screen.dart';
-import 'payment_screen.dart';
-import 'prescription_screen.dart';
-import 'treatment_screen.dart';
+
+// Reference: PatientTrackingVersion4 bottom-nav.tsx colors
+const _blue600 = Color(0xFF2563EB);
+const _slate400 = Color(0xFF94A3B8);
 
 /// Root shell with persistent bottom navigation.
-/// All primary screens live inside the IndexedStack for instant switching.
+/// Matches PatientTrackingVersion4/src/app/components/bottom-nav.tsx
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
 
@@ -25,8 +26,8 @@ class _MainShellState extends State<MainShell> {
     DashboardScreen(),
     PatientListScreen(),
     AppointmentsScreen(),
-    PaymentScreen(),
-    _MoreScreen(),
+    MessagesScreen(),
+    InventoryScreen(),
   ];
 
   @override
@@ -36,218 +37,63 @@ class _MainShellState extends State<MainShell> {
         index: _currentIndex,
         children: _screens,
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.10),
-              blurRadius: 16,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (i) => setState(() => _currentIndex = i),
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.white,
-          selectedItemColor: AppTheme.primaryColor,
-          unselectedItemColor: Colors.grey.shade500,
-          selectedLabelStyle: GoogleFonts.poppins(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-          ),
-          unselectedLabelStyle: GoogleFonts.poppins(
-            fontSize: 11,
-            fontWeight: FontWeight.w400,
-          ),
-          iconSize: 26,
-          elevation: 0,
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home),
-              label: 'Home',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.people_outline),
-              activeIcon: Icon(Icons.people),
-              label: 'Patients',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.calendar_month_outlined),
-              activeIcon: Icon(Icons.calendar_month),
-              label: 'Schedule',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.account_balance_wallet_outlined),
-              activeIcon: Icon(Icons.account_balance_wallet),
-              label: 'Accounts',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.grid_view_outlined),
-              activeIcon: Icon(Icons.grid_view),
-              label: 'More',
-            ),
-          ],
-        ),
+      bottomNavigationBar: _BottomNavBar(
+        currentIndex: _currentIndex,
+        onTap: (i) => setState(() => _currentIndex = i),
       ),
     );
   }
 }
 
-/// "More" grid — one-tap access to every feature.
-class _MoreScreen extends StatelessWidget {
-  const _MoreScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    final items = [
-      _MoreItem(
-        icon: Icons.assignment_outlined,
-        label: 'Treatment\nPlans',
-        color: Colors.indigo,
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => const TreatmentScreen()),
-        ),
-      ),
-      _MoreItem(
-        icon: Icons.medication_outlined,
-        label: 'Prescriptions',
-        color: Colors.teal,
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => const PrescriptionScreen()),
-        ),
-      ),
-      _MoreItem(
-        icon: Icons.receipt_long_outlined,
-        label: 'Invoices',
-        color: Colors.orange.shade700,
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => const PaymentScreen()),
-        ),
-      ),
-      _MoreItem(
-        icon: Icons.science_outlined,
-        label: 'Lab Work',
-        color: Colors.purple,
-        onTap: () => _showComingSoon(context, 'Lab Work'),
-      ),
-      _MoreItem(
-        icon: Icons.bar_chart_outlined,
-        label: 'Reports',
-        color: Colors.blue.shade700,
-        onTap: () => _showComingSoon(context, 'Reports'),
-      ),
-      _MoreItem(
-        icon: Icons.inventory_2_outlined,
-        label: 'Inventory',
-        color: Colors.brown,
-        onTap: () => _showComingSoon(context, 'Inventory'),
-      ),
-      _MoreItem(
-        icon: Icons.message_outlined,
-        label: 'Messages',
-        color: Colors.green.shade700,
-        onTap: () => _showComingSoon(context, 'Messages'),
-      ),
-      _MoreItem(
-        icon: Icons.settings_outlined,
-        label: 'Settings',
-        color: Colors.grey.shade700,
-        onTap: () => _showComingSoon(context, 'Settings'),
-      ),
-    ];
-
-    return Scaffold(
-      backgroundColor: Colors.grey.shade50,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        scrolledUnderElevation: 1,
-        automaticallyImplyLeading: false,
-        title: Text(
-          'More',
-          style: GoogleFonts.poppins(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: Colors.black87,
-          ),
-        ),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: GridView.builder(
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            mainAxisSpacing: 14,
-            crossAxisSpacing: 14,
-            childAspectRatio: 1.3,
-          ),
-          itemCount: items.length,
-          itemBuilder: (_, i) => items[i],
-        ),
-      ),
-    );
-  }
-
-  static void _showComingSoon(BuildContext context, String name) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$name coming soon'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
-}
-
-class _MoreItem extends StatelessWidget {
-  const _MoreItem({
-    required this.icon,
-    required this.label,
-    required this.color,
+/// Custom bottom nav matching reference: flex items-center justify-around,
+/// icon w-5 h-5 (20px), gap-1, py-2, text-xs font-medium
+class _BottomNavBar extends StatelessWidget {
+  const _BottomNavBar({
+    required this.currentIndex,
     required this.onTap,
   });
 
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
+  final int currentIndex;
+  final ValueChanged<int> onTap;
+
+  static const _items = [
+    (icon: Icons.home_outlined, activeIcon: Icons.home, label: 'Home'),
+    (icon: Icons.people_outline, activeIcon: Icons.people, label: 'Patients'),
+    (icon: Icons.calendar_today_outlined, activeIcon: Icons.calendar_today, label: 'Appointments'),
+    (icon: Icons.chat_bubble_outline, activeIcon: Icons.chat_bubble, label: 'Messages'),
+    (icon: Icons.inventory_2_outlined, activeIcon: Icons.inventory_2, label: 'Inventory'),
+  ];
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(icon, color: color, size: 26),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black87,
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: const Color(0xFFE2E8F0))),
+      ),
+      child: SafeArea(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: List.generate(_items.length, (i) {
+            final item = _items[i];
+            final isActive = currentIndex == i;
+            return Expanded(
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => onTap(i),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    child: Icon(
+                      isActive ? item.activeIcon : item.icon,
+                      size: 24,
+                      color: isActive ? _blue600 : _slate400,
+                    ),
+                  ),
                 ),
               ),
-            ],
-          ),
+            );
+          }),
         ),
       ),
     );
