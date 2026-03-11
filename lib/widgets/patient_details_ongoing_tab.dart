@@ -17,6 +17,7 @@ class OngoingTabPlaceholder extends StatelessWidget {
     required this.payments,
     required this.onRefresh,
     required this.onEditVisit,
+    required this.onDeleteVisit,
   });
 
   final List<Visit> visits;
@@ -25,6 +26,7 @@ class OngoingTabPlaceholder extends StatelessWidget {
   final List<Payment> payments;
   final VoidCallback onRefresh;
   final void Function(Visit) onEditVisit;
+  final void Function(Visit) onDeleteVisit;
 
   @override
   Widget build(BuildContext context) {
@@ -81,6 +83,7 @@ class OngoingTabPlaceholder extends StatelessWidget {
           isOngoing: true,
           onRefresh: onRefresh,
           onEditVisit: onEditVisit,
+          onDeleteVisit: onDeleteVisit,
         );
       },
     );

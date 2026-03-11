@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../models/visit_model.dart';
 import '../services/local_store.dart';
 import 'patient_details_consultation_card.dart';
 
@@ -8,9 +9,11 @@ class HistoryTabPlaceholder extends StatelessWidget {
   const HistoryTabPlaceholder({
     super.key,
     required this.onRefresh,
+    required this.onDeleteVisit,
   });
 
   final VoidCallback onRefresh;
+  final ValueChanged<Visit> onDeleteVisit;
 
   @override
   Widget build(BuildContext context) {
@@ -51,6 +54,7 @@ class HistoryTabPlaceholder extends StatelessWidget {
           isOngoing: false,
           onRefresh: onRefresh,
           onEditVisit: (_) {},
+          onDeleteVisit: onDeleteVisit,
         );
       },
     );

@@ -143,6 +143,8 @@ class _NewConsultationSheetState extends State<NewConsultationSheet> {
       chiefComplaint: _complaintCtrl.text.trim(),
       diagnosis: _diagnosisCtrl.text.trim(),
       notes: _notesCtrl.text.trim(),
+      nextVisitDate: widget.existingVisit?.nextVisitDate,
+      createdAt: widget.existingVisit?.createdAt,
     );
     widget.onSave(visit);
   }

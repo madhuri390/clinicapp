@@ -43,4 +43,12 @@ class Visit {
         if (nextVisitDate != null)
           'next_visit_date': nextVisitDate!.toIso8601String(),
       };
+
+  Map<String, dynamic> toUpdateJson() => {
+        'visit_date': visitDate.toIso8601String(),
+        'chief_complaint': chiefComplaint,
+        'diagnosis': diagnosis,
+        'notes': notes,
+        'next_visit_date': nextVisitDate?.toIso8601String(),
+      };
 }

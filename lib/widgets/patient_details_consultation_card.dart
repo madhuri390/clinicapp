@@ -23,6 +23,7 @@ class ConsultationCard extends StatelessWidget {
     required this.isOngoing,
     required this.onRefresh,
     required this.onEditVisit,
+    required this.onDeleteVisit,
   });
 
   final Visit visit;
@@ -33,9 +34,28 @@ class ConsultationCard extends StatelessWidget {
   final bool isOngoing;
   final VoidCallback onRefresh;
   final ValueChanged<Visit> onEditVisit;
+  final ValueChanged<Visit> onDeleteVisit;
 
   @override
   Widget build(BuildContext context) {
+    // Calculate if fully paid
+    double totalCost = 0;
+    double totalPaid = payments.fold(0, (sum, p) => sum + p.amountPaid);
+
+    for (var t in treatments) {
+      if (t.totalCost != null) totalCost += t.totalCost!.toDouble();
+    }
+    for (var p in prescriptions) {
+      if (p.price != null) totalCost += p.price!.toDouble();
+    }
+    final allFiles = treatments.expand((t) => LocalStore.instance.getFilesForTreatment(t.id)).toList();
+    for (var f in allFiles) {
+      if (f.price != null) totalCost += f.price!.toDouble();
+    }
+    
+    // Add margin to allow floating point variance
+    final bool isFullyPaid = totalPaid >= totalCost - 0.01;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
       decoration: _cardDecoration(),
@@ -184,6 +204,13 @@ class ConsultationCard extends StatelessWidget {
                           icon: Icons.edit,
                           onTap: () => onEditVisit(visit),
                         ),
+                        _ActionChip(
+                          label: 'Delete',
+                          icon: Icons.delete_outline,
+                          iconColor: Colors.red,
+                          textColor: Colors.red,
+                          onTap: () => onDeleteVisit(visit),
+                        ),
                         if (treatments.isEmpty)
                           _ActionChip(
                             label: 'Add Treatment',
@@ -300,31 +327,50 @@ class ConsultationCard extends StatelessWidget {
                   height: 52,
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0F0B1A),
+                      backgroundColor: isOngoing
+                          ? (isFullyPaid
+                              ? const Color(0xFF10B981)
+                              : Colors.grey.shade400)
+                          : const Color(0xFF0F0B1A),
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
                       elevation: 0,
                     ),
-                    onPressed: () {
-                      final allFiles = treatments
-                          .expand(
-                            (t) => LocalStore.instance.getFilesForTreatment(t.id),
-                          )
-                          .toList();
-                      _showBillPreview(
-                        context,
-                        visit,
-                        treatments,
-                        prescriptions,
-                        payments,
-                        allFiles,
-                      );
-                    },
-                    icon: const Icon(Icons.receipt_long, size: 18),
+                    onPressed: isOngoing && !isFullyPaid
+                        ? null
+                        : () {
+                            if (isOngoing) {
+                              // Mark treatments as completed
+                              for (final t in treatments) {
+                                LocalStore.instance.updateTreatment(
+                                  t.copyWith(status: 'Completed'),
+                                );
+                              }
+                              onRefresh();
+                            }
+                            final allFiles = treatments
+                                .expand(
+                                  (t) => LocalStore.instance
+                                      .getFilesForTreatment(t.id),
+                                )
+                                .toList();
+                            _showBillPreview(
+                              context,
+                              visit,
+                              treatments,
+                              prescriptions,
+                              payments,
+                              allFiles,
+                            );
+                          },
+                    icon: Icon(
+                      isOngoing ? Icons.check_circle : Icons.receipt_long,
+                      size: 18,
+                    ),
                     label: Text(
-                      'Generate Bill',
+                      isOngoing ? 'Complete Consultation' : 'Generate Bill',
                       style: GoogleFonts.poppins(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -695,11 +741,15 @@ class _ActionChip extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.onTap,
+    this.iconColor = const Color(0xFF4F46E5),
+    this.textColor = Colors.black87,
   });
 
   final String label;
   final IconData icon;
   final VoidCallback onTap;
+  final Color iconColor;
+  final Color textColor;
 
   @override
   Widget build(BuildContext context) {
@@ -716,14 +766,14 @@ class _ActionChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 14, color: const Color(0xFF4F46E5)),
+            Icon(icon, size: 14, color: iconColor),
             const SizedBox(width: 6),
             Text(
               label,
               style: GoogleFonts.poppins(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
-                color: Colors.black87,
+                color: textColor,
               ),
             ),
           ],

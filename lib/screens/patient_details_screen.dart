@@ -9,9 +9,6 @@ import '../models/sitting_model.dart';
 import '../models/treatment_plan_model.dart';
 import '../models/visit_model.dart';
 import '../repositories/patient_repository.dart';
-import '../repositories/prescription_repository.dart';
-import '../repositories/treatment_repository.dart';
-import '../repositories/visit_repository.dart';
 import '../services/local_store.dart';
 import '../widgets/patient_details_widgets.dart';
 
@@ -37,9 +34,6 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
 
   // Repos
   final _patientRepo = PatientRepository();
-  final _visitRepo = VisitRepository();
-  final _treatmentRepo = TreatmentRepository();
-  final _prescriptionRepo = PrescriptionRepository();
 
   // Data
   Patient? _patient;
@@ -92,14 +86,13 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
 
   Future<void> _loadVisits() async {
     try {
-      final dbVisits = await _visitRepo.getForPatient(widget.patientId);
       final storeVisits = LocalStore.instance.getVisitsForPatient(
         widget.patientId,
       );
 
       // If there is no data at all yet, seed rich ongoing mock data
       // for this patient so the Ongoing tab has useful examples.
-      if (dbVisits.isEmpty && storeVisits.isEmpty) {
+      if (storeVisits.isEmpty) {
         LocalStore.instance.seedOngoingForPatient(widget.patientId);
       }
 
@@ -108,7 +101,7 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
       );
 
       // Combine and deduplicate visits (DB + local + seeded)
-      final allVisits = [...dbVisits, ...refreshedStoreVisits];
+      final allVisits = [...refreshedStoreVisits];
       final seenIds = <String>{};
       final uniqueVisits = allVisits.where((v) => seenIds.add(v.id)).toList();
       uniqueVisits.sort((a, b) => (b.visitDate).compareTo(a.visitDate));
@@ -133,40 +126,24 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
 
   Future<void> _loadTreatmentsAndPrescriptions(List<String> visitIds) async {
     try {
-      final dbTreatments = await _treatmentRepo.getForPatientVisits(visitIds);
       final storeTreatments = LocalStore.instance.getTreatmentsForVisits(
         visitIds,
       );
 
-      final allTreatments = [...dbTreatments, ...storeTreatments];
-      final seenIds = <String>{};
-      final uniqueTreatments = allTreatments
-          .where((t) => seenIds.add(t.id))
-          .toList();
-
       if (!mounted) return;
       setState(() {
-        _treatments = uniqueTreatments;
+        _treatments = storeTreatments;
       });
     } catch (_) {}
 
     try {
-      final dbPrescriptions = await _prescriptionRepo.getForPatientVisits(
-        visitIds,
-      );
       final storePrescriptions = LocalStore.instance.getPrescriptionsForVisits(
         visitIds,
       );
 
-      final allPrescriptions = [...dbPrescriptions, ...storePrescriptions];
-      final seenIds = <String>{};
-      final uniquePrescriptions = allPrescriptions
-          .where((p) => seenIds.add(p.id))
-          .toList();
-
       if (!mounted) return;
       setState(() {
-        _prescriptions = uniquePrescriptions;
+        _prescriptions = storePrescriptions;
       });
     } catch (_) {}
 
@@ -195,10 +172,17 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
       backgroundColor: Colors.transparent,
       builder: (_) => NewConsultationSheet(
         patientId: widget.patientId,
-        onSave: (v) async {
-          final created = await _visitRepo.create(v);
-          // TODO: Replace local store with backend integration
-          LocalStore.instance.addVisit(created);
+        onSave: (v) {
+          // Generate a mock ID if it's new
+          final newVisit = Visit(
+            id: 'mock_v_${DateTime.now().millisecondsSinceEpoch}',
+            patientId: v.patientId,
+            visitDate: v.visitDate,
+            chiefComplaint: v.chiefComplaint,
+            diagnosis: v.diagnosis,
+            notes: v.notes,
+          );
+          LocalStore.instance.addVisit(newVisit);
           if (mounted) Navigator.pop(context);
           _loadVisits();
         },
@@ -214,12 +198,37 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
       builder: (_) => NewConsultationSheet(
         patientId: widget.patientId,
         existingVisit: visit,
-        onSave: (v) async {
-          // TODO: Replace with backend update call
+        onSave: (v) {
           LocalStore.instance.updateVisit(v);
           if (mounted) Navigator.pop(context);
           _loadVisits();
         },
+      ),
+    );
+  }
+
+  void _deleteVisit(Visit visit) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Consultation?'),
+        content: const Text(
+            'Are you sure you want to delete this consultation? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              LocalStore.instance.deleteVisit(visit.id);
+              _loadVisits();
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
       ),
     );
   }
@@ -337,8 +346,12 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
                 payments: _payments,
                 onRefresh: _loadAll,
                 onEditVisit: _showEditConsultationModal,
+                onDeleteVisit: _deleteVisit,
               ),
-              HistoryTabPlaceholder(onRefresh: _loadVisits),
+              HistoryTabPlaceholder(
+                onRefresh: _loadVisits,
+                onDeleteVisit: _deleteVisit,
+              ),
             ],
           ),
         ),

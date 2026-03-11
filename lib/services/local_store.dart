@@ -18,8 +18,24 @@ class LocalStore {
   final List<Payment> _mockPayments = [];
   final List<FileAttachment> _mockFiles = [];
 
-  // ── Visits ──────────────────────────────────────────────────────────────
   List<Visit> getVisitsForPatient(String patientId) {
+    // If we have global mock visits, assign them to this patient so they
+    // show up in the UI for testing purposes.
+    final globalMocks = _mockVisits.where((v) => v.patientId == '_global_').toList();
+    for (var mock in globalMocks) {
+      final idx = _mockVisits.indexOf(mock);
+      _mockVisits[idx] = Visit(
+        id: mock.id,
+        patientId: patientId, // Bind to the requested patient
+        visitDate: mock.visitDate,
+        chiefComplaint: mock.chiefComplaint,
+        diagnosis: mock.diagnosis,
+        notes: mock.notes,
+        nextVisitDate: mock.nextVisitDate,
+        createdAt: mock.createdAt,
+      );
+    }
+    
     return _mockVisits.where((v) => v.patientId == patientId).toList();
   }
 
@@ -27,6 +43,9 @@ class LocalStore {
   void updateVisit(Visit updated) {
     final idx = _mockVisits.indexWhere((v) => v.id == updated.id);
     if (idx >= 0) _mockVisits[idx] = updated;
+  }
+  void deleteVisit(String id) {
+    _mockVisits.removeWhere((v) => v.id == id);
   }
 
   // ── Treatments ──────────────────────────────────────────────────────────
@@ -39,6 +58,10 @@ class LocalStore {
   }
 
   void addTreatment(TreatmentPlan t) => _mockTreatments.add(t);
+  void updateTreatment(TreatmentPlan updated) {
+    final idx = _mockTreatments.indexWhere((t) => t.id == updated.id);
+    if (idx >= 0) _mockTreatments[idx] = updated;
+  }
 
   // ── Prescriptions ──────────────────────────────────────────────────────
   List<Prescription> getPrescriptionsForVisit(String visitId) {
@@ -180,312 +203,215 @@ class LocalStore {
     if (_seeded) return;
     _seeded = true;
 
-    // Rich History Mock: Root Canal Treatment
-    const visitId = 'seed_v1';
+    final now = DateTime.now();
+
+    // ── Case 1: Fresh Consultation (Today) ──
+    const visitId1 = 'mock_v1';
     _mockVisits.add(
       Visit(
-        id: visitId,
+        id: visitId1,
         patientId: '_global_',
-        visitDate: DateTime.now().subtract(const Duration(days: 30)),
-        chiefComplaint: 'Tooth Pain - Upper Right Molar',
-        diagnosis: 'Deep cavity with possible pulp involvement',
+        visitDate: now,
+        chiefComplaint: 'Severe toothache in lower left jaw',
+        diagnosis: 'Suspected deep caries on 36, needs X-Ray',
       ),
     );
 
-    // Initial payment for visit itself or registration if any
-
-    const treatId = 'seed_t1';
-    _mockTreatments.add(
-      const TreatmentPlan(
-        id: treatId,
-        visitId: visitId,
-        treatmentName: 'Root Canal Treatment',
-        description:
-            'Root canal therapy for upper right first molar with crown placement',
-        totalCost: 1100,
-        status: 'Completed',
-      ),
-    );
-
-    _mockPrescriptions.addAll([
-      const Prescription(
-        id: 'seed_rx1',
-        visitId: visitId,
-        treatmentPlanId: treatId,
-        medicineName: 'Amoxicillin',
-        dosage: '500mg - 3x daily',
-        duration: '5 days',
-        price: 25,
-      ),
-      const Prescription(
-        id: 'seed_rx2',
-        visitId: visitId,
-        treatmentPlanId: treatId,
-        medicineName: 'Ibuprofen',
-        dosage: '400mg - As needed',
-        duration: '3 days',
-        price: 15,
-      ),
-    ]);
-
-    _mockFiles.addAll([
-      const FileAttachment(
-        id: 'seed_f1',
-        visitId: visitId,
-        treatmentPlanId: treatId,
-        fileName: 'X-Ray - Right Side',
-        fileType: 'Digital X-Ray',
-        price: 150.0,
-      ),
-      const FileAttachment(
-        id: 'seed_f2',
-        visitId: visitId,
-        treatmentPlanId: treatId,
-        fileName: 'CBCT Scan',
-        fileType: '3D Imaging',
-        price: 350.0,
-      ),
-    ]);
-
-    // Payments for RX and Files to show it works
-    _mockPayments.addAll([
-      Payment(
-        id: 'seed_p_rx1',
-        visitId: visitId,
-        prescriptionId: 'seed_rx1',
-        amountPaid: 25,
-        paymentMode: 'Cash',
-        paymentDate: DateTime.now().subtract(const Duration(days: 30)),
-      ),
-      Payment(
-        id: 'seed_p_f1',
-        visitId: visitId,
-        fileId: 'seed_f1',
-        amountPaid: 150,
-        paymentMode: 'UPI',
-        paymentDate: DateTime.now().subtract(const Duration(days: 30)),
-      ),
-      Payment(
-        id: 'seed_p_rx2',
-        visitId: visitId,
-        prescriptionId: 'seed_rx2',
-        amountPaid: 15,
-        paymentMode: 'Cash',
-        paymentDate: DateTime.now().subtract(const Duration(days: 28)),
-      ),
-      Payment(
-        id: 'seed_p_f2',
-        visitId: visitId,
-        fileId: 'seed_f2',
-        amountPaid: 350,
-        paymentMode: 'Card',
-        paymentDate: DateTime.now().subtract(const Duration(days: 25)),
-      ),
-    ]);
-
-    // Sittings for Root Canal
-    _mockSittings.add(
-      Sitting(
-        id: 'seed_s1',
-        visitId: visitId,
-        treatmentPlanId: treatId,
-        sittingDate: DateTime.now().subtract(const Duration(days: 30)),
-        durationStr: '1 hour',
-        notes:
-            'Initial examination, X-rays taken, pulp cavity accessed and cleaned. Temporary filling applied.',
-        cost: 500,
-      ),
-    );
-
-    _mockPayments.add(
-      Payment(
-        id: 'seed_p1',
-        visitId: visitId,
-        sittingId: 'seed_s1',
-        amountPaid: 500,
-        paymentMode: 'Card',
-        paymentDate: DateTime.now().subtract(const Duration(days: 30)),
-        notes: 'Paid for first sitting',
-      ),
-    );
-
-    _mockSittings.add(
-      Sitting(
-        id: 'seed_s1_final',
-        visitId: visitId,
-        treatmentPlanId: treatId,
-        sittingDate: DateTime.now().subtract(const Duration(days: 20)),
-        durationStr: '45 mins',
-        notes: 'Final crown placement and polishing.',
-        cost: 600,
-      ),
-    );
-
-    _mockPayments.add(
-      Payment(
-        id: 'seed_p1_final',
-        visitId: visitId,
-        sittingId: 'seed_s1_final',
-        amountPaid: 600,
-        paymentMode: 'UPI',
-        paymentDate: DateTime.now().subtract(const Duration(days: 20)),
-        notes: 'Final payment for Root Canal',
-      ),
-    );
-
-    _mockPayments.add(
-      Payment(
-        id: 'seed_p_rx3',
-        visitId: visitId,
-        prescriptionId: 'seed_rx3',
-        amountPaid: 12,
-        paymentMode: 'Cash',
-        paymentDate: DateTime.now().subtract(const Duration(days: 30)),
-      ),
-    );
-
-    // Second History Mock: Dental Cleaning
-    const visitId2 = 'seed_v2';
+    // ── Case 2: Treatment Planned (2 days ago) ──
+    const visitId2 = 'mock_v2';
     _mockVisits.add(
       Visit(
         id: visitId2,
         patientId: '_global_',
-        visitDate: DateTime.now().subtract(const Duration(days: 60)),
-        chiefComplaint: 'Routine checkup and cleaning',
-        diagnosis: 'Mild plaque and tartar buildup',
+        visitDate: now.subtract(const Duration(days: 2)),
+        chiefComplaint: 'Broken tooth from eating hard food',
+        diagnosis: 'Fractured premolar (24). Requires extraction.',
       ),
     );
 
-    const treatId2 = 'seed_t2';
+    const treatId2 = 'mock_t2';
     _mockTreatments.add(
       const TreatmentPlan(
         id: treatId2,
         visitId: visitId2,
-        treatmentName: 'Dental Cleaning & Polishing',
-        description: 'Complete scaling and polishing of all teeth surfaces',
-        totalCost: 200,
-        status: 'Completed',
+        treatmentName: 'Tooth Extraction',
+        description: 'Surgical extraction of fractured premolar with local anesthesia',
+        totalCost: 1500,
+        status: 'Planned',
       ),
     );
-
-    _mockSittings.add(
-      Sitting(
-        id: 'seed_s2_1',
-        visitId: visitId2,
-        treatmentPlanId: treatId2,
-        sittingDate: DateTime.now().subtract(const Duration(days: 60)),
-        durationStr: '45 mins',
-        notes:
-            'Full scaling and polishing completed. Patient advised on flossing.',
-        cost: 200,
-      ),
-    );
-
-    _mockPayments.addAll([
-      Payment(
-        id: 'seed_p2_1',
-        visitId: visitId2,
-        sittingId: 'seed_s2_1',
-        amountPaid: 200,
-        paymentMode: 'Cash',
-        paymentDate: DateTime.now().subtract(const Duration(days: 60)),
-      ),
-    ]);
-
+    
     _mockPrescriptions.add(
       const Prescription(
-        id: 'seed_rx3',
-        visitId: visitId, // Also seed_v1
-        treatmentPlanId: 'seed_t1',
-        sittingId: 'seed_s1',
-        medicineName: 'Analgesic Gel',
-        dosage: 'Apply as needed',
-        price: 12,
+        id: 'mock_rx2',
+        visitId: visitId2,
+        treatmentPlanId: treatId2,
+        medicineName: 'Amoxicillin 500mg',
+        dosage: '1 tab every 8 hours',
+        duration: '5 days',
+        price: 150,
       ),
     );
 
-    // Additional generic mock data
-    const gVisitId = 'v1';
-    const gTreatId = 't1';
+    _mockFiles.add(
+      const FileAttachment(
+        id: 'mock_f2',
+        visitId: visitId2,
+        treatmentPlanId: treatId2,
+        fileName: 'Initial X-Ray',
+        fileType: 'IOPA X-Ray',
+        price: 200.0,
+      ),
+    );
+
+    // Initial consultation and X-ray paid
+    _mockPayments.add(
+      Payment(
+        id: 'mock_p2_1',
+        visitId: visitId2,
+        fileId: 'mock_f2',
+        amountPaid: 200,
+        paymentMode: 'UPI',
+        paymentDate: now.subtract(const Duration(days: 2)),
+      ),
+    );
+
+
+    // ── Case 3: In-Progress Treatment (10 days ago) ──
+    const visitId3 = 'mock_v3';
+    _mockVisits.add(
+      Visit(
+        id: visitId3,
+        patientId: '_global_',
+        visitDate: now.subtract(const Duration(days: 10)),
+        chiefComplaint: 'Sensitivity to hot/cold, dull throbbing pain',
+        diagnosis: 'Irreversible pulpitis on 46',
+      ),
+    );
+
+    const treatId3 = 'mock_t3';
+    _mockTreatments.add(
+      const TreatmentPlan(
+        id: treatId3,
+        visitId: visitId3,
+        treatmentName: 'Root Canal Treatment (RCT)',
+        description: 'Access opening, BMW, and obturation for lower right first molar',
+        totalCost: 4500,
+        status: 'In Progress',
+      ),
+    );
 
     _mockSittings.add(
       Sitting(
-        id: 's2',
-        visitId: gVisitId,
-        treatmentPlanId: gTreatId,
-        sittingDate: DateTime.now().subtract(const Duration(days: 2)),
+        id: 'mock_s3_1',
+        visitId: visitId3,
+        treatmentPlanId: treatId3,
+        sittingDate: now.subtract(const Duration(days: 10)),
         durationStr: '45 mins',
-        notes: 'Initial fitting and adjustments.',
-        cost: 500,
+        notes: 'Access opening done. Canals located and extirpation completed. Calcium hydroxide dressing given.',
+        cost: 2000,
         status: 'Completed',
       ),
     );
+
+    _mockPayments.add(
+      Payment(
+        id: 'mock_p3_1',
+        visitId: visitId3,
+        sittingId: 'mock_s3_1',
+        amountPaid: 2000,
+        paymentMode: 'Card',
+        paymentDate: now.subtract(const Duration(days: 10)),
+        notes: 'Adv. for RCT Phase 1',
+      ),
+    );
+
     _mockSittings.add(
       Sitting(
-        id: 's3',
-        visitId: gVisitId,
-        treatmentPlanId: gTreatId,
-        sittingDate: DateTime.now(),
-        durationStr: '30 mins',
-        notes: 'Final adjustment.',
-        cost: 300,
+        id: 'mock_s3_2',
+        visitId: visitId3,
+        treatmentPlanId: treatId3,
+        sittingDate: now.add(const Duration(days: 2)),
+        durationStr: '60 mins',
+        notes: 'Scheduled for BMP and Obturation',
+        cost: 2500,
         status: 'Scheduled',
       ),
     );
 
-    _mockPayments.add(
-      Payment(
-        id: 'pay1',
-        visitId: gVisitId,
-        treatmentPlanId: gTreatId,
-        amountPaid: 200,
-        paymentMode: 'Cash',
-        paymentDate: DateTime.now().subtract(const Duration(days: 2)),
+    // ── Case 4: Orthodontic Braces - Ongoing Monthly Follow-up ──
+    const visitId4 = 'mock_v4';
+    _mockVisits.add(
+      Visit(
+        id: visitId4,
+        patientId: '_global_',
+        visitDate: now.subtract(const Duration(days: 60)),
+        chiefComplaint: 'Crooked front teeth',
+        diagnosis: 'Class II Malocclusion',
       ),
     );
-    _mockPayments.add(
-      Payment(
-        id: 'pay2',
-        visitId: gVisitId,
-        sittingId: 's2',
-        amountPaid: 300,
-        paymentMode: 'UPI',
-        paymentDate: DateTime.now().subtract(const Duration(days: 1)),
+
+    const treatId4 = 'mock_t4';
+    _mockTreatments.add(
+      const TreatmentPlan(
+        id: treatId4,
+        visitId: visitId4,
+        treatmentName: 'Orthodontic Braces (Metal)',
+        description: 'Correction of malocclusion with metal brackets. Estimated duration: 18 months.',
+        totalCost: 35000,
+        status: 'In Progress',
       ),
     );
+
+    // Initial Bracket placement
     _mockSittings.add(
       Sitting(
-        id: 'seed_s3',
-        visitId: visitId,
-        treatmentPlanId: treatId,
-        sittingDate: DateTime.now().subtract(const Duration(days: 15)),
-        durationStr: '1 hour',
-        notes: 'Obturation and final restoration.',
-        cost: 600,
+        id: 'mock_s4_1',
+        visitId: visitId4,
+        treatmentPlanId: treatId4,
+        sittingDate: now.subtract(const Duration(days: 60)),
+        durationStr: '2 hours',
+        notes: 'Initial bonding of upper and lower arches with 0.14 NiTi wire.',
+        cost: 15000, // Down payment
+        status: 'Completed',
       ),
     );
-
-    // Sitting 3 Payment (Full payment for history consistency)
+    
     _mockPayments.add(
       Payment(
-        id: 'seed_p3',
-        visitId: visitId,
-        sittingId: 'seed_s3',
-        amountPaid: 600,
+        id: 'mock_p4_1',
+        visitId: visitId4,
+        sittingId: 'mock_s4_1',
+        amountPaid: 15000,
         paymentMode: 'UPI',
-        paymentDate: DateTime.now().subtract(const Duration(days: 15)),
+        paymentDate: now.subtract(const Duration(days: 60)),
+        notes: 'Down payment for braces',
       ),
     );
 
-    // Sitting s3 Payment (Full payment for history consistency)
+    // First follow up
+    _mockSittings.add(
+      Sitting(
+        id: 'mock_s4_2',
+        visitId: visitId4,
+        treatmentPlanId: treatId4,
+        sittingDate: now.subtract(const Duration(days: 30)),
+        durationStr: '30 mins',
+        notes: 'Review. Wire upgraded to 0.16 NiTi upper and lower. Ligature ties changed (Blue).',
+        cost: 1000, // Monthly installment
+        status: 'Completed',
+      ),
+    );
+
     _mockPayments.add(
       Payment(
-        id: 'pay3',
-        visitId: gVisitId,
-        sittingId: 's3',
-        amountPaid: 300,
-        paymentMode: 'Card',
-        paymentDate: DateTime.now(),
+        id: 'mock_p4_2',
+        visitId: visitId4,
+        sittingId: 'mock_s4_2',
+        amountPaid: 1000,
+        paymentMode: 'Cash',
+        paymentDate: now.subtract(const Duration(days: 30)),
+        notes: 'Monthly Installment 1',
       ),
     );
   }
