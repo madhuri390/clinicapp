@@ -97,8 +97,18 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
         widget.patientId,
       );
 
-      // Combine and deduplicate visits
-      final allVisits = [...dbVisits, ...storeVisits];
+      // If there is no data at all yet, seed rich ongoing mock data
+      // for this patient so the Ongoing tab has useful examples.
+      if (dbVisits.isEmpty && storeVisits.isEmpty) {
+        LocalStore.instance.seedOngoingForPatient(widget.patientId);
+      }
+
+      final refreshedStoreVisits = LocalStore.instance.getVisitsForPatient(
+        widget.patientId,
+      );
+
+      // Combine and deduplicate visits (DB + local + seeded)
+      final allVisits = [...dbVisits, ...refreshedStoreVisits];
       final seenIds = <String>{};
       final uniqueVisits = allVisits.where((v) => seenIds.add(v.id)).toList();
       uniqueVisits.sort((a, b) => (b.visitDate).compareTo(a.visitDate));

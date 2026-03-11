@@ -1548,7 +1548,7 @@ class _BottomSheetWrapper extends StatelessWidget {
         20,
         20,
         20,
-        20 + MediaQuery.paddingOf(context).bottom,
+        20 + MediaQuery.viewInsetsOf(context).bottom,
       ),
       child: SingleChildScrollView(
         child: Column(

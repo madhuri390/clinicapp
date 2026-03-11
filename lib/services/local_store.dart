@@ -96,13 +96,10 @@ class LocalStore {
   }
 
   List<Sitting> getSittingsForVisits(List<String> visitIds) {
-    final treatmentIds = _mockTreatments
-        .where((t) => visitIds.contains(t.visitId))
-        .map((t) => t.id)
-        .toSet();
-    return _mockSittings
-        .where((s) => treatmentIds.contains(s.treatmentPlanId))
-        .toList();
+    // Link sittings directly to visits so that sittings created
+    // for treatments that only exist in the backend (not in the
+    // local mock treatments list) still show up correctly.
+    return _mockSittings.where((s) => visitIds.contains(s.visitId)).toList();
   }
 
   void addSitting(Sitting sitting) => _mockSittings.add(sitting);
@@ -177,6 +174,7 @@ class LocalStore {
 
   // ── Seed ───────────────────────────────────────────────────────────────
   bool _seeded = false;
+  final Set<String> _seededOngoingPatients = {};
 
   void seedIfNeeded() {
     if (_seeded) return;
@@ -488,6 +486,150 @@ class LocalStore {
         amountPaid: 300,
         paymentMode: 'Card',
         paymentDate: DateTime.now(),
+      ),
+    );
+  }
+
+  /// Seed rich ongoing data for a specific patient so the Ongoing tab
+  /// can showcase different lifecycle stages (planned, in‑progress, completed).
+  void seedOngoingForPatient(String patientId) {
+    if (_seededOngoingPatients.contains(patientId)) return;
+    _seededOngoingPatients.add(patientId);
+
+    final now = DateTime.now();
+
+    // Visit 1: Planned consultation, treatment defined but no sittings/payments yet.
+    final plannedVisitId = 'ongoing_${patientId}_planned';
+    final vPlanned = Visit(
+      id: plannedVisitId,
+      patientId: patientId,
+      visitDate: now.subtract(const Duration(days: 1)),
+      chiefComplaint: 'Mild tooth sensitivity to cold drinks',
+      diagnosis: 'Early enamel wear (planned evaluation)',
+    );
+    _mockVisits.add(vPlanned);
+
+    const tPlannedId = 'ongoing_t_planned';
+    _mockTreatments.add(
+      TreatmentPlan(
+        id: tPlannedId,
+        visitId: plannedVisitId,
+        treatmentName: 'Fluoride Varnish Application',
+        description: 'Topical fluoride to strengthen enamel and reduce sensitivity.',
+        totalCost: 150,
+        status: 'Planned',
+      ),
+    );
+
+    // Visit 2: Active treatment with multiple sittings and partial payments.
+    final activeVisitId = 'ongoing_${patientId}_active';
+    final vActive = Visit(
+      id: activeVisitId,
+      patientId: patientId,
+      visitDate: now.subtract(const Duration(days: 7)),
+      chiefComplaint: 'Crowding in lower front teeth',
+      diagnosis: 'Class I malocclusion – mild crowding',
+    );
+    _mockVisits.add(vActive);
+
+    const tActiveId = 'ongoing_t_active';
+    _mockTreatments.add(
+      TreatmentPlan(
+        id: tActiveId,
+        visitId: activeVisitId,
+        treatmentName: 'Clear Aligner Therapy',
+        description:
+            'Series of clear aligners to correct mild lower anterior crowding.',
+        totalCost: 2400,
+        status: 'In Progress',
+      ),
+    );
+
+    final sActive1 = Sitting(
+      id: 'ongoing_s_active_1',
+      visitId: vActive.id,
+      treatmentPlanId: tActiveId,
+      sittingDate: now.subtract(const Duration(days: 7)),
+      durationStr: '45 mins',
+      notes: 'Initial records, impressions, and treatment planning.',
+      cost: 600,
+    );
+    final sActive2 = Sitting(
+      id: 'ongoing_s_active_2',
+      visitId: vActive.id,
+      treatmentPlanId: tActiveId,
+      sittingDate: now.subtract(const Duration(days: 2)),
+      durationStr: '30 mins',
+      notes: 'Aligner delivery and instructions.',
+      cost: 800,
+    );
+    _mockSittings.addAll([sActive1, sActive2]);
+
+    _mockPayments.addAll([
+      Payment(
+        id: 'ongoing_p_active_deposit',
+        visitId: vActive.id,
+        sittingId: sActive1.id,
+        amountPaid: 400,
+        paymentMode: 'UPI',
+        paymentDate: now.subtract(const Duration(days: 7)),
+        notes: 'Initial deposit for aligner therapy',
+      ),
+      // Second sitting still partially unpaid to show a balance.
+      Payment(
+        id: 'ongoing_p_active_partial',
+        visitId: vActive.id,
+        sittingId: sActive2.id,
+        amountPaid: 300,
+        paymentMode: 'Card',
+        paymentDate: now.subtract(const Duration(days: 1)),
+        notes: 'Partial payment for aligner delivery visit',
+      ),
+    ]);
+
+    // Visit 3: Recently completed single‑visit treatment with full payment.
+    final completedVisitId = 'ongoing_${patientId}_completed';
+    final vCompleted = Visit(
+      id: completedVisitId,
+      patientId: patientId,
+      visitDate: now.subtract(const Duration(days: 3)),
+      chiefComplaint: 'Coffee stains on front teeth',
+      diagnosis: 'Extrinsic staining',
+    );
+    _mockVisits.add(vCompleted);
+
+    const tCompletedId = 'ongoing_t_completed';
+    _mockTreatments.add(
+      TreatmentPlan(
+        id: tCompletedId,
+        visitId: completedVisitId,
+        treatmentName: 'In‑office Teeth Whitening',
+        description: 'Single‑visit whitening session with custom shade matching.',
+        totalCost: 500,
+        status: 'Completed',
+      ),
+    );
+
+    final sCompleted = Sitting(
+      id: 'ongoing_s_completed_1',
+      visitId: vCompleted.id,
+      treatmentPlanId: tCompletedId,
+      sittingDate: now.subtract(const Duration(days: 3)),
+      durationStr: '60 mins',
+      notes: 'Full whitening session completed. Post‑op sensitivity instructions given.',
+      cost: 500,
+    );
+    _mockSittings.add(sCompleted);
+
+    _mockPayments.add(
+      Payment(
+        id: 'ongoing_p_completed_full',
+        visitId: vCompleted.id,
+        sittingId: sCompleted.id,
+        amountPaid: 500,
+        paymentMode: 'Cash',
+        paymentDate: now.subtract(const Duration(days: 3)),
+        notes: 'Full payment for whitening session',
       ),
     );
   }
