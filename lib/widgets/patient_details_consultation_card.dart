@@ -7,9 +7,8 @@ import '../models/prescription_model.dart';
 import '../models/sitting_model.dart';
 import '../models/treatment_plan_model.dart';
 import '../models/visit_model.dart';
-import '../repositories/prescription_repository.dart';
-import '../repositories/treatment_repository.dart';
 import '../services/local_store.dart';
+import '../theme/app_theme.dart';
 import 'patient_details_profile_tab.dart';
 
 class ConsultationCard extends StatelessWidget {
@@ -22,8 +21,8 @@ class ConsultationCard extends StatelessWidget {
     required this.payments,
     required this.isOngoing,
     required this.onRefresh,
+    this.onComplete,
     required this.onEditVisit,
-    required this.onDeleteVisit,
   });
 
   final Visit visit;
@@ -33,28 +32,40 @@ class ConsultationCard extends StatelessWidget {
   final List<Payment> payments;
   final bool isOngoing;
   final VoidCallback onRefresh;
+  final VoidCallback? onComplete;
   final ValueChanged<Visit> onEditVisit;
-  final ValueChanged<Visit> onDeleteVisit;
 
   @override
   Widget build(BuildContext context) {
-    // Calculate if fully paid
+    // Calculate if all expenses are paid and total cost > 0
     double totalCost = 0;
-    double totalPaid = payments.fold(0, (sum, p) => sum + p.amountPaid);
+    bool hasUnpaidItem = false;
 
-    for (var t in treatments) {
-      if (t.totalCost != null) totalCost += t.totalCost!.toDouble();
-    }
     for (var p in prescriptions) {
-      if (p.price != null) totalCost += p.price!.toDouble();
+      if ((p.price ?? 0) > 0) {
+        totalCost += p.price!;
+        if (p.payment == null) hasUnpaidItem = true;
+      }
     }
-    final allFiles = treatments.expand((t) => LocalStore.instance.getFilesForTreatment(t.id)).toList();
+    final allFiles = treatments
+        .expand((t) => LocalStore.instance.getFilesForTreatment(t.id))
+        .toList();
     for (var f in allFiles) {
-      if (f.price != null) totalCost += f.price!.toDouble();
+      if ((f.price ?? 0) > 0) {
+        totalCost += f.price!;
+        if (f.payment == null) hasUnpaidItem = true;
+      }
     }
-    
-    // Add margin to allow floating point variance
-    final bool isFullyPaid = totalPaid >= totalCost - 0.01;
+    for (var s in sittings) {
+      if ((s.cost ?? 0) > 0) {
+        totalCost += s.cost!;
+        final sPayments = LocalStore.instance.getPaymentsForSitting(s.id);
+        final paid = sPayments.fold<double>(0, (sum, p) => sum + p.amountPaid);
+        if (paid < s.cost! - 0.01) hasUnpaidItem = true;
+      }
+    }
+
+    final bool canComplete = totalCost > 0 && !hasUnpaidItem;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
@@ -72,7 +83,7 @@ class ConsultationCard extends StatelessWidget {
                     Icon(
                       Icons.calendar_today_outlined,
                       size: 16,
-                      color: Colors.grey.shade600,
+                      color: AppTheme.primaryColor.withValues(alpha: 0.7),
                     ),
                     const SizedBox(width: 8),
                     Text(
@@ -80,7 +91,7 @@ class ConsultationCard extends StatelessWidget {
                       style: GoogleFonts.poppins(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
-                        color: Colors.grey.shade700,
+                        color: AppTheme.primaryColor,
                       ),
                     ),
                   ],
@@ -205,88 +216,22 @@ class ConsultationCard extends StatelessWidget {
                           onTap: () => onEditVisit(visit),
                         ),
                         _ActionChip(
-                          label: 'Delete',
-                          icon: Icons.delete_outline,
-                          iconColor: Colors.red,
-                          textColor: Colors.red,
-                          onTap: () => onDeleteVisit(visit),
-                        ),
-                        if (treatments.isEmpty)
-                          _ActionChip(
-                            label: 'Add Treatment',
-                            icon: Icons.healing,
-                            onTap: () {
-                              showModalBottomSheet(
-                                context: context,
-                                isScrollControlled: true,
-                                backgroundColor: Colors.transparent,
-                                builder: (_) => _AddTreatmentSheet(
-                                  visitId: visit.id,
-                                  onSave: (t) async {
-                                    final created =
-                                        await TreatmentRepository().create(t);
-                                    LocalStore.instance.addTreatment(created);
-                                    if (context.mounted) Navigator.pop(context);
-                                    onRefresh();
-                                  },
-                                ),
-                              );
-                            },
-                          ),
-                        _ActionChip(
-                          label: 'Add Prescription',
-                          icon: Icons.medication,
+                          label: 'Add Treatment',
+                          icon: Icons.healing,
                           onTap: () {
                             showModalBottomSheet(
                               context: context,
                               isScrollControlled: true,
                               backgroundColor: Colors.transparent,
-                              builder: (_) => _AddPrescriptionSheet(
+                              builder: (_) => _AddTreatmentSheet(
                                 visitId: visit.id,
-                                treatmentPlanId:
-                                    treatments.length == 1 ? treatments.first.id : null,
-                                onSave: (p) async {
-                                  final created =
-                                      await PrescriptionRepository().create(p);
-                                  LocalStore.instance.addPrescription(created);
-                                  if (context.mounted) Navigator.pop(context);
-                                  onRefresh();
-                                },
-                              ),
-                            );
-                          },
-                        ),
-                        _ActionChip(
-                          label: 'Add File',
-                          icon: Icons.attach_file,
-                          onTap: () {
-                            showModalBottomSheet(
-                              context: context,
-                              isScrollControlled: true,
-                              backgroundColor: Colors.transparent,
-                              builder: (_) => _AddFileSheet(
-                                visitId: visit.id,
-                                onSave: (f) async {
-                                  LocalStore.instance.addFile(f);
-                                  if (context.mounted) Navigator.pop(context);
-                                  onRefresh();
-                                },
-                              ),
-                            );
-                          },
-                        ),
-                        _ActionChip(
-                          label: 'Add Payment',
-                          icon: Icons.payment,
-                          onTap: () {
-                            showModalBottomSheet(
-                              context: context,
-                              isScrollControlled: true,
-                              backgroundColor: Colors.transparent,
-                              builder: (_) => _AddPaymentSheet(
-                                visitId: visit.id,
-                                onSave: (payment) async {
-                                  LocalStore.instance.addPayment(payment);
+                                onSave: (t) async {
+                                  final newTreatment = t.copyWith(
+                                    id: 'mock_t_${DateTime.now().millisecondsSinceEpoch}',
+                                  );
+                                  LocalStore.instance.addTreatment(
+                                    newTreatment,
+                                  );
                                   if (context.mounted) Navigator.pop(context);
                                   onRefresh();
                                 },
@@ -312,7 +257,7 @@ class ConsultationCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      '\$${payments.fold<double>(0, (sum, p) => sum + p.amountPaid).toStringAsFixed(0)}',
+                      '₹${payments.fold<double>(0, (sum, p) => sum + p.amountPaid).toStringAsFixed(0)}',
                       style: GoogleFonts.poppins(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
@@ -328,41 +273,23 @@ class ConsultationCard extends StatelessWidget {
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: isOngoing
-                          ? (isFullyPaid
-                              ? const Color(0xFF10B981)
-                              : Colors.grey.shade400)
-                          : const Color(0xFF0F0B1A),
+                          ? (canComplete
+                                ? const Color(0xFF10B981)
+                                : Colors.grey.shade400)
+                          : AppTheme.primaryColor,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
                       elevation: 0,
                     ),
-                    onPressed: isOngoing && !isFullyPaid
+                    onPressed: isOngoing && !canComplete
                         ? null
                         : () {
-                            if (isOngoing) {
-                              // Mark treatments as completed
-                              for (final t in treatments) {
-                                LocalStore.instance.updateTreatment(
-                                  t.copyWith(status: 'Completed'),
-                                );
-                              }
-                              onRefresh();
-                            }
-                            final allFiles = treatments
-                                .expand(
-                                  (t) => LocalStore.instance
-                                      .getFilesForTreatment(t.id),
-                                )
-                                .toList();
                             _showBillPreview(
                               context,
                               visit,
-                              treatments,
-                              prescriptions,
-                              payments,
-                              allFiles,
+                              onComplete: onComplete ?? onRefresh,
                             );
                           },
                     icon: Icon(
@@ -586,59 +513,138 @@ class _TreatmentAccordion extends StatelessWidget {
                           color: const Color(0xFFF5F3FF),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Row(
+                        child: Column(
                           children: [
-                            const Icon(
-                              Icons.medication,
-                              color: Color(0xFF7C3AED),
-                              size: 20,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    p.medicineName ?? '',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  Text(
-                                    p.dosage ?? '',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 12,
-                                      color: const Color(0xFF7C3AED),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
+                            Row(
                               children: [
-                                Text(
-                                  '\$${p.price?.toStringAsFixed(0) ?? '0'}',
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
-                                    color: const Color(0xFF4C1D95),
+                                const Icon(
+                                  Icons.medication,
+                                  color: Color(0xFF7C3AED),
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        p.medicineName ?? '',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      Text(
+                                        p.dosage ?? '',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 12,
+                                          color: const Color(0xFF7C3AED),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                if ((p.price ?? 0) > 0)
-                                  Text(
-                                    p.payment != null ? 'Paid' : 'Pending',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: p.payment != null
-                                          ? Colors.green
-                                          : Colors.red,
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      '₹${p.price?.toStringAsFixed(0) ?? '0'}',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                        color: const Color(0xFF4C1D95),
+                                      ),
                                     ),
-                                  ),
+                                    if ((p.price ?? 0) > 0)
+                                      Text(
+                                        p.payment != null ? 'Paid' : 'Pending',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: p.payment != null
+                                              ? Colors.green
+                                              : Colors.red,
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               ],
                             ),
+                            if (isOngoing) ...[
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  TextButton(
+                                    onPressed: () {
+                                      showModalBottomSheet(
+                                        context: context,
+                                        isScrollControlled: true,
+                                        backgroundColor: Colors.transparent,
+                                        builder: (_) => _AddPrescriptionSheet(
+                                          prescription: p,
+                                          onSave: (updated) {
+                                            LocalStore.instance
+                                                .updatePrescription(updated);
+                                            onRefresh();
+                                            Navigator.pop(context);
+                                          },
+                                        ),
+                                      );
+                                    },
+                                    style: TextButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                      ),
+                                      minimumSize: Size.zero,
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    child: Text(
+                                      'Edit',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: const Color(0xFF7C3AED),
+                                      ),
+                                    ),
+                                  ),
+                                  if ((p.price ?? 0) > 0 && p.payment == null)
+                                    TextButton(
+                                      onPressed: () {
+                                        LocalStore.instance.addPayment(
+                                          Payment(
+                                            id: 'mock_pay_${DateTime.now().millisecondsSinceEpoch}',
+                                            visitId: treatment.visitId,
+                                            prescriptionId: p.id,
+                                            amountPaid: p.price ?? 0,
+                                            paymentMode: 'Cash',
+                                            paymentDate: DateTime.now(),
+                                          ),
+                                        );
+                                        onRefresh();
+                                      },
+                                      style: TextButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                        ),
+                                        minimumSize: Size.zero,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      child: Text(
+                                        'Mark Paid',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.green,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -671,45 +677,128 @@ class _TreatmentAccordion extends StatelessWidget {
                     ...files.map(
                       (f) => Padding(
                         padding: const EdgeInsets.only(bottom: 8),
-                        child: Row(
+                        child: Column(
                           children: [
-                            Icon(
-                              Icons.insert_drive_file,
-                              size: 16,
-                              color: Colors.orange.shade700,
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    f.fileName ?? 'Unnamed File',
-                                    style: GoogleFonts.poppins(fontSize: 13),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.insert_drive_file,
+                                  size: 16,
+                                  color: Colors.orange.shade700,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        f.fileName ?? 'Unnamed File',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                      if ((f.price ?? 0) > 0)
+                                        Text(
+                                          '₹${f.price!.toStringAsFixed(0)} • ${f.payment != null ? 'Paid' : 'Pending'}',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 11,
+                                            color: f.payment != null
+                                                ? Colors.green
+                                                : Colors.red,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                    ],
                                   ),
-                                  if ((f.price ?? 0) > 0)
-                                    Text(
-                                      '\$${f.price!.toStringAsFixed(0)} • ${f.payment != null ? 'Paid' : 'Pending'}',
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.download, size: 18),
+                                  onPressed: () => _downloadFile(
+                                    context,
+                                    f.fileName ?? 'file',
+                                  ),
+                                  constraints: const BoxConstraints(),
+                                  padding: EdgeInsets.zero,
+                                  visualDensity: VisualDensity.compact,
+                                  color: const Color(0xFF4F46E5),
+                                ),
+                              ],
+                            ),
+                            if (isOngoing)
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  TextButton(
+                                    onPressed: () {
+                                      showModalBottomSheet(
+                                        context: context,
+                                        isScrollControlled: true,
+                                        backgroundColor: Colors.transparent,
+                                        builder: (_) => _AddFileSheet(
+                                          visitId: treatment.visitId,
+                                          treatmentId: treatment.id,
+                                          file: f,
+                                          onSave: (updated) {
+                                            LocalStore.instance
+                                                .updateFileAttachment(updated);
+                                            onRefresh();
+                                            Navigator.pop(context);
+                                          },
+                                        ),
+                                      );
+                                    },
+                                    style: TextButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                      ),
+                                      minimumSize: Size.zero,
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    child: Text(
+                                      'Edit',
                                       style: GoogleFonts.poppins(
-                                        fontSize: 11,
-                                        color: f.payment != null
-                                            ? Colors.green
-                                            : Colors.red,
+                                        fontSize: 12,
                                         fontWeight: FontWeight.w600,
+                                        color: Colors.orange.shade700,
+                                      ),
+                                    ),
+                                  ),
+                                  if ((f.price ?? 0) > 0 && f.payment == null)
+                                    TextButton(
+                                      onPressed: () {
+                                        LocalStore.instance.addPayment(
+                                          Payment(
+                                            id: 'mock_pay_${DateTime.now().millisecondsSinceEpoch}',
+                                            visitId: treatment.visitId,
+                                            fileId: f.id,
+                                            amountPaid: f.price ?? 0,
+                                            paymentMode: 'Cash',
+                                            paymentDate: DateTime.now(),
+                                          ),
+                                        );
+                                        onRefresh();
+                                      },
+                                      style: TextButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                        ),
+                                        minimumSize: Size.zero,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
+                                      child: Text(
+                                        'Mark Paid',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.green,
+                                        ),
                                       ),
                                     ),
                                 ],
                               ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.download, size: 18),
-                              onPressed: () =>
-                                  _downloadFile(context, f.fileName ?? 'file'),
-                              constraints: const BoxConstraints(),
-                              padding: EdgeInsets.zero,
-                              visualDensity: VisualDensity.compact,
-                              color: const Color(0xFF4F46E5),
-                            ),
                           ],
                         ),
                       ),
@@ -796,14 +885,12 @@ class _AddTreatmentSheet extends StatefulWidget {
 class _AddTreatmentSheetState extends State<_AddTreatmentSheet> {
   final _nameCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
-  final _costCtrl = TextEditingController();
   bool _saving = false;
 
   @override
   void dispose() {
     _nameCtrl.dispose();
     _descCtrl.dispose();
-    _costCtrl.dispose();
     super.dispose();
   }
 
@@ -816,8 +903,6 @@ class _AddTreatmentSheetState extends State<_AddTreatmentSheet> {
           _SheetField(controller: _nameCtrl, label: 'Treatment Name *'),
           const SizedBox(height: 12),
           _SheetField(controller: _descCtrl, label: 'Description', maxLines: 2),
-          const SizedBox(height: 12),
-          _SheetField(controller: _costCtrl, label: 'Total Cost (Optional)'),
           const SizedBox(height: 20),
           _SaveButton(
             isSaving: _saving,
@@ -830,9 +915,10 @@ class _AddTreatmentSheetState extends State<_AddTreatmentSheet> {
                   id: '',
                   visitId: widget.visitId,
                   treatmentName: _nameCtrl.text.trim(),
-                  description:
-                      _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
-                  totalCost: double.tryParse(_costCtrl.text),
+                  description: _descCtrl.text.trim().isEmpty
+                      ? null
+                      : _descCtrl.text.trim(),
+                  totalCost: null,
                 ),
               );
             },
@@ -888,7 +974,9 @@ class _AddSittingSheetState extends State<_AddSittingSheet> {
                 context: context,
                 initialDate: _date,
                 firstDate: DateTime(2000),
-                lastDate: DateTime.now(),
+                lastDate: DateTime.now().add(
+                  const Duration(days: 36500),
+                ), // Allow up to 100 years in future
               );
               if (d != null) setState(() => _date = d);
             },
@@ -904,7 +992,7 @@ class _AddSittingSheetState extends State<_AddSittingSheet> {
               setState(() => _saving = true);
               widget.onSave(
                 Sitting(
-                  id: '',
+                  id: 'mock_s_${DateTime.now().millisecondsSinceEpoch}',
                   visitId: widget.visitId ?? '',
                   treatmentPlanId: widget.treatmentPlanId,
                   sittingDate: _date,
@@ -925,11 +1013,13 @@ class _AddPrescriptionSheet extends StatefulWidget {
   const _AddPrescriptionSheet({
     this.visitId,
     this.treatmentPlanId,
+    this.prescription,
     required this.onSave,
   });
 
   final String? visitId;
   final String? treatmentPlanId;
+  final Prescription? prescription;
   final ValueChanged<Prescription> onSave;
 
   @override
@@ -937,11 +1027,24 @@ class _AddPrescriptionSheet extends StatefulWidget {
 }
 
 class _AddPrescriptionSheetState extends State<_AddPrescriptionSheet> {
-  final _nameCtrl = TextEditingController();
-  final _dosageCtrl = TextEditingController();
-  final _instructionCtrl = TextEditingController();
-  final _priceCtrl = TextEditingController();
+  late final TextEditingController _nameCtrl;
+  late final TextEditingController _dosageCtrl;
+  late final TextEditingController _instructionCtrl;
+  late final TextEditingController _priceCtrl;
   bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl = TextEditingController(text: widget.prescription?.medicineName);
+    _dosageCtrl = TextEditingController(text: widget.prescription?.dosage);
+    _instructionCtrl = TextEditingController(
+      text: widget.prescription?.instructions,
+    );
+    _priceCtrl = TextEditingController(
+      text: widget.prescription?.price?.toStringAsFixed(0),
+    );
+  }
 
   @override
   void dispose() {
@@ -980,20 +1083,32 @@ class _AddPrescriptionSheetState extends State<_AddPrescriptionSheet> {
             onPressed: () {
               if (_nameCtrl.text.trim().isEmpty) return;
               setState(() => _saving = true);
+              final p = widget.prescription;
               widget.onSave(
-                Prescription(
-                  id: '',
-                  visitId: widget.visitId,
-                  treatmentPlanId: widget.treatmentPlanId,
-                  medicineName: _nameCtrl.text.trim(),
-                  dosage: _dosageCtrl.text.trim().isEmpty
-                      ? null
-                      : _dosageCtrl.text.trim(),
-                  instructions: _instructionCtrl.text.trim().isEmpty
-                      ? null
-                      : _instructionCtrl.text.trim(),
-                  price: double.tryParse(_priceCtrl.text.trim()) ?? 0,
-                ),
+                p != null
+                    ? p.copyWith(
+                        medicineName: _nameCtrl.text.trim(),
+                        dosage: _dosageCtrl.text.trim().isEmpty
+                            ? null
+                            : _dosageCtrl.text.trim(),
+                        instructions: _instructionCtrl.text.trim().isEmpty
+                            ? null
+                            : _instructionCtrl.text.trim(),
+                        price: double.tryParse(_priceCtrl.text.trim()) ?? 0,
+                      )
+                    : Prescription(
+                        id: 'mock_p_${DateTime.now().millisecondsSinceEpoch}',
+                        visitId: widget.visitId,
+                        treatmentPlanId: widget.treatmentPlanId,
+                        medicineName: _nameCtrl.text.trim(),
+                        dosage: _dosageCtrl.text.trim().isEmpty
+                            ? null
+                            : _dosageCtrl.text.trim(),
+                        instructions: _instructionCtrl.text.trim().isEmpty
+                            ? null
+                            : _instructionCtrl.text.trim(),
+                        price: double.tryParse(_priceCtrl.text.trim()) ?? 0,
+                      ),
               );
             },
           ),
@@ -1004,10 +1119,16 @@ class _AddPrescriptionSheetState extends State<_AddPrescriptionSheet> {
 }
 
 class _AddFileSheet extends StatefulWidget {
-  const _AddFileSheet({this.visitId, this.treatmentId, required this.onSave});
+  const _AddFileSheet({
+    this.visitId,
+    this.treatmentId,
+    this.file,
+    required this.onSave,
+  });
 
   final String? visitId;
   final String? treatmentId;
+  final FileAttachment? file;
   final ValueChanged<FileAttachment> onSave;
 
   @override
@@ -1015,9 +1136,18 @@ class _AddFileSheet extends StatefulWidget {
 }
 
 class _AddFileSheetState extends State<_AddFileSheet> {
-  final _nameCtrl = TextEditingController();
-  final _priceCtrl = TextEditingController();
+  late final TextEditingController _nameCtrl;
+  late final TextEditingController _priceCtrl;
   bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl = TextEditingController(text: widget.file?.fileName);
+    _priceCtrl = TextEditingController(
+      text: widget.file?.price?.toStringAsFixed(0),
+    );
+  }
 
   @override
   void dispose() {
@@ -1046,98 +1176,22 @@ class _AddFileSheetState extends State<_AddFileSheet> {
             onPressed: () {
               if (_nameCtrl.text.trim().isEmpty) return;
               setState(() => _saving = true);
+              final f = widget.file;
               widget.onSave(
-                FileAttachment(
-                  id: DateTime.now().millisecondsSinceEpoch.toString(),
-                  visitId: widget.visitId,
-                  treatmentPlanId: widget.treatmentId,
-                  fileName: _nameCtrl.text.trim(),
-                  fileType: 'image/jpeg',
-                  fileUrl: 'mock_url',
-                  price: double.tryParse(_priceCtrl.text.trim()) ?? 0.0,
-                ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AddPaymentSheet extends StatefulWidget {
-  const _AddPaymentSheet({
-    required this.visitId,
-    this.sittingId,
-    required this.onSave,
-  });
-
-  final String visitId;
-  final String? sittingId;
-  final ValueChanged<Payment> onSave;
-
-  @override
-  State<_AddPaymentSheet> createState() => _AddPaymentSheetState();
-}
-
-class _AddPaymentSheetState extends State<_AddPaymentSheet> {
-  final _amountCtrl = TextEditingController();
-  final _notesCtrl = TextEditingController();
-  String _paymentMode = 'Cash';
-  bool _saving = false;
-
-  @override
-  void dispose() {
-    _amountCtrl.dispose();
-    _notesCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return _BottomSheetWrapper(
-      title: 'Add Payment',
-      child: Column(
-        children: [
-          _SheetField(controller: _amountCtrl, label: 'Amount *'),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            value: _paymentMode,
-            decoration: const InputDecoration(labelText: 'Payment Mode'),
-            items: [
-              'Cash',
-              'UPI',
-              'Card',
-              'Insurance',
-            ].map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
-            onChanged: (v) => setState(() => _paymentMode = v ?? 'Cash'),
-          ),
-          const SizedBox(height: 12),
-          _SheetField(
-            controller: _notesCtrl,
-            label: 'Notes (Optional)',
-            maxLines: 2,
-          ),
-          const SizedBox(height: 20),
-          _SaveButton(
-            isSaving: _saving,
-            label: 'Save Payment',
-            onPressed: () {
-              final amount = double.tryParse(_amountCtrl.text.trim());
-              if (amount == null || amount <= 0) return;
-              setState(() => _saving = true);
-              widget.onSave(
-                Payment(
-                  id: '',
-                  visitId: widget.visitId,
-                  sittingId: widget.sittingId,
-                  amountPaid: amount,
-                  paymentMode: _paymentMode,
-                  paymentDate: DateTime.now(),
-                  notes: _notesCtrl.text.trim().isEmpty
-                      ? null
-                      : _notesCtrl.text.trim(),
-                ),
+                f != null
+                    ? f.copyWith(
+                        fileName: _nameCtrl.text.trim(),
+                        price: double.tryParse(_priceCtrl.text.trim()) ?? 0.0,
+                      )
+                    : FileAttachment(
+                        id: DateTime.now().millisecondsSinceEpoch.toString(),
+                        visitId: widget.visitId,
+                        treatmentPlanId: widget.treatmentId,
+                        fileName: _nameCtrl.text.trim(),
+                        fileType: 'image/jpeg',
+                        fileUrl: 'mock_url',
+                        price: double.tryParse(_priceCtrl.text.trim()) ?? 0.0,
+                      ),
               );
             },
           ),
@@ -1149,14 +1203,33 @@ class _AddPaymentSheetState extends State<_AddPaymentSheet> {
 
 void _showBillPreview(
   BuildContext context,
-  Visit visit,
-  List<TreatmentPlan> treatments,
-  List<Prescription> prescriptions,
-  List<Payment> payments,
-  List<FileAttachment> files,
-) {
-  final sittings = LocalStore.instance.getSittingsForVisits([visit.id]);
+  Visit visit, {
+  VoidCallback? onComplete,
+}) {
+  final store = LocalStore.instance;
+
+  // Fetch all related data directly from store for the freshest state
+  final treatments = store.getTreatmentsForVisits([visit.id]);
+  final prescriptions = store.getPrescriptionsForVisits([visit.id]);
+  final sittings = store.getSittingsForVisits([visit.id]);
+  final files = store.getFilesForVisits([visit.id]);
+  final payments = store.getPaymentsForVisits([visit.id]);
+
   sittings.sort((a, b) => a.sittingDate.compareTo(b.sittingDate));
+
+  // Calculate totals consistently
+  double totalAmount = 0;
+  for (var s in sittings) totalAmount += (s.cost ?? 0);
+  for (var p in prescriptions) totalAmount += (p.price ?? 0);
+  for (var f in files) totalAmount += (f.price ?? 0);
+
+  final double paidTotal = payments.fold<double>(
+    0,
+    (sum, p) => sum + p.amountPaid,
+  );
+  final double balance = totalAmount - paidTotal;
+  final isOngoing = visit.status == 'ongoing';
+  final canComplete = balance <= 0.01 && totalAmount > 0;
 
   showDialog(
     context: context,
@@ -1222,47 +1295,50 @@ void _showBillPreview(
                 ],
               ),
               const SizedBox(height: 24),
-              Text(
-                'Treatment Details',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 12),
-              ...treatments.map(
-                (t) => Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  margin: const EdgeInsets.only(bottom: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        t.treatmentName ?? '',
-                        style: GoogleFonts.poppins(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                      Text(
-                        t.description ?? '',
-                        style: GoogleFonts.poppins(
-                          fontSize: 13,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
+              if (treatments.isNotEmpty) ...[
+                Text(
+                  'Treatment Details',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black87,
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 12),
+                ...treatments.map(
+                  (t) => Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          t.treatmentName ?? '',
+                          style: GoogleFonts.poppins(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        if (t.description != null)
+                          Text(
+                            t.description!,
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
               Text(
                 'Itemized Charges',
                 style: GoogleFonts.poppins(
@@ -1275,7 +1351,12 @@ void _showBillPreview(
               ...sittings.asMap().entries.map((entry) {
                 final index = entry.key;
                 final s = entry.value;
-                final isPaid = payments.any((p) => p.sittingId == s.id);
+                final sPayments = payments.where((p) => p.sittingId == s.id);
+                final sPaid = sPayments.fold<double>(
+                  0,
+                  (sum, p) => sum + p.amountPaid,
+                );
+                final isPaid = sPaid >= (s.cost ?? 0) - 0.01;
                 return _invoiceItemRow(
                   'Sitting ${index + 1}',
                   ProfileTab.formatDate(s.sittingDate),
@@ -1286,36 +1367,30 @@ void _showBillPreview(
                 );
               }),
               ...prescriptions.map((p) {
+                final isPaid = p.payment != null;
                 return _invoiceItemRow(
                   'Prescription: ${p.medicineName}',
                   ProfileTab.formatDate(p.createdAt ?? DateTime.now()),
                   p.price ?? 0,
-                  p.payment != null ? 'Paid' : 'Pending',
-                  p.payment != null ? Colors.green : Colors.red,
+                  isPaid ? 'Paid' : 'Pending',
+                  isPaid ? Colors.green : Colors.red,
                 );
               }),
               ...files.where((f) => (f.price ?? 0) > 0).map((f) {
+                final isPaid = f.payment != null;
                 return _invoiceItemRow(
                   'File: ${f.fileName}',
                   ProfileTab.formatDate(visit.visitDate),
                   f.price ?? 0,
-                  f.payment != null ? 'Paid' : 'Pending',
-                  f.payment != null ? Colors.green : Colors.red,
+                  isPaid ? 'Paid' : 'Pending',
+                  isPaid ? Colors.green : Colors.red,
                 );
               }),
               const Divider(height: 48),
-              _invoiceSummaryRow(
-                'Total Amount:',
-                sittings.fold<double>(0, (sum, s) => sum + (s.cost ?? 0)) +
-                    prescriptions.fold<double>(
-                      0,
-                      (sum, p) => sum + (p.price ?? 0),
-                    ) +
-                    files.fold<double>(0, (sum, f) => sum + (f.price ?? 0)),
-              ),
+              _invoiceSummaryRow('Total Amount:', totalAmount),
               _invoiceSummaryRow(
                 'Amount Paid:',
-                payments.fold<double>(0, (sum, p) => sum + p.amountPaid),
+                paidTotal,
                 color: const Color(0xFF059669),
               ),
               const SizedBox(height: 8),
@@ -1330,43 +1405,53 @@ void _showBillPreview(
                       color: Colors.black87,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Builder(
-                    builder: (context) {
-                      final totalAmount =
-                          sittings.fold<double>(
-                                0,
-                                (sum, s) => sum + (s.cost ?? 0),
-                              ) +
-                              prescriptions.fold<double>(
-                                0,
-                                (sum, p) => sum + (p.price ?? 0),
-                              ) +
-                              files.fold<double>(
-                                0,
-                                (sum, f) => sum + (f.price ?? 0),
-                              );
-                      final paidTotal = payments.fold<double>(
-                        0,
-                        (sum, p) => sum + p.amountPaid,
-                      );
-                      final balance = totalAmount - paidTotal;
-
-                      return Text(
-                        '\$${balance.toStringAsFixed(0)}',
-                        style: GoogleFonts.poppins(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                          color: balance <= 0
-                              ? Colors.green.shade700
-                              : Colors.red.shade700,
-                        ),
-                      );
-                    },
+                  Text(
+                    '₹${(balance.abs() < 0.01 ? 0 : balance).toStringAsFixed(0)}',
+                    style: GoogleFonts.poppins(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: balance <= 0.01
+                          ? Colors.green.shade700
+                          : Colors.red.shade700,
+                    ),
                   ),
                 ],
               ),
               const SizedBox(height: 32),
+              if (isOngoing)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton.icon(
+                      onPressed: !canComplete
+                          ? null
+                          : () {
+                              // Finalize Consultation
+                              for (final t in treatments) {
+                                store.updateTreatment(
+                                  t.copyWith(status: 'Completed'),
+                                );
+                              }
+                              store.updateVisit(
+                                visit.copyWith(status: 'complete'),
+                              );
+                              Navigator.pop(context);
+                              if (onComplete != null) onComplete();
+                            },
+                      icon: const Icon(Icons.check_circle_outline),
+                      label: const Text('Complete Consultation'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF10B981),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               Row(
                 children: [
                   Expanded(
@@ -1478,7 +1563,7 @@ Widget _invoiceItemRow(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             Text(
-              '\$${amount.toStringAsFixed(0)}',
+              '₹${amount.toStringAsFixed(0)}',
               style: GoogleFonts.poppins(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
@@ -1511,7 +1596,7 @@ Widget _invoiceSummaryRow(String label, double amount, {Color? color}) {
           style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey.shade600),
         ),
         Text(
-          '\$${amount.toStringAsFixed(0)}',
+          '₹${amount.toStringAsFixed(0)}',
           style: GoogleFonts.poppins(
             fontSize: 16,
             fontWeight: FontWeight.w700,
@@ -1570,16 +1655,16 @@ class _SaveButton extends StatelessWidget {
 }
 
 BoxDecoration _cardDecoration() => BoxDecoration(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(14),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.05),
-          blurRadius: 10,
-          offset: const Offset(0, 3),
-        ),
-      ],
-    );
+  color: Colors.white,
+  borderRadius: BorderRadius.circular(14),
+  boxShadow: [
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.05),
+      blurRadius: 10,
+      offset: const Offset(0, 3),
+    ),
+  ],
+);
 
 class _BottomSheetWrapper extends StatelessWidget {
   const _BottomSheetWrapper({required this.title, required this.child});
@@ -1790,24 +1875,28 @@ class _SittingItem extends StatelessWidget {
             color: Colors.black87,
           ),
         ),
-        trailing: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: balance <= 0
-                ? const Color(0xFFD1FAE5)
-                : const Color(0xFFFEE2E2),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Text(
-            '\$${sitting.cost?.toStringAsFixed(0) ?? '0'}',
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: balance <= 0
-                  ? const Color(0xFF065F46)
-                  : const Color(0xFFB91C1C),
+        trailing: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Text(
+              '₹${sitting.cost?.toStringAsFixed(0) ?? '0'}',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF4C1D95),
+              ),
             ),
-          ),
+            if ((sitting.cost ?? 0) > 0)
+              Text(
+                balance <= 0 ? 'Paid' : 'Pending',
+                style: GoogleFonts.poppins(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: balance <= 0 ? Colors.green : Colors.red,
+                ),
+              ),
+          ],
         ),
         children: [
           Padding(
@@ -1816,58 +1905,41 @@ class _SittingItem extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (sitting.notes != null)
-                  Text(
-                    sitting.notes!,
-                    style: GoogleFonts.poppins(
-                      fontSize: 13,
-                      color: Colors.grey.shade600,
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12.0),
+                    child: Text(
+                      sitting.notes!,
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        color: Colors.grey.shade600,
+                      ),
                     ),
                   ),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Paid: \$${paidAmount.toStringAsFixed(0)}',
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Text(
-                      'Balance: \$${balance.toStringAsFixed(0)}',
-                      style: GoogleFonts.poppins(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: balance > 0 ? Colors.red : Colors.green,
-                      ),
-                    ),
-                  ],
-                ),
                 if (balance > 0 && isOngoing)
                   Padding(
                     padding: const EdgeInsets.only(top: 12.0),
                     child: SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Colors.green),
+                          foregroundColor: Colors.green,
+                        ),
                         onPressed: () {
-                          showModalBottomSheet(
-                            context: context,
-                            isScrollControlled: true,
-                            backgroundColor: Colors.transparent,
-                            builder: (_) => _AddPaymentSheet(
+                          LocalStore.instance.addPayment(
+                            Payment(
+                              id: 'mock_pay_${DateTime.now().millisecondsSinceEpoch}',
                               visitId: visitId,
                               sittingId: sitting.id,
-                              onSave: (p) {
-                                LocalStore.instance.addPayment(p);
-                                onRefresh();
-                                Navigator.pop(context);
-                              },
+                              amountPaid: balance,
+                              paymentMode: 'Cash',
+                              paymentDate: DateTime.now(),
                             ),
                           );
+                          onRefresh();
                         },
-                        icon: const Icon(Icons.payment, size: 18),
-                        label: const Text('Add Payment'),
+                        icon: const Icon(Icons.check_circle_outline, size: 18),
+                        label: const Text('Mark Paid'),
                       ),
                     ),
                   ),
@@ -1879,4 +1951,3 @@ class _SittingItem extends StatelessWidget {
     );
   }
 }
-

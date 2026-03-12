@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/patient_model.dart';
+import '../theme/app_theme.dart';
 
 class ProfileTab extends StatelessWidget {
   const ProfileTab({this.patient, required this.isLoading, super.key});
@@ -18,7 +19,8 @@ class ProfileTab extends StatelessWidget {
     final p = patient;
     final phone = p?.phone ?? '+1 (555) 123-4567';
     final email =
-        p?.email ?? '${p?.firstName.toLowerCase() ?? 'sarah.johnson'}@email.com';
+        p?.email ??
+        '${p?.firstName.toLowerCase() ?? 'sarah.johnson'}@email.com';
     final address =
         p?.address ?? '123 Oak Street, Apartment 4B, Springfield, IL 62701';
     final regDate = p?.createdAt != null
@@ -45,7 +47,7 @@ class ProfileTab extends StatelessWidget {
                   style: GoogleFonts.poppins(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xFF334155),
+                    color: AppTheme.primaryColor,
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -79,7 +81,7 @@ class ProfileTab extends StatelessWidget {
                   style: GoogleFonts.poppins(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xFF334155),
+                    color: AppTheme.primaryColor,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -130,15 +132,16 @@ class _ContactRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 20, color: Colors.grey.shade500),
+        Icon(
+          icon,
+          size: 20,
+          color: AppTheme.primaryColor.withValues(alpha: 0.7),
+        ),
         const SizedBox(width: 16),
         Expanded(
           child: Text(
             text,
-            style: GoogleFonts.poppins(
-              fontSize: 14,
-              color: Colors.black87,
-            ),
+            style: GoogleFonts.poppins(fontSize: 14, color: Colors.black87),
           ),
         ),
       ],
@@ -170,4 +173,3 @@ class _AllergyPill extends StatelessWidget {
     );
   }
 }
-

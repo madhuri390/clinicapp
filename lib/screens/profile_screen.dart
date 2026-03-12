@@ -92,7 +92,11 @@ class ProfileScreen extends StatelessWidget {
                     color: _blue400,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.person, color: Colors.white, size: 32),
+                  child: const Icon(
+                    Icons.person,
+                    color: Colors.white,
+                    size: 32,
+                  ),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -109,10 +113,7 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       Text(
                         'Dental Surgeon',
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          color: _blue100,
-                        ),
+                        style: GoogleFonts.inter(fontSize: 14, color: _blue100),
                       ),
                     ],
                   ),
@@ -174,7 +175,7 @@ class ProfileScreen extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.attach_money, color: _green600, size: 20),
+              Icon(Icons.currency_rupee, color: _green600, size: 20),
               const SizedBox(width: 8),
               Text(
                 'Revenue Statistics',
@@ -195,13 +196,10 @@ class ProfileScreen extends StatelessWidget {
                   children: [
                     Text(
                       'Total Revenue',
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: _slate500,
-                      ),
+                      style: GoogleFonts.inter(fontSize: 12, color: _slate500),
                     ),
                     Text(
-                      '\$${ProfileScreen._totalRevenue}',
+                      '₹${ProfileScreen._totalRevenue}',
                       style: GoogleFonts.inter(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -217,13 +215,10 @@ class ProfileScreen extends StatelessWidget {
                   children: [
                     Text(
                       'This Month',
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: _slate500,
-                      ),
+                      style: GoogleFonts.inter(fontSize: 12, color: _slate500),
                     ),
                     Text(
-                      '\$${ProfileScreen._thisMonthRevenue}',
+                      '₹${ProfileScreen._thisMonthRevenue}',
                       style: GoogleFonts.inter(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -349,18 +344,12 @@ class ProfileScreen extends StatelessWidget {
         children: [
           Text(
             'Dental Care Management System',
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              color: _slate500,
-            ),
+            style: GoogleFonts.inter(fontSize: 14, color: _slate500),
           ),
           const SizedBox(height: 4),
           Text(
             'Version 1.0.0',
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              color: _slate500,
-            ),
+            style: GoogleFonts.inter(fontSize: 14, color: _slate500),
           ),
         ],
       ),
@@ -401,17 +390,11 @@ class _ContactRow extends StatelessWidget {
             children: [
               Text(
                 label,
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  color: _slate500,
-                ),
+                style: GoogleFonts.inter(fontSize: 12, color: _slate500),
               ),
               Text(
                 value,
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  color: _slate900,
-                ),
+                style: GoogleFonts.inter(fontSize: 14, color: _slate900),
               ),
             ],
           ),

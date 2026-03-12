@@ -44,4 +44,26 @@ class Sitting {
     if (cost != null) 'cost': cost,
     'status': status,
   };
+
+  Sitting copyWith({
+    String? id,
+    String? visitId,
+    String? treatmentPlanId,
+    DateTime? sittingDate,
+    String? durationStr,
+    String? notes,
+    double? cost,
+    String? status,
+    DateTime? createdAt,
+  }) => Sitting(
+    id: id ?? this.id,
+    visitId: visitId ?? this.visitId,
+    treatmentPlanId: treatmentPlanId ?? this.treatmentPlanId,
+    sittingDate: sittingDate ?? this.sittingDate,
+    durationStr: durationStr ?? this.durationStr,
+    notes: notes ?? this.notes,
+    cost: cost ?? this.cost,
+    status: status ?? this.status,
+    createdAt: createdAt ?? this.createdAt,
+  );
 }

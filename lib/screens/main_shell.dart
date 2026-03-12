@@ -30,16 +30,54 @@ class _MainShellState extends State<MainShell> {
     InventoryScreen(),
   ];
 
+  final List<GlobalKey<NavigatorState>> _navigatorKeys = [
+    GlobalKey<NavigatorState>(),
+    GlobalKey<NavigatorState>(),
+    GlobalKey<NavigatorState>(),
+    GlobalKey<NavigatorState>(),
+    GlobalKey<NavigatorState>(),
+  ];
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
-      bottomNavigationBar: _BottomNavBar(
-        currentIndex: _currentIndex,
-        onTap: (i) => setState(() => _currentIndex = i),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final navigator = _navigatorKeys[_currentIndex].currentState;
+        if (navigator != null && navigator.canPop()) {
+          navigator.pop();
+        } else {
+          if (_currentIndex != 0) {
+            setState(() => _currentIndex = 0);
+          } else {
+            // If on first tab and cannot pop, let the system handle it (exit)
+            // This requires making the scaffold poppable or using SystemNavigator
+          }
+        }
+      },
+      child: Scaffold(
+        body: IndexedStack(
+          index: _currentIndex,
+          children: List.generate(_screens.length, (i) {
+            return Navigator(
+              key: _navigatorKeys[i],
+              onGenerateRoute: (settings) {
+                return MaterialPageRoute(builder: (_) => _screens[i]);
+              },
+            );
+          }),
+        ),
+        bottomNavigationBar: _BottomNavBar(
+          currentIndex: _currentIndex,
+          onTap: (i) {
+            if (_currentIndex == i) {
+              _navigatorKeys[i].currentState?.popUntil((r) => r.isFirst);
+            } else {
+              setState(() => _currentIndex = i);
+            }
+          },
+        ),
       ),
     );
   }
@@ -48,10 +86,7 @@ class _MainShellState extends State<MainShell> {
 /// Custom bottom nav matching reference: flex items-center justify-around,
 /// icon w-5 h-5 (20px), gap-1, py-2, text-xs font-medium
 class _BottomNavBar extends StatelessWidget {
-  const _BottomNavBar({
-    required this.currentIndex,
-    required this.onTap,
-  });
+  const _BottomNavBar({required this.currentIndex, required this.onTap});
 
   final int currentIndex;
   final ValueChanged<int> onTap;
@@ -59,9 +94,21 @@ class _BottomNavBar extends StatelessWidget {
   static const _items = [
     (icon: Icons.home_outlined, activeIcon: Icons.home, label: 'Home'),
     (icon: Icons.people_outline, activeIcon: Icons.people, label: 'Patients'),
-    (icon: Icons.calendar_today_outlined, activeIcon: Icons.calendar_today, label: 'Appointments'),
-    (icon: Icons.chat_bubble_outline, activeIcon: Icons.chat_bubble, label: 'Messages'),
-    (icon: Icons.inventory_2_outlined, activeIcon: Icons.inventory_2, label: 'Inventory'),
+    (
+      icon: Icons.calendar_today_outlined,
+      activeIcon: Icons.calendar_today,
+      label: 'Appointments',
+    ),
+    (
+      icon: Icons.chat_bubble_outline,
+      activeIcon: Icons.chat_bubble,
+      label: 'Messages',
+    ),
+    (
+      icon: Icons.inventory_2_outlined,
+      activeIcon: Icons.inventory_2,
+      label: 'Inventory',
+    ),
   ];
 
   @override

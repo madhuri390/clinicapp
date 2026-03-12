@@ -60,7 +60,9 @@ class _NewConsultationSheetState extends State<NewConsultationSheet> {
                 context: context,
                 initialDate: _visitDate,
                 firstDate: DateTime(2000),
-                lastDate: DateTime.now(),
+                lastDate: DateTime.now().add(
+                  const Duration(days: 36500),
+                ), // Allow up to 100 years in future
               );
               if (d != null) setState(() => _visitDate = d);
             },
@@ -225,4 +227,3 @@ class _SheetField extends StatelessWidget {
     );
   }
 }
-

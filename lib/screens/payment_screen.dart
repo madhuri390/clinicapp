@@ -92,7 +92,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Payment of \$${amount.toStringAsFixed(2)} recorded'),
+        content: Text('Payment of ₹${amount.toStringAsFixed(2)} recorded'),
         behavior: SnackBarBehavior.floating,
         backgroundColor: AppTheme.primaryColor,
       ),
@@ -204,7 +204,9 @@ class _SummaryCard extends StatelessWidget {
           _SummaryRow(
             label: 'Balance',
             value: balance,
-            valueColor: balance > 0 ? Colors.orange.shade700 : Colors.green.shade700,
+            valueColor: balance > 0
+                ? Colors.orange.shade700
+                : Colors.green.shade700,
             bold: true,
           ),
         ],
@@ -234,16 +236,16 @@ class _SummaryRow extends StatelessWidget {
         Text(
           label,
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Colors.black54,
-                fontWeight: bold ? FontWeight.w600 : FontWeight.normal,
-              ),
+            color: Colors.black54,
+            fontWeight: bold ? FontWeight.w600 : FontWeight.normal,
+          ),
         ),
         Text(
-          '\$${value.toStringAsFixed(2)}',
+          '₹${value.toStringAsFixed(2)}',
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: valueColor ?? Colors.black87,
-                fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
-              ),
+            color: valueColor ?? Colors.black87,
+            fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
+          ),
         ),
       ],
     );
@@ -260,9 +262,9 @@ class _SectionHeader extends StatelessWidget {
     return Text(
       title,
       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            color: Colors.black87,
-            fontWeight: FontWeight.w600,
-          ),
+        color: Colors.black87,
+        fontWeight: FontWeight.w600,
+      ),
     );
   }
 }
@@ -308,11 +310,13 @@ class _PaymentFormCard extends StatelessWidget {
           children: [
             TextFormField(
               controller: amountController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               decoration: const InputDecoration(
                 labelText: 'Amount *',
                 hintText: '0.00',
-                prefixIcon: Icon(Icons.attach_money),
+                prefixIcon: Icon(Icons.currency_rupee),
               ),
               validator: (v) {
                 if (v == null || v.trim().isEmpty) return 'Amount is required';
@@ -388,7 +392,11 @@ class _PaymentListTile extends StatelessWidget {
               color: AppTheme.primaryColor.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(Icons.check_circle_outline, color: AppTheme.primaryColor, size: 22),
+            child: Icon(
+              Icons.check_circle_outline,
+              color: AppTheme.primaryColor,
+              size: 22,
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -396,11 +404,11 @@ class _PaymentListTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '\$${record.amount.toStringAsFixed(2)}',
+                  '₹${record.amount.toStringAsFixed(2)}',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.black87,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    color: Colors.black87,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Row(
@@ -410,8 +418,8 @@ class _PaymentListTile extends StatelessWidget {
                     Text(
                       dateStr,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.grey.shade600,
-                          ),
+                        color: Colors.grey.shade600,
+                      ),
                     ),
                   ],
                 ),
@@ -419,9 +427,9 @@ class _PaymentListTile extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(
                     record.notes!,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.black54,
-                        ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: Colors.black54),
                   ),
                 ],
               ],
@@ -434,8 +442,18 @@ class _PaymentListTile extends StatelessWidget {
 
   static String _formatDate(DateTime d) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[d.month - 1]} ${d.day}, ${d.year}';
   }

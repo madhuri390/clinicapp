@@ -8,17 +8,17 @@ import 'patient_details_consultation_card.dart';
 class HistoryTabPlaceholder extends StatelessWidget {
   const HistoryTabPlaceholder({
     super.key,
+    required this.visits,
     required this.onRefresh,
-    required this.onDeleteVisit,
   });
 
+  final List<Visit> visits;
   final VoidCallback onRefresh;
-  final ValueChanged<Visit> onDeleteVisit;
 
   @override
   Widget build(BuildContext context) {
     final store = LocalStore.instance;
-    final historyVisits = store.getVisitsForPatient('_global_');
+    final historyVisits = visits.where((v) => v.status == 'complete').toList();
 
     if (historyVisits.isEmpty) {
       return Center(
@@ -38,10 +38,12 @@ class HistoryTabPlaceholder extends StatelessWidget {
       itemCount: historyVisits.length,
       itemBuilder: (context, index) {
         final visit = historyVisits[index];
-        final visitTreatments =
-            store.getTreatmentsForVisits([visit.id]).toList();
-        final visitPrescriptions =
-            store.getPrescriptionsForVisits([visit.id]).toList();
+        final visitTreatments = store.getTreatmentsForVisits([
+          visit.id,
+        ]).toList();
+        final visitPrescriptions = store.getPrescriptionsForVisits([
+          visit.id,
+        ]).toList();
         final visitSittings = store.getSittingsForVisits([visit.id]).toList();
         final visitPayments = store.getPaymentsForVisits([visit.id]).toList();
 
@@ -54,10 +56,8 @@ class HistoryTabPlaceholder extends StatelessWidget {
           isOngoing: false,
           onRefresh: onRefresh,
           onEditVisit: (_) {},
-          onDeleteVisit: onDeleteVisit,
         );
       },
     );
   }
 }
-

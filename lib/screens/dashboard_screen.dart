@@ -60,10 +60,7 @@ class _MockReminder {
 
 /// Mock consultation for revenue/ongoing count.
 class _MockConsultation {
-  const _MockConsultation({
-    required this.status,
-    required this.totalCost,
-  });
+  const _MockConsultation({required this.status, required this.totalCost});
   final String status;
   final int totalCost;
 }
@@ -94,20 +91,83 @@ class _DashboardScreenState extends State<DashboardScreen> {
   ];
 
   static const _mockInventory = [
-    _MockInventoryItem(id: '1', name: 'Anesthetic (Lidocaine 2%)', quantity: 25, unit: 'vials', minStock: 10),
-    _MockInventoryItem(id: '2', name: 'Dental Gloves (Medium)', quantity: 150, unit: 'pairs', minStock: 50),
-    _MockInventoryItem(id: '3', name: 'Amalgam Filling Material', quantity: 8, unit: 'packs', minStock: 5),
-    _MockInventoryItem(id: '4', name: 'Composite Resin', quantity: 3, unit: 'syringes', minStock: 5),
-    _MockInventoryItem(id: '5', name: 'Amoxicillin 500mg', quantity: 120, unit: 'tablets', minStock: 50),
-    _MockInventoryItem(id: '6', name: 'Ibuprofen 400mg', quantity: 200, unit: 'tablets', minStock: 100),
-    _MockInventoryItem(id: '7', name: 'Face Masks', quantity: 80, unit: 'pieces', minStock: 100),
-    _MockInventoryItem(id: '8', name: 'Dental Burs (Assorted)', quantity: 45, unit: 'pieces', minStock: 20),
+    _MockInventoryItem(
+      id: '1',
+      name: 'Anesthetic (Lidocaine 2%)',
+      quantity: 25,
+      unit: 'vials',
+      minStock: 10,
+    ),
+    _MockInventoryItem(
+      id: '2',
+      name: 'Dental Gloves (Medium)',
+      quantity: 150,
+      unit: 'pairs',
+      minStock: 50,
+    ),
+    _MockInventoryItem(
+      id: '3',
+      name: 'Amalgam Filling Material',
+      quantity: 8,
+      unit: 'packs',
+      minStock: 5,
+    ),
+    _MockInventoryItem(
+      id: '4',
+      name: 'Composite Resin',
+      quantity: 3,
+      unit: 'syringes',
+      minStock: 5,
+    ),
+    _MockInventoryItem(
+      id: '5',
+      name: 'Amoxicillin 500mg',
+      quantity: 120,
+      unit: 'tablets',
+      minStock: 50,
+    ),
+    _MockInventoryItem(
+      id: '6',
+      name: 'Ibuprofen 400mg',
+      quantity: 200,
+      unit: 'tablets',
+      minStock: 100,
+    ),
+    _MockInventoryItem(
+      id: '7',
+      name: 'Face Masks',
+      quantity: 80,
+      unit: 'pieces',
+      minStock: 100,
+    ),
+    _MockInventoryItem(
+      id: '8',
+      name: 'Dental Burs (Assorted)',
+      quantity: 45,
+      unit: 'pieces',
+      minStock: 20,
+    ),
   ];
 
   static const _upcomingReminders = [
-    _MockReminder(id: 1, patient: 'Sarah Johnson', message: 'Root canal follow-up appointment', date: '2026-03-19'),
-    _MockReminder(id: 2, patient: 'Michael Chen', message: 'Crown placement scheduled', date: '2026-03-15'),
-    _MockReminder(id: 3, patient: 'Emma Williams', message: 'Wisdom tooth extraction surgery', date: '2026-03-20'),
+    _MockReminder(
+      id: 1,
+      patient: 'Sarah Johnson',
+      message: 'Root canal follow-up appointment',
+      date: '2026-03-19',
+    ),
+    _MockReminder(
+      id: 2,
+      patient: 'Michael Chen',
+      message: 'Crown placement scheduled',
+      date: '2026-03-15',
+    ),
+    _MockReminder(
+      id: 3,
+      patient: 'Emma Williams',
+      message: 'Wisdom tooth extraction surgery',
+      date: '2026-03-20',
+    ),
   ];
 
   int get _totalRevenue =>
@@ -214,10 +274,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     Text(
                       'Dental Surgeon',
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: _slate500,
-                      ),
+                      style: GoogleFonts.inter(fontSize: 12, color: _slate500),
                     ),
                   ],
                 ),
@@ -291,10 +348,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const SizedBox(height: 4),
                 Text(
                   'Welcome back, Dr. Foster',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    color: _blue100,
-                  ),
+                  style: GoogleFonts.inter(fontSize: 14, color: _blue100),
                 ),
               ],
             ),
@@ -305,7 +359,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Stack(
               clipBehavior: Clip.none,
               children: [
-                Icon(Icons.notifications_outlined, color: Colors.white, size: 24),
+                Icon(
+                  Icons.notifications_outlined,
+                  color: Colors.white,
+                  size: 24,
+                ),
                 Positioned(
                   top: -2,
                   right: -2,
@@ -334,7 +392,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           GestureDetector(
             onTap: () => setState(() => _showProfileMenu = !_showProfileMenu),
             child: Container(
-              padding: const EdgeInsets.only(left: 4, right: 12, top: 4, bottom: 4),
+              padding: const EdgeInsets.only(
+                left: 4,
+                right: 12,
+                top: 4,
+                bottom: 4,
+              ),
               decoration: BoxDecoration(
                 color: _blue500,
                 borderRadius: BorderRadius.circular(999),
@@ -349,10 +412,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       color: _blue400,
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.person, color: Colors.white, size: 20),
+                    child: const Icon(
+                      Icons.person,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 8),
-                  Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 16),
+                  Icon(
+                    Icons.keyboard_arrow_down,
+                    color: Colors.white,
+                    size: 16,
+                  ),
                 ],
               ),
             ),
@@ -395,13 +466,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const SizedBox(height: 4),
                     Text(
                       '${_lowStockItems.length} inventory item(s) are running low on stock',
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        color: _orange700,
-                      ),
+                      style: GoogleFonts.inter(fontSize: 14, color: _orange700),
                     ),
                     const SizedBox(height: 8),
-                    ..._lowStockItems.take(3).map(
+                    ..._lowStockItems
+                        .take(3)
+                        .map(
                           (item) => Padding(
                             padding: const EdgeInsets.only(bottom: 4),
                             child: Text(
@@ -448,9 +518,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         const SizedBox(width: 12),
         Expanded(
           child: _StatCard(
-            icon: Icons.attach_money,
+            icon: Icons.currency_rupee,
             iconColor: _green600,
-            value: '\$$_totalRevenue',
+            value: '₹$_totalRevenue',
             label: 'Total Revenue',
             trend: '$_revenueIncrease%',
           ),
@@ -495,10 +565,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const SizedBox(height: 8),
                     Text(
                       "Today's Appointments",
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        color: _slate600,
-                      ),
+                      style: GoogleFonts.inter(fontSize: 14, color: _slate600),
                     ),
                   ],
                 ),
@@ -540,10 +607,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const SizedBox(height: 8),
                     Text(
                       'Ongoing Treatments',
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        color: _slate600,
-                      ),
+                      style: GoogleFonts.inter(fontSize: 14, color: _slate600),
                     ),
                   ],
                 ),
@@ -621,7 +685,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ),
                       Text(
-                        '\$$amount',
+                        '₹$amount',
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
@@ -727,7 +791,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.notifications_outlined, color: _orange600, size: 16),
+                    Icon(
+                      Icons.notifications_outlined,
+                      color: _orange600,
+                      size: 16,
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -815,7 +883,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     onTap: _onAddPatient,
                     borderRadius: BorderRadius.circular(8),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                        horizontal: 8,
+                      ),
                       alignment: Alignment.center,
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
@@ -849,7 +920,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     onTap: () => _go(const AppointmentsScreen()),
                     borderRadius: BorderRadius.circular(8),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                        horizontal: 8,
+                      ),
                       alignment: Alignment.center,
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
@@ -857,7 +931,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           mainAxisSize: MainAxisSize.min,
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.calendar_today, color: _purple600, size: 18),
+                            Icon(
+                              Icons.calendar_today,
+                              color: _purple600,
+                              size: 18,
+                            ),
                             const SizedBox(width: 6),
                             Text(
                               'New Appointment',
@@ -951,13 +1029,7 @@ class _StatCard extends StatelessWidget {
               color: _slate900,
             ),
           ),
-          Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: 14,
-              color: _slate600,
-            ),
-          ),
+          Text(label, style: GoogleFonts.inter(fontSize: 14, color: _slate600)),
         ],
       ),
     );
@@ -990,13 +1062,7 @@ class _ProfileMenuItem extends StatelessWidget {
             children: [
               Icon(icon, size: 16, color: color),
               const SizedBox(width: 8),
-              Text(
-                label,
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  color: color,
-                ),
-              ),
+              Text(label, style: GoogleFonts.inter(fontSize: 14, color: color)),
             ],
           ),
         ),
@@ -1004,4 +1070,3 @@ class _ProfileMenuItem extends StatelessWidget {
     );
   }
 }
-

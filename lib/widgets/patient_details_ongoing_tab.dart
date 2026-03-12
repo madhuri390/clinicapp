@@ -16,8 +16,8 @@ class OngoingTabPlaceholder extends StatelessWidget {
     required this.prescriptions,
     required this.payments,
     required this.onRefresh,
+    this.onComplete,
     required this.onEditVisit,
-    required this.onDeleteVisit,
   });
 
   final List<Visit> visits;
@@ -25,8 +25,8 @@ class OngoingTabPlaceholder extends StatelessWidget {
   final List<Prescription> prescriptions;
   final List<Payment> payments;
   final VoidCallback onRefresh;
+  final VoidCallback? onComplete;
   final void Function(Visit) onEditVisit;
-  final void Function(Visit) onDeleteVisit;
 
   @override
   Widget build(BuildContext context) {
@@ -53,40 +53,48 @@ class OngoingTabPlaceholder extends StatelessWidget {
     );
 
     final seenTreatments = <String>{};
-    final uniqueTreatments =
-        ongoingTreatments.where((t) => seenTreatments.add(t.id)).toList();
+    final uniqueTreatments = ongoingTreatments
+        .where((t) => seenTreatments.add(t.id))
+        .toList();
     final seenPrescriptions = <String>{};
-    final uniquePrescriptions =
-        ongoingPrescriptions.where((p) => seenPrescriptions.add(p.id)).toList();
+    final uniquePrescriptions = ongoingPrescriptions
+        .where((p) => seenPrescriptions.add(p.id))
+        .toList();
+
+    final ongoingVisits = visits.where((v) => v.status == 'ongoing').toList();
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: visits.length,
+      itemCount: ongoingVisits.length,
       itemBuilder: (context, index) {
-        final visit = visits[index];
+        final visit = ongoingVisits[index];
         final visitPayments = [
           ...payments.where((p) => p.visitId == visit.id),
           ...store.getPaymentsForVisits([visit.id]),
         ];
         final seenPayments = <String>{};
-        final uniqueVisitPayments =
-            visitPayments.where((p) => seenPayments.add(p.id)).toList();
+        final uniqueVisitPayments = visitPayments
+            .where((p) => seenPayments.add(p.id))
+            .toList();
 
         return ConsultationCard(
           visit: visit,
-          treatments:
-              uniqueTreatments.where((t) => t.visitId == visit.id).toList(),
-          prescriptions:
-              uniquePrescriptions.where((p) => p.visitId == visit.id).toList(),
-          sittings: ongoingSittings.where((s) => s.visitId == visit.id).toList(),
+          treatments: uniqueTreatments
+              .where((t) => t.visitId == visit.id)
+              .toList(),
+          prescriptions: uniquePrescriptions
+              .where((p) => p.visitId == visit.id)
+              .toList(),
+          sittings: ongoingSittings
+              .where((s) => s.visitId == visit.id)
+              .toList(),
           payments: uniqueVisitPayments,
           isOngoing: true,
           onRefresh: onRefresh,
+          onComplete: onComplete,
           onEditVisit: onEditVisit,
-          onDeleteVisit: onDeleteVisit,
         );
       },
     );
   }
 }
-

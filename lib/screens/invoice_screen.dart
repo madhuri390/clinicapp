@@ -113,7 +113,10 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
             const SizedBox(height: 12),
             ElevatedButton.icon(
               onPressed: _isPaid ? null : _onMarkAsPaid,
-              icon: Icon(_isPaid ? Icons.check_circle : Icons.check_circle_outline, size: 22),
+              icon: Icon(
+                _isPaid ? Icons.check_circle : Icons.check_circle_outline,
+                size: 22,
+              ),
               label: Text(_isPaid ? 'Paid' : 'Mark as Paid'),
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 14),
@@ -159,7 +162,11 @@ class _InvoiceHeaderCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.person_outline, color: AppTheme.primaryColor, size: 24),
+              Icon(
+                Icons.person_outline,
+                color: AppTheme.primaryColor,
+                size: 24,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -167,16 +174,16 @@ class _InvoiceHeaderCard extends StatelessWidget {
                   children: [
                     Text(
                       'Patient',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Colors.black54,
-                          ),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: Colors.black54),
                     ),
                     Text(
                       patientName,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Colors.black87,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        color: Colors.black87,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ),
@@ -186,23 +193,27 @@ class _InvoiceHeaderCard extends StatelessWidget {
           const SizedBox(height: 16),
           Row(
             children: [
-              Icon(Icons.calendar_today_outlined, color: AppTheme.primaryColor, size: 24),
+              Icon(
+                Icons.calendar_today_outlined,
+                color: AppTheme.primaryColor,
+                size: 24,
+              ),
               const SizedBox(width: 12),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'Visit Date',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.black54,
-                        ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: Colors.black54),
                   ),
                   Text(
                     dateStr,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: Colors.black87,
-                          fontWeight: FontWeight.w500,
-                        ),
+                      color: Colors.black87,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ],
               ),
@@ -215,8 +226,18 @@ class _InvoiceHeaderCard extends StatelessWidget {
 
   static String _formatDate(DateTime d) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[d.month - 1]} ${d.day}, ${d.year}';
   }
@@ -248,9 +269,9 @@ class _TreatmentSummaryCard extends StatelessWidget {
           Text(
             'Treatment Summary',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.black87,
-                  fontWeight: FontWeight.w600,
-                ),
+              color: Colors.black87,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 16),
           ...treatments.map(
@@ -262,17 +283,17 @@ class _TreatmentSummaryCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       t.name,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.black87,
-                          ),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyMedium?.copyWith(color: Colors.black87),
                     ),
                   ),
                   Text(
-                    '\$${t.amount.toStringAsFixed(2)}',
+                    '₹${t.amount.toStringAsFixed(2)}',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.black87,
-                          fontWeight: FontWeight.w500,
-                        ),
+                      color: Colors.black87,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ],
               ),
@@ -351,16 +372,16 @@ class _AmountRow extends StatelessWidget {
         Text(
           label,
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Colors.black54,
-                fontWeight: bold ? FontWeight.w600 : FontWeight.normal,
-              ),
+            color: Colors.black54,
+            fontWeight: bold ? FontWeight.w600 : FontWeight.normal,
+          ),
         ),
         Text(
-          '\$${value.toStringAsFixed(2)}',
+          '₹${value.toStringAsFixed(2)}',
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: valueColor ?? Colors.black87,
-                fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
-              ),
+            color: valueColor ?? Colors.black87,
+            fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
+          ),
         ),
       ],
     );

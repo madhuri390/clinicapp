@@ -56,4 +56,30 @@ class Payment {
     'payment_date': (paymentDate ?? DateTime.now()).toIso8601String(),
     if (notes != null) 'notes': notes,
   };
+
+  Payment copyWith({
+    String? id,
+    String? visitId,
+    String? treatmentPlanId,
+    String? sittingId,
+    String? prescriptionId,
+    String? fileId,
+    double? amountPaid,
+    String? paymentMode,
+    DateTime? paymentDate,
+    String? notes,
+    DateTime? createdAt,
+  }) => Payment(
+    id: id ?? this.id,
+    visitId: visitId ?? this.visitId,
+    treatmentPlanId: treatmentPlanId ?? this.treatmentPlanId,
+    sittingId: sittingId ?? this.sittingId,
+    prescriptionId: prescriptionId ?? this.prescriptionId,
+    fileId: fileId ?? this.fileId,
+    amountPaid: amountPaid ?? this.amountPaid,
+    paymentMode: paymentMode ?? this.paymentMode,
+    paymentDate: paymentDate ?? this.paymentDate,
+    notes: notes ?? this.notes,
+    createdAt: createdAt ?? this.createdAt,
+  );
 }

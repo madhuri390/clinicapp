@@ -19,23 +19,6 @@ class LocalStore {
   final List<FileAttachment> _mockFiles = [];
 
   List<Visit> getVisitsForPatient(String patientId) {
-    // If we have global mock visits, assign them to this patient so they
-    // show up in the UI for testing purposes.
-    final globalMocks = _mockVisits.where((v) => v.patientId == '_global_').toList();
-    for (var mock in globalMocks) {
-      final idx = _mockVisits.indexOf(mock);
-      _mockVisits[idx] = Visit(
-        id: mock.id,
-        patientId: patientId, // Bind to the requested patient
-        visitDate: mock.visitDate,
-        chiefComplaint: mock.chiefComplaint,
-        diagnosis: mock.diagnosis,
-        notes: mock.notes,
-        nextVisitDate: mock.nextVisitDate,
-        createdAt: mock.createdAt,
-      );
-    }
-    
     return _mockVisits.where((v) => v.patientId == patientId).toList();
   }
 
@@ -44,6 +27,7 @@ class LocalStore {
     final idx = _mockVisits.indexWhere((v) => v.id == updated.id);
     if (idx >= 0) _mockVisits[idx] = updated;
   }
+
   void deleteVisit(String id) {
     _mockVisits.removeWhere((v) => v.id == id);
   }
@@ -110,6 +94,10 @@ class LocalStore {
   }
 
   void addPrescription(Prescription p) => _mockPrescriptions.add(p);
+  void updatePrescription(Prescription updated) {
+    final idx = _mockPrescriptions.indexWhere((p) => p.id == updated.id);
+    if (idx >= 0) _mockPrescriptions[idx] = updated;
+  }
 
   // ── Sittings ───────────────────────────────────────────────────────────
   List<Sitting> getSittingsForTreatment(String treatmentId) {
@@ -194,6 +182,10 @@ class LocalStore {
   }
 
   void addFile(FileAttachment file) => _mockFiles.add(file);
+  void updateFileAttachment(FileAttachment updated) {
+    final idx = _mockFiles.indexWhere((f) => f.id == updated.id);
+    if (idx >= 0) _mockFiles[idx] = updated;
+  }
 
   // ── Seed ───────────────────────────────────────────────────────────────
   bool _seeded = false;
@@ -235,12 +227,13 @@ class LocalStore {
         id: treatId2,
         visitId: visitId2,
         treatmentName: 'Tooth Extraction',
-        description: 'Surgical extraction of fractured premolar with local anesthesia',
+        description:
+            'Surgical extraction of fractured premolar with local anesthesia',
         totalCost: 1500,
         status: 'Planned',
       ),
     );
-    
+
     _mockPrescriptions.add(
       const Prescription(
         id: 'mock_rx2',
@@ -276,7 +269,6 @@ class LocalStore {
       ),
     );
 
-
     // ── Case 3: In-Progress Treatment (10 days ago) ──
     const visitId3 = 'mock_v3';
     _mockVisits.add(
@@ -295,7 +287,8 @@ class LocalStore {
         id: treatId3,
         visitId: visitId3,
         treatmentName: 'Root Canal Treatment (RCT)',
-        description: 'Access opening, BMW, and obturation for lower right first molar',
+        description:
+            'Access opening, BMW, and obturation for lower right first molar',
         totalCost: 4500,
         status: 'In Progress',
       ),
@@ -308,7 +301,8 @@ class LocalStore {
         treatmentPlanId: treatId3,
         sittingDate: now.subtract(const Duration(days: 10)),
         durationStr: '45 mins',
-        notes: 'Access opening done. Canals located and extirpation completed. Calcium hydroxide dressing given.',
+        notes:
+            'Access opening done. Canals located and extirpation completed. Calcium hydroxide dressing given.',
         cost: 2000,
         status: 'Completed',
       ),
@@ -357,7 +351,8 @@ class LocalStore {
         id: treatId4,
         visitId: visitId4,
         treatmentName: 'Orthodontic Braces (Metal)',
-        description: 'Correction of malocclusion with metal brackets. Estimated duration: 18 months.',
+        description:
+            'Correction of malocclusion with metal brackets. Estimated duration: 18 months.',
         totalCost: 35000,
         status: 'In Progress',
       ),
@@ -376,7 +371,7 @@ class LocalStore {
         status: 'Completed',
       ),
     );
-    
+
     _mockPayments.add(
       Payment(
         id: 'mock_p4_1',
@@ -397,7 +392,8 @@ class LocalStore {
         treatmentPlanId: treatId4,
         sittingDate: now.subtract(const Duration(days: 30)),
         durationStr: '30 mins',
-        notes: 'Review. Wire upgraded to 0.16 NiTi upper and lower. Ligature ties changed (Blue).',
+        notes:
+            'Review. Wire upgraded to 0.16 NiTi upper and lower. Ligature ties changed (Blue).',
         cost: 1000, // Monthly installment
         status: 'Completed',
       ),
@@ -435,13 +431,14 @@ class LocalStore {
     );
     _mockVisits.add(vPlanned);
 
-    const tPlannedId = 'ongoing_t_planned';
+    final tPlannedId = 'ongoing_t_${patientId}_planned';
     _mockTreatments.add(
       TreatmentPlan(
         id: tPlannedId,
         visitId: plannedVisitId,
         treatmentName: 'Fluoride Varnish Application',
-        description: 'Topical fluoride to strengthen enamel and reduce sensitivity.',
+        description:
+            'Topical fluoride to strengthen enamel and reduce sensitivity.',
         totalCost: 150,
         status: 'Planned',
       ),
@@ -458,7 +455,7 @@ class LocalStore {
     );
     _mockVisits.add(vActive);
 
-    const tActiveId = 'ongoing_t_active';
+    final tActiveId = 'ongoing_t_${patientId}_active';
     _mockTreatments.add(
       TreatmentPlan(
         id: tActiveId,
@@ -472,7 +469,7 @@ class LocalStore {
     );
 
     final sActive1 = Sitting(
-      id: 'ongoing_s_active_1',
+      id: 'ongoing_s_${patientId}_active_1',
       visitId: vActive.id,
       treatmentPlanId: tActiveId,
       sittingDate: now.subtract(const Duration(days: 7)),
@@ -481,7 +478,7 @@ class LocalStore {
       cost: 600,
     );
     final sActive2 = Sitting(
-      id: 'ongoing_s_active_2',
+      id: 'ongoing_s_${patientId}_active_2',
       visitId: vActive.id,
       treatmentPlanId: tActiveId,
       sittingDate: now.subtract(const Duration(days: 2)),
@@ -493,7 +490,7 @@ class LocalStore {
 
     _mockPayments.addAll([
       Payment(
-        id: 'ongoing_p_active_deposit',
+        id: 'ongoing_p_${patientId}_active_deposit',
         visitId: vActive.id,
         sittingId: sActive1.id,
         amountPaid: 400,
@@ -503,7 +500,7 @@ class LocalStore {
       ),
       // Second sitting still partially unpaid to show a balance.
       Payment(
-        id: 'ongoing_p_active_partial',
+        id: 'ongoing_p_${patientId}_active_partial',
         visitId: vActive.id,
         sittingId: sActive2.id,
         amountPaid: 300,
@@ -521,41 +518,91 @@ class LocalStore {
       visitDate: now.subtract(const Duration(days: 3)),
       chiefComplaint: 'Coffee stains on front teeth',
       diagnosis: 'Extrinsic staining',
+      status: 'complete',
     );
     _mockVisits.add(vCompleted);
 
-    const tCompletedId = 'ongoing_t_completed';
+    final tCompletedId = 'ongoing_t_${patientId}_completed';
     _mockTreatments.add(
       TreatmentPlan(
         id: tCompletedId,
         visitId: completedVisitId,
         treatmentName: 'In‑office Teeth Whitening',
-        description: 'Single‑visit whitening session with custom shade matching.',
+        description:
+            'Single‑visit whitening session with custom shade matching.',
         totalCost: 500,
         status: 'Completed',
       ),
     );
 
     final sCompleted = Sitting(
-      id: 'ongoing_s_completed_1',
+      id: 'ongoing_s_${patientId}_completed_1',
       visitId: vCompleted.id,
       treatmentPlanId: tCompletedId,
       sittingDate: now.subtract(const Duration(days: 3)),
       durationStr: '60 mins',
-      notes: 'Full whitening session completed. Post‑op sensitivity instructions given.',
+      notes:
+          'Full whitening session completed. Post‑op sensitivity instructions given.',
       cost: 500,
     );
     _mockSittings.add(sCompleted);
 
     _mockPayments.add(
       Payment(
-        id: 'ongoing_p_completed_full',
+        id: 'ongoing_p_${patientId}_completed_full',
         visitId: vCompleted.id,
         sittingId: sCompleted.id,
         amountPaid: 500,
         paymentMode: 'Cash',
         paymentDate: now.subtract(const Duration(days: 3)),
         notes: 'Full payment for whitening session',
+      ),
+    );
+
+    // Visit 4: Another active case – Root Canal with pending sittings
+    final rctVisitId = 'ongoing_${patientId}_rct';
+    _mockVisits.add(
+      Visit(
+        id: rctVisitId,
+        patientId: patientId,
+        visitDate: now.subtract(const Duration(days: 14)),
+        chiefComplaint: 'Sharp pain when biting',
+        diagnosis: 'Irreversible pulpitis #46',
+      ),
+    );
+
+    final tRctId = 'ongoing_t_${patientId}_rct';
+    _mockTreatments.add(
+      TreatmentPlan(
+        id: tRctId,
+        visitId: rctVisitId,
+        treatmentName: 'Root Canal Treatment (RCT)',
+        description: 'Endodontic therapy followed by crown placement.',
+        totalCost: 1800,
+        status: 'In Progress',
+      ),
+    );
+
+    final sRct1 = Sitting(
+      id: 'ongoing_s_${patientId}_rct_1',
+      visitId: rctVisitId,
+      treatmentPlanId: tRctId,
+      sittingDate: now.subtract(const Duration(days: 14)),
+      durationStr: '60 mins',
+      notes: 'Access opening and pulp extirpation.',
+      cost: 500,
+    );
+    _mockSittings.add(sRct1);
+
+    _mockPayments.add(
+      Payment(
+        id: 'ongoing_p_${patientId}_rct_1',
+        visitId: rctVisitId,
+        sittingId: sRct1.id,
+        amountPaid: 500,
+        paymentMode: 'UPI',
+        paymentDate: now.subtract(const Duration(days: 14)),
+        notes: 'RCT Stage 1 payment',
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/patient_model.dart';
+import '../theme/app_theme.dart';
 
 class SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   SliverAppBarDelegate(this.tabBar);
@@ -19,7 +20,7 @@ class SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) {
     return Container(
-      color: const Color(0xFFF9FAFB),
+      color: AppTheme.lightBlueBackground,
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
       alignment: Alignment.center,
       child: Container(
@@ -41,11 +42,7 @@ class SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 }
 
 class PatientHeader extends StatelessWidget {
-  const PatientHeader({
-    super.key,
-    this.patient,
-    required this.displayName,
-  });
+  const PatientHeader({super.key, this.patient, required this.displayName});
 
   final Patient? patient;
   final String displayName;
@@ -68,10 +65,10 @@ class PatientHeader extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 28,
-            backgroundColor: const Color(0xFFD6E4FF),
-            child: const Icon(
+            backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+            child: Icon(
               Icons.person_outline,
-              color: Color(0xFF3366FF),
+              color: AppTheme.primaryColor,
               size: 30,
             ),
           ),
@@ -120,4 +117,3 @@ class PatientHeader extends StatelessWidget {
     );
   }
 }
-

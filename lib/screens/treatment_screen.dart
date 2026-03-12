@@ -173,7 +173,7 @@ class _TreatmentCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '\$${treatment.totalCost.toStringAsFixed(2)}',
+                    '₹${treatment.totalCost.toStringAsFixed(2)}',
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: Colors.black87,
                       fontWeight: FontWeight.w500,
@@ -305,7 +305,7 @@ class _SummaryRow extends StatelessWidget {
           ),
         ),
         Text(
-          '\$${value.toStringAsFixed(2)}',
+          '₹${value.toStringAsFixed(2)}',
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
             color: valueColor ?? Colors.black87,
             fontWeight: bold ? FontWeight.w700 : FontWeight.w500,

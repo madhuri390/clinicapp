@@ -76,9 +76,7 @@ class _PatientListScreenState extends State<PatientListScreen> {
 
   Future<void> _onAddPatient() async {
     final added = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (_) => const PatientFormScreen(),
-      ),
+      MaterialPageRoute<bool>(builder: (_) => const PatientFormScreen()),
     );
     if (added == true && mounted) {
       await _loadPatients(query: _searchCtrl.text.trim());
@@ -88,7 +86,7 @@ class _PatientListScreenState extends State<PatientListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: AppTheme.lightBlueBackground,
       appBar: AppBar(
         title: Text(
           'Patients',
@@ -98,7 +96,7 @@ class _PatientListScreenState extends State<PatientListScreen> {
             color: Colors.black87,
           ),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: AppTheme.lightBlueBackground,
         elevation: 0,
         scrolledUnderElevation: 1,
         centerTitle: false,
@@ -119,8 +117,8 @@ class _PatientListScreenState extends State<PatientListScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _onAddPatient,
         backgroundColor: AppTheme.primaryColor,
-        icon: const Icon(Icons.person_add_outlined),
-        label: const Text('Add Patient'),
+        icon: const Icon(Icons.person_add_outlined, color: Colors.white),
+        label: const Text('Add Patient', style: TextStyle(color: Colors.white)),
       ),
     );
   }
@@ -136,19 +134,26 @@ class _PatientListScreenState extends State<PatientListScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.wifi_off_outlined,
-                  size: 48, color: Colors.grey.shade400),
+              Icon(
+                Icons.wifi_off_outlined,
+                size: 48,
+                color: Colors.grey.shade400,
+              ),
               const SizedBox(height: 12),
               Text(
                 'Unable to load patients',
                 style: GoogleFonts.poppins(
-                    fontSize: 16, fontWeight: FontWeight.w600),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 6),
               Text(
                 _error!,
                 style: GoogleFonts.poppins(
-                    fontSize: 12, color: Colors.grey.shade600),
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
@@ -173,15 +178,16 @@ class _PatientListScreenState extends State<PatientListScreen> {
               _searchCtrl.text.isEmpty
                   ? 'No patients yet'
                   : 'No patients match your search',
-              style: GoogleFonts.poppins(
-                  fontSize: 15, color: Colors.black54),
+              style: GoogleFonts.poppins(fontSize: 15, color: Colors.black54),
             ),
             if (_searchCtrl.text.isEmpty) ...[
               const SizedBox(height: 8),
               Text(
                 'Tap + Add Patient to get started',
                 style: GoogleFonts.poppins(
-                    fontSize: 13, color: Colors.grey.shade500),
+                  fontSize: 13,
+                  color: Colors.grey.shade500,
+                ),
               ),
             ],
           ],
@@ -213,7 +219,7 @@ class _SearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.white,
+      color: Colors.transparent,
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       child: TextField(
         controller: controller,
@@ -235,8 +241,10 @@ class _SearchBar extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide.none,
           ),
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 12,
+          ),
         ),
       ),
     );
@@ -268,8 +276,9 @@ class _PatientTile extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 22,
-                  backgroundColor:
-                      AppTheme.primaryColor.withValues(alpha: 0.12),
+                  backgroundColor: AppTheme.primaryColor.withValues(
+                    alpha: 0.12,
+                  ),
                   child: Text(
                     patient.firstName.isNotEmpty
                         ? patient.firstName[0].toUpperCase()
@@ -297,8 +306,11 @@ class _PatientTile extends StatelessWidget {
                       const SizedBox(height: 3),
                       Row(
                         children: [
-                          Icon(Icons.phone_outlined,
-                              size: 13, color: Colors.grey.shade500),
+                          Icon(
+                            Icons.phone_outlined,
+                            size: 13,
+                            color: Colors.grey.shade500,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             patient.phone,
@@ -312,16 +324,18 @@ class _PatientTile extends StatelessWidget {
                             Text(
                               patient.gender!,
                               style: GoogleFonts.poppins(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade500),
+                                fontSize: 12,
+                                color: Colors.grey.shade500,
+                              ),
                             ),
                           ],
                           if (patient.age != null) ...[
                             Text(
                               ', ${patient.age}y',
                               style: GoogleFonts.poppins(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade500),
+                                fontSize: 12,
+                                color: Colors.grey.shade500,
+                              ),
                             ),
                           ],
                         ],

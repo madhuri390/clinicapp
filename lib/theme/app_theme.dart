@@ -10,7 +10,12 @@ class AppTheme {
   static const Color loginBackground = Color(0xFFE8EBF5); // light blue
   static const Color loginAccent = Color(0xFF3142C5); // primary blue
   static const Color loginAccentLight = Color(0xFFC5CCE8); // highlight circle
-  static const Color loginShapeColor = Color(0x4D3142C5); // soft circles (30% opacity)
+  static const Color loginShapeColor = Color(
+    0x4D3142C5,
+  ); // soft circles (30% opacity)
+  static const Color lightBlueBackground = Color(
+    0xFFF0F2FA,
+  ); // soft blue for screens
 
   static ThemeData get lightTheme {
     return ThemeData(
@@ -40,7 +45,10 @@ class AppTheme {
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: Colors.red.shade400),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
         hintStyle: TextStyle(color: Colors.grey.shade600),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(

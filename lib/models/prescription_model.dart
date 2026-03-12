@@ -27,19 +27,31 @@ class Prescription {
   final Payment? payment;
   final DateTime? createdAt;
 
-  Prescription copyWith({Payment? payment}) {
+  Prescription copyWith({
+    String? id,
+    String? visitId,
+    String? treatmentPlanId,
+    String? sittingId,
+    String? medicineName,
+    String? dosage,
+    String? duration,
+    String? instructions,
+    double? price,
+    Payment? payment,
+    DateTime? createdAt,
+  }) {
     return Prescription(
-      id: id,
-      visitId: visitId,
-      treatmentPlanId: treatmentPlanId,
-      sittingId: sittingId,
-      medicineName: medicineName,
-      dosage: dosage,
-      duration: duration,
-      instructions: instructions,
-      price: price,
+      id: id ?? this.id,
+      visitId: visitId ?? this.visitId,
+      treatmentPlanId: treatmentPlanId ?? this.treatmentPlanId,
+      sittingId: sittingId ?? this.sittingId,
+      medicineName: medicineName ?? this.medicineName,
+      dosage: dosage ?? this.dosage,
+      duration: duration ?? this.duration,
+      instructions: instructions ?? this.instructions,
+      price: price ?? this.price,
       payment: payment ?? this.payment,
-      createdAt: createdAt,
+      createdAt: createdAt ?? this.createdAt,
     );
   }
 

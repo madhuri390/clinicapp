@@ -132,9 +132,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
 
   List<_InventoryItem> get _filteredInventory {
     return _mockInventory.where((item) {
-      final matchesSearch = item.name
-          .toLowerCase()
-          .contains(_searchQuery.toLowerCase());
+      final matchesSearch = item.name.toLowerCase().contains(
+        _searchQuery.toLowerCase(),
+      );
       final matchesCategory =
           _selectedCategory == 'All' || item.category == _selectedCategory;
       return matchesSearch && matchesCategory;
@@ -144,8 +144,10 @@ class _InventoryScreenState extends State<InventoryScreen> {
   List<_InventoryItem> get _lowStockItems =>
       _mockInventory.where((i) => i.quantity <= i.minStock).toList();
 
-  List<String> get _categories =>
-      ['All', ..._mockInventory.map((i) => i.category).toSet()];
+  List<String> get _categories => [
+    'All',
+    ..._mockInventory.map((i) => i.category).toSet(),
+  ];
 
   String _formatCategory(String cat) {
     return cat
@@ -227,7 +229,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             scrollDirection: Axis.horizontal,
                             itemCount: _categories.length,
                             separatorBuilder: (context, index) =>
-                        const SizedBox(width: 8),
+                                const SizedBox(width: 8),
                             itemBuilder: (_, i) {
                               final cat = _categories[i];
                               final isSelected = _selectedCategory == cat;
@@ -240,9 +242,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                     vertical: 8,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: isSelected
-                                        ? Colors.white
-                                        : _blue500,
+                                    color: isSelected ? Colors.white : _blue500,
                                     borderRadius: BorderRadius.circular(999),
                                   ),
                                   child: Center(
@@ -318,8 +318,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         const SizedBox(height: 16),
                       ],
                       ..._filteredInventory.map((item) {
-                        final isLowStock =
-                            item.quantity <= item.minStock;
+                        final isLowStock = item.quantity <= item.minStock;
                         return _InventoryCard(
                           item: item,
                           isLowStock: isLowStock,
@@ -334,9 +333,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
             ],
           ),
           if (_showAddModal)
-            _AddItemModal(
-              onClose: () => setState(() => _showAddModal = false),
-            ),
+            _AddItemModal(onClose: () => setState(() => _showAddModal = false)),
         ],
       ),
       floatingActionButton: Padding(
@@ -409,9 +406,7 @@ class _InventoryCardState extends State<_InventoryCard> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(
-          color: isLowStock ? _orange200 : _slate200,
-        ),
+        border: Border.all(color: isLowStock ? _orange200 : _slate200),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -446,10 +441,7 @@ class _InventoryCardState extends State<_InventoryCard> {
                     ),
                     Text(
                       _formatCategory(item.category),
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        color: _slate600,
-                      ),
+                      style: GoogleFonts.inter(fontSize: 14, color: _slate600),
                     ),
                   ],
                 ),
@@ -471,10 +463,7 @@ class _InventoryCardState extends State<_InventoryCard> {
                 label: 'Min. Stock',
                 value: '${item.minStock} ${item.unit}',
               ),
-              _InfoBlock(
-                label: 'Price per unit',
-                value: '\$${item.price}',
-              ),
+              _InfoBlock(label: 'Price per unit', value: '₹${item.price}'),
               if (item.expiryDate != null)
                 _InfoBlock(
                   label: 'Expiry Date',
@@ -490,10 +479,7 @@ class _InventoryCardState extends State<_InventoryCard> {
             children: [
               Text(
                 'Adjust Quantity',
-                style: GoogleFonts.inter(
-                  fontSize: 14,
-                  color: _slate600,
-                ),
+                style: GoogleFonts.inter(fontSize: 14, color: _slate600),
               ),
               Row(
                 children: [
@@ -558,11 +544,7 @@ class _InventoryCardState extends State<_InventoryCard> {
 }
 
 class _InfoBlock extends StatelessWidget {
-  const _InfoBlock({
-    required this.label,
-    required this.value,
-    this.valueColor,
-  });
+  const _InfoBlock({required this.label, required this.value, this.valueColor});
 
   final String label;
   final String value;
@@ -573,13 +555,7 @@ class _InfoBlock extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: GoogleFonts.inter(
-            fontSize: 12,
-            color: _slate500,
-          ),
-        ),
+        Text(label, style: GoogleFonts.inter(fontSize: 12, color: _slate500)),
         Text(
           value,
           style: GoogleFonts.inter(
@@ -793,7 +769,9 @@ class _FormField extends StatelessWidget {
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
-                value: dropdownOptions.isNotEmpty ? dropdownOptions.first : null,
+                value: dropdownOptions.isNotEmpty
+                    ? dropdownOptions.first
+                    : null,
                 isExpanded: true,
                 items: dropdownOptions
                     .map((o) => DropdownMenuItem(value: o, child: Text(o)))
@@ -822,9 +800,7 @@ class _FormField extends StatelessWidget {
           keyboardType: keyboardType,
           decoration: InputDecoration(
             hintText: hint,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 12,
               vertical: 10,

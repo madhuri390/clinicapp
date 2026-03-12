@@ -23,17 +23,27 @@ class FileAttachment {
   final Payment? payment;
   final DateTime? createdAt;
 
-  FileAttachment copyWith({Payment? payment}) {
+  FileAttachment copyWith({
+    String? id,
+    String? visitId,
+    String? treatmentPlanId,
+    String? fileName,
+    String? fileType,
+    String? fileUrl,
+    double? price,
+    Payment? payment,
+    DateTime? createdAt,
+  }) {
     return FileAttachment(
-      id: id,
-      visitId: visitId,
-      treatmentPlanId: treatmentPlanId,
-      fileName: fileName,
-      fileType: fileType,
-      fileUrl: fileUrl,
-      price: price,
+      id: id ?? this.id,
+      visitId: visitId ?? this.visitId,
+      treatmentPlanId: treatmentPlanId ?? this.treatmentPlanId,
+      fileName: fileName ?? this.fileName,
+      fileType: fileType ?? this.fileType,
+      fileUrl: fileUrl ?? this.fileUrl,
+      price: price ?? this.price,
       payment: payment ?? this.payment,
-      createdAt: createdAt,
+      createdAt: createdAt ?? this.createdAt,
     );
   }
 

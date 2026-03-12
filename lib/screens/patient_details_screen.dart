@@ -2,14 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/patient_model.dart';
-import '../models/file_attachment_model.dart';
 import '../models/payment_model.dart';
 import '../models/prescription_model.dart';
-import '../models/sitting_model.dart';
 import '../models/treatment_plan_model.dart';
 import '../models/visit_model.dart';
 import '../repositories/patient_repository.dart';
 import '../services/local_store.dart';
+import '../theme/app_theme.dart';
 import '../widgets/patient_details_widgets.dart';
 
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -86,15 +85,9 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
 
   Future<void> _loadVisits() async {
     try {
-      final storeVisits = LocalStore.instance.getVisitsForPatient(
-        widget.patientId,
-      );
-
-      // If there is no data at all yet, seed rich ongoing mock data
-      // for this patient so the Ongoing tab has useful examples.
-      if (storeVisits.isEmpty) {
-        LocalStore.instance.seedOngoingForPatient(widget.patientId);
-      }
+      // Seed rich ongoing mock data for this patient so the Ongoing tab
+      // has useful examples (only happens once per patientId).
+      LocalStore.instance.seedOngoingForPatient(widget.patientId);
 
       final refreshedStoreVisits = LocalStore.instance.getVisitsForPatient(
         widget.patientId,
@@ -183,7 +176,10 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
             notes: v.notes,
           );
           LocalStore.instance.addVisit(newVisit);
-          if (mounted) Navigator.pop(context);
+          if (mounted) {
+            Navigator.pop(context);
+            _tabController.animateTo(1);
+          }
           _loadVisits();
         },
       ),
@@ -213,7 +209,8 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Consultation?'),
         content: const Text(
-            'Are you sure you want to delete this consultation? This action cannot be undone.'),
+          'Are you sure you want to delete this consultation? This action cannot be undone.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -238,9 +235,9 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
+      backgroundColor: AppTheme.lightBlueBackground,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF9FAFB),
+        backgroundColor: AppTheme.lightBlueBackground,
         elevation: 0,
         scrolledUnderElevation: 0,
         iconTheme: const IconThemeData(color: Colors.black87),
@@ -269,7 +266,7 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
                     height: 52,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0F0B1A),
+                        backgroundColor: AppTheme.primaryColor,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
@@ -306,19 +303,21 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
                 indicatorSize: TabBarIndicatorSize.tab,
                 dividerColor: Colors.transparent,
                 indicator: BoxDecoration(
-                  color: Colors.white,
+                  color: AppTheme.primaryColor,
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
+                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
                   ],
                 ),
                 labelPadding: const EdgeInsets.symmetric(horizontal: 4),
-                labelColor: Colors.black87,
-                unselectedLabelColor: Colors.black54,
+                labelColor: Colors.white,
+                unselectedLabelColor: AppTheme.primaryColor.withValues(
+                  alpha: 0.7,
+                ),
                 labelStyle: GoogleFonts.poppins(
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
@@ -334,7 +333,7 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
           ),
         ],
         body: Container(
-          color: const Color(0xFFF9FAFB),
+          color: AppTheme.lightBlueBackground,
           child: TabBarView(
             controller: _tabController,
             children: [
@@ -346,12 +345,12 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
                 payments: _payments,
                 onRefresh: _loadAll,
                 onEditVisit: _showEditConsultationModal,
-                onDeleteVisit: _deleteVisit,
+                onComplete: () {
+                  _loadAll();
+                  _tabController.animateTo(2);
+                },
               ),
-              HistoryTabPlaceholder(
-                onRefresh: _loadVisits,
-                onDeleteVisit: _deleteVisit,
-              ),
+              HistoryTabPlaceholder(visits: _visits, onRefresh: _loadVisits),
             ],
           ),
         ),
