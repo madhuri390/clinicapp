@@ -10,10 +10,10 @@ import '../widgets/cancel_appointment_sheet.dart';
 import '../widgets/reschedule_sheet.dart';
 
 // ── Reference colors ────────────────────────────────────────────────────────
-const _blue600 = Color(0xFF2563EB);
-const _blue500 = Color(0xFF3B82F6);
-const _blue100 = Color(0xFFDBEAFE);
-const _blue50 = Color(0xFFEFF6FF);
+const _blue600 = Color(0xFF0D8DC4);
+const _blue500 = Color(0xFF28A0D4);
+const _blue100 = Color(0xFFB4E0F0);
+const _blue50 = Color(0xFFEAF5FB);
 const _slate50 = Color(0xFFF8FAFC);
 const _slate100 = Color(0xFFF1F5F9);
 const _slate200 = Color(0xFFE2E8F0);

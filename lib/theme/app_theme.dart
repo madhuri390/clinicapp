@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 
-/// Clinic app theme with primary #3142c5, white background, black/grey text.
+/// Clinic app theme with primary #0D8DC4, white background, black/grey text.
 class AppTheme {
   AppTheme._();
 
-  static const Color primaryColor = Color(0xFF3142C5);
+  static const Color primaryColor = Color(0xFF0D8DC4);
 
-  /// Login screen: soft blue tints derived from primary 0xFF3142C5
-  static const Color loginBackground = Color(0xFFE8EBF5); // light blue
-  static const Color loginAccent = Color(0xFF3142C5); // primary blue
-  static const Color loginAccentLight = Color(0xFFC5CCE8); // highlight circle
+  /// Login screen: soft blue tints derived from primary 0xFF0D8DC4
+  static const Color loginBackground = Color(0xFFE6F3FA); // light blue
+  static const Color loginAccent = Color(0xFF0D8DC4); // primary blue
+  static const Color loginAccentLight = Color(0xFF90CDEC); // highlight circle
   static const Color loginShapeColor = Color(
-    0x4D3142C5,
+    0x4D0D8DC4,
   ); // soft circles (30% opacity)
   static const Color lightBlueBackground = Color(
-    0xFFF0F2FA,
+    0xFFEAF5FB,
   ); // soft blue for screens
 
   static ThemeData get lightTheme {

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 // Reference colors
-const _blue600 = Color(0xFF2563EB);
-const _blue500 = Color(0xFF3B82F6);
+const _blue600 = Color(0xFF0D8DC4);
+const _blue500 = Color(0xFF28A0D4);
 const _slate50 = Color(0xFFF8FAFC);
 const _slate100 = Color(0xFFF1F5F9);
 const _slate200 = Color(0xFFE2E8F0);

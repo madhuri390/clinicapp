@@ -7,7 +7,7 @@ import 'messages_screen.dart';
 import 'patient_list_screen.dart';
 
 // Reference: PatientTrackingVersion4 bottom-nav.tsx colors
-const _blue600 = Color(0xFF2563EB);
+const _blue600 = Color(0xFF0D8DC4);
 const _slate400 = Color(0xFF94A3B8);
 
 /// Root shell with persistent bottom navigation.

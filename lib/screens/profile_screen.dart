@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 // Reference colors (Tailwind)
-const _blue600 = Color(0xFF2563EB);
-const _blue500 = Color(0xFF3B82F6);
-const _blue400 = Color(0xFF60A5FA);
-const _blue100 = Color(0xFFDBEAFE);
+const _blue600 = Color(0xFF0D8DC4);
+const _blue500 = Color(0xFF28A0D4);
+const _blue400 = Color(0xFF45B5E5);
+const _blue100 = Color(0xFFB4E0F0);
 const _slate50 = Color(0xFFF8FAFC);
 const _slate200 = Color(0xFFE2E8F0);
 const _slate400 = Color(0xFF94A3B8);

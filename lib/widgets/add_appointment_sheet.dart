@@ -7,8 +7,8 @@ import '../services/appointment_store.dart';
 import '../services/notification_service.dart';
 
 // Colors
-const _blue600 = Color(0xFF2563EB);
-const _blue100 = Color(0xFFDBEAFE);
+const _blue600 = Color(0xFF0D8DC4);
+const _blue100 = Color(0xFFB4E0F0);
 const _slate50 = Color(0xFFF8FAFC);
 const _slate200 = Color(0xFFE2E8F0);
 const _slate300 = Color(0xFFCBD5E1);

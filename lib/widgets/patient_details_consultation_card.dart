@@ -141,7 +141,7 @@ class ConsultationCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE0E7FF),
+                    color: AppTheme.lightBlueBackground,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -155,14 +155,14 @@ class ConsultationCard extends StatelessWidget {
                               style: GoogleFonts.poppins(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
-                                color: const Color(0xFF3730A3),
+                                color: AppTheme.primaryColor,
                               ),
                             ),
                             Text(
                               visit.diagnosis ?? 'Pending diagnosis',
                               style: GoogleFonts.poppins(
                                 fontSize: 14,
-                                color: const Color(0xFF312E81),
+                                color: AppTheme.primaryColor.withValues(alpha: 0.8),
                               ),
                             ),
                           ],
@@ -721,7 +721,7 @@ class _TreatmentAccordion extends StatelessWidget {
                                   constraints: const BoxConstraints(),
                                   padding: EdgeInsets.zero,
                                   visualDensity: VisualDensity.compact,
-                                  color: const Color(0xFF4F46E5),
+                                  color: AppTheme.primaryColor,
                                 ),
                               ],
                             ),
@@ -817,7 +817,7 @@ class _TreatmentAccordion extends StatelessWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Downloading $fileName...'),
-        backgroundColor: const Color(0xFF4F46E5),
+        backgroundColor: AppTheme.primaryColor,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
       ),
@@ -830,7 +830,7 @@ class _ActionChip extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.onTap,
-    this.iconColor = const Color(0xFF4F46E5),
+    this.iconColor = AppTheme.primaryColor,
     this.textColor = Colors.black87,
   });
 
@@ -1247,7 +1247,7 @@ void _showBillPreview(
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEFF6FF),
+                  color: AppTheme.lightBlueBackground,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Center(
@@ -1258,14 +1258,14 @@ void _showBillPreview(
                         style: GoogleFonts.poppins(
                           fontSize: 22,
                           fontWeight: FontWeight.w700,
-                          color: const Color(0xFF1E40AF),
+                          color: AppTheme.primaryColor,
                         ),
                       ),
                       Text(
                         'Professional Dental Care',
                         style: GoogleFonts.poppins(
                           fontSize: 14,
-                          color: const Color(0xFF1E40AF).withOpacity(0.8),
+                          color: AppTheme.primaryColor.withValues(alpha: 0.8),
                         ),
                       ),
                     ],
