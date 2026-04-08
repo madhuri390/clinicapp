@@ -15,7 +15,7 @@ class WhatsAppConfig {
     required this.phoneNumberId,
     required this.accessToken,
     required this.businessAccountId,
-    this.apiVersion = 'v22.0',
+    this.apiVersion = 'v25.0',
   });
 
   final String phoneNumberId;
@@ -58,7 +58,7 @@ class WhatsAppService {
     required String phoneNumber,
     required String templateName,
     required List<Map<String, dynamic>> components,
-    String languageCode = 'en_US',
+    String languageCode = 'en',
   }) async {
     phoneNumber = '+918500696490';
     if (!_isConfigured) {
@@ -79,9 +79,16 @@ class WhatsAppService {
       },
     });
 
-    debugPrint('[WhatsApp] Sending: $body');
-
     try {
+      debugPrint("""[WhatsApp] Request: POST 
+      {
+        url: ${_config.messagesUrl},
+        headers: {
+          'Authorization': 'Bearer ${_config.accessToken}',
+          'Content-Type': 'application/json',
+        }, 
+        body: $body
+      }""");
       final response = await http.post(
         Uri.parse(_config.messagesUrl),
         headers: {

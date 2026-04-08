@@ -16,18 +16,22 @@ class WhatsAppTemplates {
 
   // ── Helper: build the components array for Meta API ────────────────────
 
-  /// Builds the `"components"` array for a template message.
+  /// Builds the `"components"` array for a template message using named parameters.
   ///
-  /// [parameters] is an ordered list of body parameter values.
+  /// [parameters] is a map of parameter names to string values.
   static List<Map<String, dynamic>> buildBodyComponents(
-    List<String> parameters,
+    Map<String, String> parameters,
   ) {
     return [
       {
         'type': 'body',
         'parameters': [
-          for (final p in parameters)
-            {'type': 'text', 'text': p},
+          for (final entry in parameters.entries)
+            {
+              'type': 'text',
+              'parameter_name': entry.key,
+              'text': entry.value,
+            },
         ],
       },
     ];
@@ -35,8 +39,6 @@ class WhatsAppTemplates {
 
   // ── Convenience builders for each template ────────────────────────────
 
-  /// appointment_confirmation: {{1}} patient_name, {{2}} date, {{3}} time,
-  /// {{4}} doctor_name, {{5}} clinic_name
   static List<Map<String, dynamic>> confirmationParams({
     required String patientName,
     required String date,
@@ -44,20 +46,27 @@ class WhatsAppTemplates {
     required String doctorName,
     required String clinicName,
   }) =>
-      buildBodyComponents([patientName, date, time, doctorName, clinicName]);
+      buildBodyComponents({
+        'patient_name': patientName,
+        'date': date,
+        'time': time,
+        'doctor_name': doctorName,
+        'clinic_name': clinicName,
+      });
 
-  /// appointment_reminder: {{1}} patient_name, {{2}} date, {{3}} time,
-  /// {{4}} doctor_name
   static List<Map<String, dynamic>> reminderParams({
     required String patientName,
     required String date,
     required String time,
     required String doctorName,
   }) =>
-      buildBodyComponents([patientName, date, time, doctorName]);
+      buildBodyComponents({
+        'patient_name': patientName,
+        'date': date,
+        'time': time,
+        'doctor_name': doctorName,
+      });
 
-  /// appointment_rescheduled: {{1}} patient_name, {{2}} old_date,
-  /// {{3}} new_date, {{4}} new_time, {{5}} doctor_message
   static List<Map<String, dynamic>> rescheduleParams({
     required String patientName,
     required String oldDate,
@@ -65,51 +74,68 @@ class WhatsAppTemplates {
     required String newTime,
     required String doctorMessage,
   }) =>
-      buildBodyComponents(
-          [patientName, oldDate, newDate, newTime, doctorMessage]);
+      buildBodyComponents({
+        'patient_name': patientName,
+        'old_date': oldDate,
+        'new_date': newDate,
+        'new_time': newTime,
+        'doctor_message': doctorMessage,
+      });
 
-  /// appointment_cancelled: {{1}} patient_name, {{2}} date,
-  /// {{3}} doctor_message
   static List<Map<String, dynamic>> cancelParams({
     required String patientName,
     required String date,
     required String doctorMessage,
   }) =>
-      buildBodyComponents([patientName, date, doctorMessage]);
+      buildBodyComponents({
+        'patient_name': patientName,
+        'date': date,
+        'doctor_message': doctorMessage,
+      });
 
-  /// welcome_message: {{1}} patient_name, {{2}} clinic_name
   static List<Map<String, dynamic>> welcomeParams({
     required String patientName,
     required String clinicName,
   }) =>
-      buildBodyComponents([patientName, clinicName]);
+      buildBodyComponents({
+        'patient_name': patientName,
+        'clinic_name': clinicName,
+      });
 
-  /// treatment_update: {{1}} patient_name, {{2}} treatment_name,
-  /// {{3}} status
   static List<Map<String, dynamic>> treatmentUpdateParams({
     required String patientName,
     required String treatmentName,
     required String status,
   }) =>
-      buildBodyComponents([patientName, treatmentName, status]);
+      buildBodyComponents({
+        'patient_name': patientName,
+        'treatment_name': treatmentName,
+        'status': status,
+      });
 
-  /// bill_summary: {{1}} patient_name, {{2}} total, {{3}} paid,
-  /// {{4}} balance
   static List<Map<String, dynamic>> billSummaryParams({
     required String patientName,
     required String total,
     required String paid,
     required String balance,
   }) =>
-      buildBodyComponents([patientName, total, paid, balance]);
+      buildBodyComponents({
+        'patient_name': patientName,
+        'total': total,
+        'paid': paid,
+        'balance': balance,
+      });
 
-  /// daily_doctor_report: {{1}} doctor_name, {{2}} date,
-  /// {{3}} total_count, {{4}} appointment_list
   static List<Map<String, dynamic>> dailyDoctorReportParams({
     required String doctorName,
     required String date,
     required String totalCount,
     required String appointmentList,
   }) =>
-      buildBodyComponents([doctorName, date, totalCount, appointmentList]);
+      buildBodyComponents({
+        'doctor_name': doctorName,
+        'date': date,
+        'total_count': totalCount,
+        'appointment_list': appointmentList,
+      });
 }
