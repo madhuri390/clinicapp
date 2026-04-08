@@ -74,7 +74,7 @@ class WhatsAppService {
 
     final body = jsonEncode({
       'messaging_product': 'whatsapp',
-      'to': '+918500696490'.replaceAll('+', ''),
+      'to': phoneNumber.replaceAll('+', ''),
       'type': 'template',
       'template': {
         'name': templateName,
