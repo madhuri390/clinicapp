@@ -13,12 +13,14 @@ import 'whatsapp_templates.dart';
 class WhatsAppConfig {
   const WhatsAppConfig({
     required this.phoneNumberId,
+    required this.phoneNumber, // Temporary
     required this.accessToken,
     required this.businessAccountId,
     this.apiVersion = 'v25.0',
   });
 
   final String phoneNumberId;
+  final String phoneNumber; // Temporary
   final String accessToken;
   final String businessAccountId;
   final String apiVersion;
@@ -33,6 +35,7 @@ class WhatsAppConfig {
   static WhatsAppConfig get fromEnv {
     return WhatsAppConfig(
       phoneNumberId: dotenv.env['PHONE_NUMBER_ID'] ?? 'YOUR_PHONE_NUMBER_ID',
+      phoneNumber: dotenv.env['PHONE_NUMBER'] ?? 'YOUR_PHONE_NUMBER',
       accessToken: dotenv.env['ACCESS_TOKEN'] ?? 'YOUR_PERMANENT_ACCESS_TOKEN',
       businessAccountId:
           dotenv.env['BUSINESS_ACCOUNT_ID'] ?? 'YOUR_BUSINESS_ACCOUNT_ID',
@@ -49,6 +52,7 @@ class WhatsAppService {
 
   bool get _isConfigured =>
       _config.phoneNumberId != 'YOUR_PHONE_NUMBER_ID' &&
+      _config.phoneNumber != 'YOUR_PHONE_NUMBER' &&
       _config.accessToken != 'YOUR_PERMANENT_ACCESS_TOKEN';
 
   // ── Core send ──────────────────────────────────────────────────────────
@@ -60,7 +64,7 @@ class WhatsAppService {
     required List<Map<String, dynamic>> components,
     String languageCode = 'en',
   }) async {
-    phoneNumber = '+918500696490';
+    phoneNumber = _config.phoneNumber;
     if (!_isConfigured) {
       debugPrint(
         '[WhatsApp] ⚠️ Not configured — rwould send "$templateName" to $phoneNumber',
