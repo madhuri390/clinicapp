@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 import 'whatsapp_templates.dart';
 
 /// Configuration for Meta Cloud API (WhatsApp Business).
@@ -25,20 +27,23 @@ class WhatsAppConfig {
       'https://graph.facebook.com/$apiVersion/$phoneNumberId/messages';
 
   /// ──────────────────────────────────────────────────────────────────────
-  /// TODO: Replace with your real credentials before going to production.
-  /// You can load these from environment / secure storage instead.
+  /// Loads credentials from .env file using flutter_dotenv.
+  /// Ensure you have a .env file with these variables defined.
   /// ──────────────────────────────────────────────────────────────────────
-  static const placeholder = WhatsAppConfig(
-    phoneNumberId: 'YOUR_PHONE_NUMBER_ID',
-    accessToken: 'YOUR_PERMANENT_ACCESS_TOKEN',
-    businessAccountId: 'YOUR_BUSINESS_ACCOUNT_ID',
-  );
+  static WhatsAppConfig get fromEnv {
+    return WhatsAppConfig(
+      phoneNumberId: dotenv.env['PHONE_NUMBER_ID'] ?? 'YOUR_PHONE_NUMBER_ID',
+      accessToken: dotenv.env['ACCESS_TOKEN'] ?? 'YOUR_PERMANENT_ACCESS_TOKEN',
+      businessAccountId:
+          dotenv.env['BUSINESS_ACCOUNT_ID'] ?? 'YOUR_BUSINESS_ACCOUNT_ID',
+    );
+  }
 }
 
 /// Service for sending WhatsApp messages via Meta Cloud API.
 class WhatsAppService {
   WhatsAppService({WhatsAppConfig? config})
-    : _config = config ?? WhatsAppConfig.placeholder;
+    : _config = config ?? WhatsAppConfig.fromEnv;
 
   final WhatsAppConfig _config;
 
@@ -73,6 +78,8 @@ class WhatsAppService {
         'components': components,
       },
     });
+
+    debugPrint('[WhatsApp] Sending: $body');
 
     try {
       final response = await http.post(
