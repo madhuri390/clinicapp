@@ -13,7 +13,7 @@ class WhatsAppConfig {
     required this.phoneNumberId,
     required this.accessToken,
     required this.businessAccountId,
-    this.apiVersion = 'v21.0',
+    this.apiVersion = 'v22.0',
   });
 
   final String phoneNumberId;
@@ -38,7 +38,7 @@ class WhatsAppConfig {
 /// Service for sending WhatsApp messages via Meta Cloud API.
 class WhatsAppService {
   WhatsAppService({WhatsAppConfig? config})
-      : _config = config ?? WhatsAppConfig.placeholder;
+    : _config = config ?? WhatsAppConfig.placeholder;
 
   final WhatsAppConfig _config;
 
@@ -53,18 +53,19 @@ class WhatsAppService {
     required String phoneNumber,
     required String templateName,
     required List<Map<String, dynamic>> components,
-    String languageCode = 'en',
+    String languageCode = 'en_US',
   }) async {
+    phoneNumber = '+918500696490';
     if (!_isConfigured) {
       debugPrint(
-        '[WhatsApp] ⚠️ Not configured — would send "$templateName" to $phoneNumber',
+        '[WhatsApp] ⚠️ Not configured — rwould send "$templateName" to $phoneNumber',
       );
       return false;
     }
 
     final body = jsonEncode({
       'messaging_product': 'whatsapp',
-      'to': phoneNumber.replaceAll('+', ''),
+      'to': '+918500696490'.replaceAll('+', ''),
       'type': 'template',
       'template': {
         'name': templateName,
@@ -82,6 +83,8 @@ class WhatsAppService {
         },
         body: body,
       );
+
+      debugPrint('[WhatsApp] Response: $response');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         debugPrint('[WhatsApp] ✅ Sent "$templateName" to $phoneNumber');
