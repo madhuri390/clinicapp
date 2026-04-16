@@ -17,6 +17,7 @@ class WhatsAppConfig {
     required this.accessToken,
     required this.businessAccountId,
     this.apiVersion = 'v25.0',
+    this.enabled = true,
   });
 
   final String phoneNumberId;
@@ -24,6 +25,7 @@ class WhatsAppConfig {
   final String accessToken;
   final String businessAccountId;
   final String apiVersion;
+  final bool enabled;
 
   String get messagesUrl =>
       'https://graph.facebook.com/$apiVersion/$phoneNumberId/messages';
@@ -39,6 +41,7 @@ class WhatsAppConfig {
       accessToken: dotenv.env['ACCESS_TOKEN'] ?? 'YOUR_PERMANENT_ACCESS_TOKEN',
       businessAccountId:
           dotenv.env['BUSINESS_ACCOUNT_ID'] ?? 'YOUR_BUSINESS_ACCOUNT_ID',
+      enabled: dotenv.env['ENABLE_WHATSAPP']?.toLowerCase() == 'true',
     );
   }
 }
@@ -64,10 +67,15 @@ class WhatsAppService {
     required List<Map<String, dynamic>> components,
     String languageCode = 'en',
   }) async {
+    if (!_config.enabled) {
+      debugPrint('[WhatsApp] ⏸️ Feature disabled via ENABLE_WHATSAPP. Skipping "$templateName" to $phoneNumber');
+      return false;
+    }
+
     phoneNumber = _config.phoneNumber;
     if (!_isConfigured) {
       debugPrint(
-        '[WhatsApp] ⚠️ Not configured — rwould send "$templateName" to $phoneNumber',
+        '[WhatsApp] ⚠️ Not configured — would send "$templateName" to $phoneNumber',
       );
       return false;
     }
