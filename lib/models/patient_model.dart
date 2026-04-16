@@ -63,6 +63,7 @@ class Patient {
   }
 
   Map<String, dynamic> toInsertJson() => {
+    'id': id,
     'first_name': firstName,
     if (lastName != null) 'last_name': lastName,
     'phone': phone,

@@ -7,7 +7,9 @@ import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/login_form_section.dart';
 import '../services/app_role_service.dart';
+import '../widgets/patient_portal_logo.dart';
 import '../widgets/role_aware_shell.dart';
+import 'patient_signup_screen.dart';
 import 'phone_otp_screen.dart';
 import 'splash_screen.dart';
 
@@ -68,13 +70,36 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _onSignIn() async {
-    // TODO: DEV ONLY — bypass auth, accept any credentials
+    if (!_formKey.currentState!.validate()) return;
+
+    final input = _emailOrPhoneController.text.trim();
+    final password = _passwordController.text;
+
     setState(() => _isLoading = true);
-    await AppRoleService.setRole(_selectedRole);
-    await Future.delayed(const Duration(milliseconds: 300)); // fake delay
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-    _navigateToShell();
+    
+    try {
+      if (input.contains('@')) {
+        await AuthService.signInWithEmail(email: input, password: password);
+      } else {
+        String phoneStr = input.replaceAll(RegExp(r'\D'), ''); // Strip non digits
+        if (!phoneStr.startsWith('+')) {
+          phoneStr = '+91$phoneStr'; // default formatting
+        }
+        await AuthService.signInWithPhone(phone: phoneStr, password: password);
+      }
+      
+      await AppRoleService.setRole(_selectedRole);
+      if (!mounted) return;
+      _navigateToShell();
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      _showError(e.message);
+    } catch (e) {
+      if (!mounted) return;
+      _showError('Sign in failed. Check your credentials.');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _onGoogleSignIn() async {
@@ -143,12 +168,20 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _onSignUp() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Sign-up coming soon — contact admin to create account'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    if (_selectedRole == AppRole.staff) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Staff sign-up coming soon — contact admin to create account'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } else {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => const PatientSignupScreen(),
+        ),
+      );
+    }
   }
 
   void _showError(String msg) {
@@ -167,7 +200,7 @@ class _LoginScreenState extends State<LoginScreen> {
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          _BlueHeader(),
+          _BlueHeader(isPatientPortal: _selectedRole == AppRole.patient),
           Expanded(
             child: SingleChildScrollView(
               child: Column(
@@ -190,6 +223,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                       selected: {_selectedRole},
                       onSelectionChanged: (s) {
+                        _formKey.currentState?.reset();
                         setState(() => _selectedRole = s.first);
                       },
                     ),
@@ -220,6 +254,9 @@ class _LoginScreenState extends State<LoginScreen> {
 }
 
 class _BlueHeader extends StatelessWidget {
+  const _BlueHeader({this.isPatientPortal = false});
+  final bool isPatientPortal;
+
   @override
   Widget build(BuildContext context) {
     final topPadding = MediaQuery.paddingOf(context).top;
@@ -232,7 +269,26 @@ class _BlueHeader extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const ProdonticsBadge(size: 72, iconSize: 36),
+            Container(
+              width: 72,
+              height: 72,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.18),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Center(
+                child: ClipOval(
+                  child: PatientPortalLogo(height: 50, width: 50),
+                ),
+              ),
+            ),
             const SizedBox(height: 14),
             Text(
               'Prodontics',

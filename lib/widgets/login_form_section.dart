@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/app_theme.dart';
-import 'patient_portal_logo.dart';
 
 class LoginFormSection extends StatelessWidget {
   const LoginFormSection({
@@ -48,10 +47,6 @@ class LoginFormSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (isPatientPortal) ...[
-            const Center(child: PatientPortalLogo(height: 72)),
-            const SizedBox(height: 20),
-          ],
           Text(
             isPatientPortal ? 'Patient Login' : 'Staff Login',
             textAlign: TextAlign.center,
@@ -104,40 +99,15 @@ class LoginFormSection extends StatelessWidget {
           const SizedBox(height: 20),
 
           // ── Social buttons ───────────────────────────────────────────────
-          Row(
-            children: [
-              Expanded(
-                child: _SocialButton(
-                  label: 'Google',
-                  icon: _GoogleIcon(),
-                  isLoading: googleLoading,
-                  onTap: onGoogleSignIn,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _SocialButton(
-                  label: 'Apple',
-                  icon: const Icon(Icons.apple, size: 22, color: Colors.black87),
-                  isLoading: appleLoading,
-                  onTap: onAppleSignIn,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _SocialButton(
-                  label: 'Phone',
-                  icon: Icon(Icons.phone_outlined,
-                      size: 20, color: AppTheme.primaryColor),
-                  isLoading: false,
-                  onTap: onPhoneSignIn,
-                ),
-              ),
-            ],
+          _SocialButton(
+            label: 'Sign in with Google',
+            icon: _GoogleIcon(),
+            isLoading: googleLoading,
+            onTap: onGoogleSignIn,
           ),
 
           const SizedBox(height: 28),
-          _SignUpLink(onTap: onSignUp),
+          if (isPatientPortal) _SignUpLink(onTap: onSignUp),
         ],
       ),
     );
@@ -182,11 +152,14 @@ class _EmailOrPhoneField extends StatelessWidget {
       validator: (v) {
         final s = v?.trim() ?? '';
         if (s.isEmpty) return 'Enter email or phone number';
-        if (s.contains('@')) {
+        final hasLetters = RegExp(r'[a-zA-Z]').hasMatch(s);
+        if (hasLetters) {
+          // Treat as email attempt
           final re = RegExp(
               r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
           if (!re.hasMatch(s)) return 'Enter a valid email address';
         } else {
+          // Treat as phone attempt
           if (s.replaceAll(RegExp(r'\D'), '').length < 10) {
             return 'Enter a valid phone number';
           }

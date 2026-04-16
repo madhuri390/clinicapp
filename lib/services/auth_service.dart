@@ -23,6 +23,12 @@ class AuthService {
   }) =>
       _client.auth.signInWithPassword(email: email, password: password);
 
+  static Future<AuthResponse> signInWithPhone({
+    required String phone,
+    required String password,
+  }) =>
+      _client.auth.signInWithPassword(phone: phone, password: password);
+
   static Future<AuthResponse> signUpWithEmail({
     required String email,
     required String password,
