@@ -173,63 +173,63 @@ class ProfileScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(Icons.currency_rupee, color: _green600, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                'Revenue Statistics',
-                style: GoogleFonts.inter(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: _slate900,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Total Revenue',
-                      style: GoogleFonts.inter(fontSize: 12, color: _slate500),
-                    ),
-                    Text(
-                      '₹${ProfileScreen._totalRevenue}',
-                      style: GoogleFonts.inter(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: _slate900,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'This Month',
-                      style: GoogleFonts.inter(fontSize: 12, color: _slate500),
-                    ),
-                    Text(
-                      '₹${ProfileScreen._thisMonthRevenue}',
-                      style: GoogleFonts.inter(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: _green600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+          // Row(
+          //   children: [
+          //     Icon(Icons.currency_rupee, color: _green600, size: 20),
+          //     const SizedBox(width: 8),
+          //     Text(
+          //       'Revenue Statistics',
+          //       style: GoogleFonts.inter(
+          //         fontSize: 16,
+          //         fontWeight: FontWeight.w600,
+          //         color: _slate900,
+          //       ),
+          //     ),
+          //   ],
+          // ),
+          // const SizedBox(height: 12),
+          // Row(
+          //   children: [
+          //     Expanded(
+          //       child: Column(
+          //         crossAxisAlignment: CrossAxisAlignment.start,
+          //         children: [
+          //           Text(
+          //             'Total Revenue',
+          //             style: GoogleFonts.inter(fontSize: 12, color: _slate500),
+          //           ),
+          //           Text(
+          //             '₹${ProfileScreen._totalRevenue}',
+          //             style: GoogleFonts.inter(
+          //               fontSize: 24,
+          //               fontWeight: FontWeight.bold,
+          //               color: _slate900,
+          //             ),
+          //           ),
+          //         ],
+          //       ),
+          //     ),
+          //     Expanded(
+          //       child: Column(
+          //         crossAxisAlignment: CrossAxisAlignment.start,
+          //         children: [
+          //           Text(
+          //             'This Month',
+          //             style: GoogleFonts.inter(fontSize: 12, color: _slate500),
+          //           ),
+          //           Text(
+          //             '₹${ProfileScreen._thisMonthRevenue}',
+          //             style: GoogleFonts.inter(
+          //               fontSize: 24,
+          //               fontWeight: FontWeight.bold,
+          //               color: _green600,
+          //             ),
+          //           ),
+          //         ],
+          //       ),
+          //     ),
+          //   ],
+          // ),
           const SizedBox(height: 12),
           const Divider(height: 1),
           const SizedBox(height: 12),

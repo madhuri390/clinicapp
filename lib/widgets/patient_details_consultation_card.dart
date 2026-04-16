@@ -23,6 +23,7 @@ class ConsultationCard extends StatelessWidget {
     required this.onRefresh,
     this.onComplete,
     required this.onEditVisit,
+    this.readOnly = false,
   });
 
   final Visit visit;
@@ -34,6 +35,9 @@ class ConsultationCard extends StatelessWidget {
   final VoidCallback onRefresh;
   final VoidCallback? onComplete;
   final ValueChanged<Visit> onEditVisit;
+
+  /// Patient portal: hide edit / add / complete / payment actions.
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -194,6 +198,7 @@ class ConsultationCard extends StatelessWidget {
                         payments: payments,
                         onRefresh: onRefresh,
                         isOngoing: isOngoing,
+                        readOnly: readOnly,
                       ),
                     )
                     .toList(),
@@ -203,7 +208,7 @@ class ConsultationCard extends StatelessWidget {
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
-                if (isOngoing) ...[
+                if (isOngoing && !readOnly) ...[
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Wrap(
@@ -266,45 +271,48 @@ class ConsultationCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isOngoing
-                          ? (canComplete
-                                ? const Color(0xFF10B981)
-                                : Colors.grey.shade400)
-                          : AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                if (!readOnly) ...[
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isOngoing
+                            ? (canComplete
+                                  ? const Color(0xFF10B981)
+                                  : Colors.grey.shade400)
+                            : AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        elevation: 0,
                       ),
-                      elevation: 0,
-                    ),
-                    onPressed: isOngoing && !canComplete
-                        ? null
-                        : () {
-                            _showBillPreview(
-                              context,
-                              visit,
-                              onComplete: onComplete ?? onRefresh,
-                            );
-                          },
-                    icon: Icon(
-                      isOngoing ? Icons.check_circle : Icons.receipt_long,
-                      size: 18,
-                    ),
-                    label: Text(
-                      isOngoing ? 'Complete Consultation' : 'Generate Bill',
-                      style: GoogleFonts.poppins(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
+                      onPressed: isOngoing && !canComplete
+                          ? null
+                          : () {
+                              _showBillPreview(
+                                context,
+                                visit,
+                                onComplete: onComplete ?? onRefresh,
+                                readOnly: readOnly,
+                              );
+                            },
+                      icon: Icon(
+                        isOngoing ? Icons.check_circle : Icons.receipt_long,
+                        size: 18,
+                      ),
+                      label: Text(
+                        isOngoing ? 'Complete Consultation' : 'Generate Bill',
+                        style: GoogleFonts.poppins(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -323,6 +331,7 @@ class _TreatmentAccordion extends StatelessWidget {
     required this.payments,
     required this.onRefresh,
     required this.isOngoing,
+    this.readOnly = false,
   });
 
   final TreatmentPlan treatment;
@@ -332,6 +341,7 @@ class _TreatmentAccordion extends StatelessWidget {
   final List<Payment> payments;
   final VoidCallback onRefresh;
   final bool isOngoing;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -426,7 +436,7 @@ class _TreatmentAccordion extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  if (isOngoing) ...[
+                  if (isOngoing && !readOnly) ...[
                     Row(
                       children: [
                         Expanded(
@@ -571,7 +581,7 @@ class _TreatmentAccordion extends StatelessWidget {
                                 ),
                               ],
                             ),
-                            if (isOngoing) ...[
+                            if (isOngoing && !readOnly) ...[
                               const SizedBox(height: 8),
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.end,
@@ -656,6 +666,7 @@ class _TreatmentAccordion extends StatelessWidget {
                     treatmentId: treatment.id,
                     onRefresh: onRefresh,
                     isOngoing: isOngoing,
+                    readOnly: readOnly,
                   ),
                   const SizedBox(height: 8),
                   _SittingsList(
@@ -663,6 +674,7 @@ class _TreatmentAccordion extends StatelessWidget {
                     sittings: sittings,
                     onRefresh: onRefresh,
                     isOngoing: isOngoing,
+                    readOnly: readOnly,
                   ),
                   if (files.isNotEmpty) ...[
                     const SizedBox(height: 16),
@@ -725,7 +737,7 @@ class _TreatmentAccordion extends StatelessWidget {
                                 ),
                               ],
                             ),
-                            if (isOngoing)
+                            if (isOngoing && !readOnly)
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.end,
                                 children: [
@@ -1205,6 +1217,7 @@ void _showBillPreview(
   BuildContext context,
   Visit visit, {
   VoidCallback? onComplete,
+  bool readOnly = false,
 }) {
   final store = LocalStore.instance;
 
@@ -1418,7 +1431,7 @@ void _showBillPreview(
                 ],
               ),
               const SizedBox(height: 32),
-              if (isOngoing)
+              if (isOngoing && !readOnly)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: SizedBox(
@@ -1751,12 +1764,14 @@ class _SittingsHeader extends StatelessWidget {
     required this.treatmentId,
     required this.onRefresh,
     required this.isOngoing,
+    this.readOnly = false,
   });
 
   final String visitId;
   final String treatmentId;
   final VoidCallback onRefresh;
   final bool isOngoing;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -1771,7 +1786,7 @@ class _SittingsHeader extends StatelessWidget {
             color: Colors.black87,
           ),
         ),
-        if (isOngoing)
+        if (isOngoing && !readOnly)
           TextButton.icon(
             onPressed: () {
               showModalBottomSheet(
@@ -1806,12 +1821,14 @@ class _SittingsList extends StatelessWidget {
     required this.sittings,
     required this.onRefresh,
     required this.isOngoing,
+    this.readOnly = false,
   });
 
   final String visitId;
   final List<dynamic> sittings;
   final VoidCallback onRefresh;
   final bool isOngoing;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -1832,6 +1849,7 @@ class _SittingsList extends StatelessWidget {
               sitting: s,
               onRefresh: onRefresh,
               isOngoing: isOngoing,
+              readOnly: readOnly,
             ),
           )
           .toList(),
@@ -1845,12 +1863,14 @@ class _SittingItem extends StatelessWidget {
     required this.sitting,
     required this.onRefresh,
     required this.isOngoing,
+    this.readOnly = false,
   });
 
   final String visitId;
   final Sitting sitting;
   final VoidCallback onRefresh;
   final bool isOngoing;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -1915,7 +1935,7 @@ class _SittingItem extends StatelessWidget {
                       ),
                     ),
                   ),
-                if (balance > 0 && isOngoing)
+                if (balance > 0 && isOngoing && !readOnly)
                   Padding(
                     padding: const EdgeInsets.only(top: 12.0),
                     child: SizedBox(

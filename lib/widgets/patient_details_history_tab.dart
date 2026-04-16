@@ -10,10 +10,12 @@ class HistoryTabPlaceholder extends StatelessWidget {
     super.key,
     required this.visits,
     required this.onRefresh,
+    this.readOnly = false,
   });
 
   final List<Visit> visits;
   final VoidCallback onRefresh;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -56,6 +58,7 @@ class HistoryTabPlaceholder extends StatelessWidget {
           isOngoing: false,
           onRefresh: onRefresh,
           onEditVisit: (_) {},
+          readOnly: readOnly,
         );
       },
     );

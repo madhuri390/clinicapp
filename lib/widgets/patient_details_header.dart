@@ -5,8 +5,9 @@ import '../models/patient_model.dart';
 import '../theme/app_theme.dart';
 
 class SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
-  SliverAppBarDelegate(this.tabBar);
+  SliverAppBarDelegate(this.tabBar, {this.backgroundColor});
   final TabBar tabBar;
+  final Color? backgroundColor;
 
   @override
   double get minExtent => 60.0;
@@ -20,7 +21,7 @@ class SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) {
     return Container(
-      color: AppTheme.lightBlueBackground,
+      color: backgroundColor ?? AppTheme.lightBlueBackground,
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
       alignment: Alignment.center,
       child: Container(
@@ -37,7 +38,8 @@ class SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(SliverAppBarDelegate oldDelegate) {
-    return false;
+    return oldDelegate.tabBar != tabBar ||
+        oldDelegate.backgroundColor != backgroundColor;
   }
 }
 

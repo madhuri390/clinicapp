@@ -18,6 +18,7 @@ class OngoingTabPlaceholder extends StatelessWidget {
     required this.onRefresh,
     this.onComplete,
     required this.onEditVisit,
+    this.readOnly = false,
   });
 
   final List<Visit> visits;
@@ -27,6 +28,7 @@ class OngoingTabPlaceholder extends StatelessWidget {
   final VoidCallback onRefresh;
   final VoidCallback? onComplete;
   final void Function(Visit) onEditVisit;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -93,6 +95,7 @@ class OngoingTabPlaceholder extends StatelessWidget {
           onRefresh: onRefresh,
           onComplete: onComplete,
           onEditVisit: onEditVisit,
+          readOnly: readOnly,
         );
       },
     );

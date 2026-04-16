@@ -6,28 +6,29 @@ import 'patient_list_screen.dart';
 import 'profile_screen.dart';
 
 // ── Reference colors (Tailwind) ─────────────────────────────────────────────
-const _blue600 = Color(0xFF0D8DC4);
-const _blue500 = Color(0xFF28A0D4);
-const _blue400 = Color(0xFF45B5E5);
-const _blue100 = Color(0xFFB4E0F0);
+const _blue600 = Color(0xFF2563EB);
+const _blue500 = Color(0xFF3B82F6);
+const _blue400 = Color(0xFF60A5FA);
+const _blue100 = Color(0xFFDBEAFE);
 const _slate50 = Color(0xFFF8FAFC);
-const _slate100 = Color(0xFFF1F5F9);
+// const _slate100 = Color(0xFFF1F5F9);
 const _slate200 = Color(0xFFE2E8F0);
 const _slate500 = Color(0xFF64748B);
 const _slate600 = Color(0xFF475569);
 const _slate700 = Color(0xFF334155);
 const _slate900 = Color(0xFF0F172A);
-const _orange50 = Color(0xFFFFF7ED);
-const _orange200 = Color(0xFFFED7AA);
+// const _orange50 = Color(0xFFFFF7ED);
+// const _orange200 = Color(0xFFFED7AA);
 const _orange600 = Color(0xFFEA580C);
-const _orange700 = Color(0xFFC2410C);
-const _orange800 = Color(0xFF9A3412);
-const _orange900 = Color(0xFF7C2D12);
-const _green600 = Color(0xFF16A34A);
+// const _orange700 = Color(0xFFC2410C);
+// const _orange800 = Color(0xFF9A3412);
+// const _orange900 = Color(0xFF7C2D12);
+// const _green600 = Color(0xFF16A34A);
 const _purple600 = Color(0xFF9333EA);
 const _purple50 = Color(0xFFF5F3FF);
 const _red500 = Color(0xFFEF4444);
 
+/*
 /// Mock inventory item for low stock.
 class _MockInventoryItem {
   const _MockInventoryItem({
@@ -43,6 +44,7 @@ class _MockInventoryItem {
   final String unit;
   final int minStock;
 }
+*/
 
 /// Mock reminder.
 class _MockReminder {
@@ -58,12 +60,14 @@ class _MockReminder {
   final String date;
 }
 
+/*
 /// Mock consultation for revenue/ongoing count.
 class _MockConsultation {
   const _MockConsultation({required this.status, required this.totalCost});
   final String status;
   final int totalCost;
 }
+*/
 
 /// Dashboard matching PatientTrackingVersion4/src/app/components/dashboard.tsx
 class DashboardScreen extends StatefulWidget {
@@ -76,8 +80,14 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   bool _showProfileMenu = false;
 
-  // Mock data matching reference
-  static const _mockPatientCount = 3;
+  /// Shown on the header notification icon (full stats UI is commented out).
+  static const _headerNotificationBadgeCount = 3;
+
+  /*
+  final _repo = PatientRepository();
+  List<Patient> _patients = [];
+  bool _patientsLoading = true;
+
   static const _patientIncrease = 12;
   static const _revenueIncrease = 18;
   static const _todayAppointments = 8;
@@ -148,6 +158,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       minStock: 20,
     ),
   ];
+  */
 
   static const _upcomingReminders = [
     _MockReminder(
@@ -170,6 +181,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ),
   ];
 
+  /*
   int get _totalRevenue =>
       _mockConsultations.fold(0, (sum, c) => sum + c.totalCost);
 
@@ -181,6 +193,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   int get _badgeCount => _lowStockItems.isNotEmpty ? _lowStockItems.length : 3;
 
+  @override
+  void initState() {
+    super.initState();
+    _loadPatients();
+  }
+
+  Future<void> _loadPatients() async {
+    setState(() => _patientsLoading = true);
+    try {
+      final list = await _repo.getAll();
+      if (!mounted) return;
+      setState(() {
+        _patients = list;
+        _patientsLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _patientsLoading = false);
+    }
+  }
+  */
+
   void _go(Widget screen) {
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => screen));
   }
@@ -190,6 +224,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _go(const PatientListScreen());
   }
 
+  /*
   void _onInventoryTap() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -198,6 +233,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+  */
 
   @override
   Widget build(BuildContext context) {
@@ -216,16 +252,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      if (_lowStockItems.isNotEmpty) ...[
-                        _buildLowStockAlert(),
-                        const SizedBox(height: 16),
-                      ],
-                      _buildStatsCards(),
-                      const SizedBox(height: 16),
-                      _buildQuickStats(),
-                      const SizedBox(height: 16),
-                      _buildMonthlyRevenue(),
-                      const SizedBox(height: 16),
                       _buildUpcomingReminders(),
                       const SizedBox(height: 16),
                       _buildQuickActions(),
@@ -376,7 +402,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     alignment: Alignment.center,
                     child: Text(
-                      '$_badgeCount',
+                      '$_headerNotificationBadgeCount',
                       style: GoogleFonts.inter(
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
@@ -433,6 +459,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  /*
   Widget _buildLowStockAlert() {
     return Material(
       color: _orange50,
@@ -510,7 +537,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: _StatCard(
             icon: Icons.people,
             iconColor: _blue600,
-            value: '$_mockPatientCount',
+            value: _patientsLoading ? '...' : '${_patients.length}',
             label: 'Total Patients',
             trend: '$_patientIncrease%',
           ),
@@ -518,9 +545,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         const SizedBox(width: 12),
         Expanded(
           child: _StatCard(
-            icon: Icons.currency_rupee,
+            icon: Icons.attach_money,
             iconColor: _green600,
-            value: '₹$_totalRevenue',
+            value: '\$$_totalRevenue',
             label: 'Total Revenue',
             trend: '$_revenueIncrease%',
           ),
@@ -646,14 +673,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
               GestureDetector(
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('View All'),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                },
+                onTap: () => _go(const PatientListScreen()),
                 child: Text(
                   'View All',
                   style: GoogleFonts.inter(
@@ -685,7 +705,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         ),
                       ),
                       Text(
-                        '₹$amount',
+                        '\$$amount',
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
@@ -729,6 +749,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
+  */
 
   Widget _buildUpcomingReminders() {
     return Container(
@@ -759,14 +780,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
               GestureDetector(
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('View All'),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                },
+                onTap: () => _go(const PatientListScreen()),
                 child: Text(
                   'View All',
                   style: GoogleFonts.inter(
@@ -973,6 +987,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
+/*
 class _StatCard extends StatelessWidget {
   const _StatCard({
     required this.icon,
@@ -1035,6 +1050,7 @@ class _StatCard extends StatelessWidget {
     );
   }
 }
+*/
 
 class _ProfileMenuItem extends StatelessWidget {
   const _ProfileMenuItem({

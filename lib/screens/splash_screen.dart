@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/role_aware_shell.dart';
 import 'login_screen.dart';
-import 'main_shell.dart';
 
 /// Launch / splash screen — checks existing session and routes accordingly.
 class SplashScreen extends StatefulWidget {
@@ -40,7 +40,7 @@ class _SplashScreenState extends State<SplashScreen>
     Future<void>.delayed(const Duration(milliseconds: 1800), () {
       if (!mounted) return;
       final destination = AuthService.isLoggedIn
-          ? const MainShell()
+          ? const RoleAwareShell()
           : const LoginScreen();
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(

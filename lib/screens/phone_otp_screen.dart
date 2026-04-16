@@ -5,7 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
-import 'main_shell.dart';
+import '../widgets/role_aware_shell.dart';
 
 class PhoneOtpScreen extends StatefulWidget {
   const PhoneOtpScreen({super.key, this.initialPhone = ''});
@@ -103,7 +103,7 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
       await AuthService.verifyPhoneOtp(phone: _phone, otp: otp);
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute<void>(builder: (_) => const MainShell()),
+        MaterialPageRoute<void>(builder: (_) => const RoleAwareShell()),
         (_) => false,
       );
     } on AuthException catch (e) {

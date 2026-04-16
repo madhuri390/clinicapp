@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/app_theme.dart';
+import 'patient_portal_logo.dart';
 
 class LoginFormSection extends StatelessWidget {
   const LoginFormSection({
@@ -18,6 +19,7 @@ class LoginFormSection extends StatelessWidget {
     required this.onPhoneSignIn,
     this.googleLoading = false,
     this.appleLoading = false,
+    this.isPatientPortal = false,
   });
 
   final GlobalKey<FormState> formKey;
@@ -32,6 +34,7 @@ class LoginFormSection extends StatelessWidget {
   final VoidCallback onPhoneSignIn;
   final bool googleLoading;
   final bool appleLoading;
+  final bool isPatientPortal;
 
   @override
   Widget build(BuildContext context) {
@@ -45,8 +48,12 @@ class LoginFormSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (isPatientPortal) ...[
+            const Center(child: PatientPortalLogo(height: 72)),
+            const SizedBox(height: 20),
+          ],
           Text(
-            'User Login',
+            isPatientPortal ? 'Patient Login' : 'Staff Login',
             textAlign: TextAlign.center,
             style: GoogleFonts.poppins(
               fontSize: 24,

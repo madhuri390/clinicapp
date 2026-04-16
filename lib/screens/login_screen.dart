@@ -6,7 +6,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/login_form_section.dart';
-import 'main_shell.dart';
+import '../services/app_role_service.dart';
+import '../widgets/role_aware_shell.dart';
 import 'phone_otp_screen.dart';
 import 'splash_screen.dart';
 
@@ -21,6 +22,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailOrPhoneController = TextEditingController();
   final _passwordController = TextEditingController();
+  AppRole _selectedRole = AppRole.staff;
   bool _isLoading = false;
   bool _googleLoading = false;
   bool _appleLoading = false;
@@ -35,9 +37,11 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
     // Listen for auth state changes (e.g. OAuth redirect coming back)
-    AuthService.authStateChanges.listen((data) {
+    AuthService.authStateChanges.listen((data) async {
       if (!mounted) return;
       if (data.event == AuthChangeEvent.signedIn) {
+        await AppRoleService.setRole(_selectedRole);
+        if (!mounted) return;
         _navigateToShell();
       }
     });
@@ -53,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void _navigateToShell() {
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (_, _, _) => const MainShell(),
+        pageBuilder: (_, _, _) => const RoleAwareShell(),
         transitionsBuilder: (_, animation, _, child) => FadeTransition(
           opacity: CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
           child: child,
@@ -66,6 +70,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _onSignIn() async {
     // TODO: DEV ONLY — bypass auth, accept any credentials
     setState(() => _isLoading = true);
+    await AppRoleService.setRole(_selectedRole);
     await Future.delayed(const Duration(milliseconds: 300)); // fake delay
     if (!mounted) return;
     setState(() => _isLoading = false);
@@ -106,7 +111,9 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _showPhoneOtp(String phone) {
+  Future<void> _showPhoneOtp(String phone) async {
+    await AppRoleService.setRole(_selectedRole);
+    if (!mounted) return;
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => PhoneOtpScreen(initialPhone: phone),
@@ -163,19 +170,46 @@ class _LoginScreenState extends State<LoginScreen> {
           _BlueHeader(),
           Expanded(
             child: SingleChildScrollView(
-              child: LoginFormSection(
-                formKey: _formKey,
-                emailOrPhoneController: _emailOrPhoneController,
-                passwordController: _passwordController,
-                onForgotPassword: _onForgotPassword,
-                onSignIn: _onSignIn,
-                onSignUp: _onSignUp,
-                isLoading: _isLoading,
-                onGoogleSignIn: _onGoogleSignIn,
-                onAppleSignIn: _onAppleSignIn,
-                onPhoneSignIn: () => _showPhoneOtp(''),
-                googleLoading: _googleLoading,
-                appleLoading: _appleLoading,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(28, 16, 28, 0),
+                    child: SegmentedButton<AppRole>(
+                      segments: const [
+                        ButtonSegment<AppRole>(
+                          value: AppRole.staff,
+                          label: Text('Staff'),
+                          icon: Icon(Icons.medical_services_outlined, size: 18),
+                        ),
+                        ButtonSegment<AppRole>(
+                          value: AppRole.patient,
+                          label: Text('Patient'),
+                          icon: Icon(Icons.person_outline, size: 18),
+                        ),
+                      ],
+                      selected: {_selectedRole},
+                      onSelectionChanged: (s) {
+                        setState(() => _selectedRole = s.first);
+                      },
+                    ),
+                  ),
+                  LoginFormSection(
+                    formKey: _formKey,
+                    emailOrPhoneController: _emailOrPhoneController,
+                    passwordController: _passwordController,
+                    onForgotPassword: _onForgotPassword,
+                    onSignIn: _onSignIn,
+                    onSignUp: _onSignUp,
+                    isLoading: _isLoading,
+                    onGoogleSignIn: _onGoogleSignIn,
+                    onAppleSignIn: _onAppleSignIn,
+                    onPhoneSignIn: () => _showPhoneOtp(''),
+                    googleLoading: _googleLoading,
+                    appleLoading: _appleLoading,
+                    isPatientPortal: _selectedRole == AppRole.patient,
+                  ),
+                ],
               ),
             ),
           ),

@@ -59,11 +59,19 @@ class AddAppointmentSheet extends StatefulWidget {
     required this.selectedDate,
     this.prefilledTimeSlot,
     required this.onSaved,
+    this.prefilledPatientId,
+    this.prefilledPatientName,
+    this.prefilledPatientPhone,
   });
 
   final DateTime selectedDate;
   final String? prefilledTimeSlot;
   final VoidCallback onSaved;
+
+  /// Patient portal: lock booking to this profile.
+  final String? prefilledPatientId;
+  final String? prefilledPatientName;
+  final String? prefilledPatientPhone;
 
   @override
   State<AddAppointmentSheet> createState() => _AddAppointmentSheetState();
@@ -90,6 +98,12 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
     super.initState();
     _date = widget.selectedDate;
     _selectedSlot = widget.prefilledTimeSlot;
+    if (widget.prefilledPatientName != null) {
+      _nameCtrl.text = widget.prefilledPatientName!;
+    }
+    if (widget.prefilledPatientPhone != null) {
+      _phoneCtrl.text = widget.prefilledPatientPhone!;
+    }
   }
 
   @override
@@ -138,11 +152,12 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
     }
 
     final id = 'appt_${DateTime.now().millisecondsSinceEpoch}';
+    final phone = _phoneCtrl.text.trim();
     final appt = Appointment(
       id: id,
-      patientId: 'manual_${_phoneCtrl.text}',
+      patientId: widget.prefilledPatientId ?? 'manual_$phone',
       patientName: _nameCtrl.text.trim(),
-      patientPhone: _phoneCtrl.text.trim(),
+      patientPhone: phone,
       date: _date,
       timeSlot: _selectedSlot!,
       duration: _duration,
@@ -232,6 +247,7 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
                     _label('Patient Name'),
                     TextFormField(
                       controller: _nameCtrl,
+                      readOnly: widget.prefilledPatientId != null,
                       decoration: _inputDecor('Enter patient name'),
                       validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
                     ),
@@ -241,6 +257,7 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
                     _label('Phone Number'),
                     TextFormField(
                       controller: _phoneCtrl,
+                      readOnly: widget.prefilledPatientId != null,
                       decoration: _inputDecor('+91 XXXXXXXXXX'),
                       keyboardType: TextInputType.phone,
                       validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,

@@ -9,6 +9,7 @@ import '../models/visit_model.dart';
 import '../repositories/patient_repository.dart';
 import '../services/local_store.dart';
 import '../theme/app_theme.dart';
+import '../theme/patient_portal_theme.dart';
 import '../widgets/patient_details_widgets.dart';
 
 // ── Screen ────────────────────────────────────────────────────────────────────
@@ -18,10 +19,14 @@ class PatientDetailsScreen extends StatefulWidget {
     super.key,
     required this.patientId,
     required this.patientName,
+    this.patientPortalMode = false,
   });
 
   final String patientId;
   final String patientName;
+
+  /// Patient app: no new consultation; ongoing/history are read-only.
+  final bool patientPortalMode;
 
   @override
   State<PatientDetailsScreen> createState() => _PatientDetailsScreenState();
@@ -234,13 +239,24 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final bg = widget.patientPortalMode
+        ? PatientPortalTheme.surface
+        : AppTheme.lightBlueBackground;
+    final primary = widget.patientPortalMode
+        ? PatientPortalTheme.skyBlue
+        : AppTheme.primaryColor;
+
     return Scaffold(
-      backgroundColor: AppTheme.lightBlueBackground,
+      backgroundColor: bg,
       appBar: AppBar(
-        backgroundColor: AppTheme.lightBlueBackground,
+        backgroundColor: bg,
         elevation: 0,
         scrolledUnderElevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black87),
+        iconTheme: IconThemeData(
+          color: widget.patientPortalMode
+              ? PatientPortalTheme.navyBlue
+              : Colors.black87,
+        ),
       ),
       body: NestedScrollView(
         headerSliverBuilder: (context, _) => [
@@ -261,36 +277,38 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
                           displayName: widget.patientName,
                         ),
                   const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        elevation: 0,
-                      ),
-                      onPressed: _showNewConsultationModal,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.add, size: 20),
-                          const SizedBox(width: 8),
-                          Text(
-                            'New Consultation',
-                            style: GoogleFonts.poppins(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                            ),
+                  if (!widget.patientPortalMode) ...[
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primary,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                        ],
+                          elevation: 0,
+                        ),
+                        onPressed: _showNewConsultationModal,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.add, size: 20),
+                            const SizedBox(width: 8),
+                            Text(
+                              'New Consultation',
+                              style: GoogleFonts.poppins(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
+                    const SizedBox(height: 20),
+                  ],
                 ],
               ),
             ),
@@ -303,20 +321,23 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
                 indicatorSize: TabBarIndicatorSize.tab,
                 dividerColor: Colors.transparent,
                 indicator: BoxDecoration(
-                  color: AppTheme.primaryColor,
+                  gradient: widget.patientPortalMode
+                      ? PatientPortalTheme.accentGradient
+                      : null,
+                  color: widget.patientPortalMode ? null : primary,
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
+                      color: primary.withValues(alpha: 0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
                     ),
                   ],
                 ),
                 labelPadding: const EdgeInsets.symmetric(horizontal: 4),
                 labelColor: Colors.white,
-                unselectedLabelColor: AppTheme.primaryColor.withValues(
-                  alpha: 0.7,
+                unselectedLabelColor: primary.withValues(
+                  alpha: 0.75,
                 ),
                 labelStyle: GoogleFonts.poppins(
                   fontWeight: FontWeight.w600,
@@ -329,11 +350,12 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
                 tabs: _tabLabels.map((t) => Tab(text: t)).toList(),
                 splashBorderRadius: BorderRadius.circular(24),
               ),
+              backgroundColor: bg,
             ),
           ),
         ],
         body: Container(
-          color: AppTheme.lightBlueBackground,
+          color: bg,
           child: TabBarView(
             controller: _tabController,
             children: [
@@ -344,13 +366,22 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
                 prescriptions: _prescriptions,
                 payments: _payments,
                 onRefresh: _loadAll,
-                onEditVisit: _showEditConsultationModal,
-                onComplete: () {
-                  _loadAll();
-                  _tabController.animateTo(2);
-                },
+                onEditVisit: widget.patientPortalMode
+                    ? (_) {}
+                    : _showEditConsultationModal,
+                onComplete: widget.patientPortalMode
+                    ? null
+                    : () {
+                        _loadAll();
+                        _tabController.animateTo(2);
+                      },
+                readOnly: widget.patientPortalMode,
               ),
-              HistoryTabPlaceholder(visits: _visits, onRefresh: _loadVisits),
+              HistoryTabPlaceholder(
+                visits: _visits,
+                onRefresh: _loadVisits,
+                readOnly: widget.patientPortalMode,
+              ),
             ],
           ),
         ),
