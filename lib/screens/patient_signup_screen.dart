@@ -78,10 +78,34 @@ class _PatientSignupScreenState extends State<PatientSignupScreen> {
           password: password,
         );
       }
-      
+
       final user = authResponse.user;
       if (user == null) {
         throw Exception('User creation failed: No user returned');
+      }
+
+      // RLS requires a JWT: if email confirmation is on, signUp returns no session and
+      // the insert runs as `anon` and fails. Sign in immediately when possible.
+      if (authResponse.session == null) {
+        try {
+          if (email.isNotEmpty) {
+            await AuthService.signInWithEmail(email: email, password: password);
+          } else {
+            final phoneFormatted = phone.startsWith('+') ? phone : '+91$phone';
+            await AuthService.signInWithPhone(
+              phone: phoneFormatted,
+              password: password,
+            );
+          }
+        } on AuthException catch (e) {
+          if (!mounted) return;
+          _showError(
+            'Account may need email/phone confirmation first (${e.message}). '
+            'In Supabase: Authentication → Providers → turn off "Confirm email" for testing, '
+            'or confirm your inbox and sign in manually.',
+          );
+          return;
+        }
       }
 
       // Format phone for storage
@@ -90,7 +114,7 @@ class _PatientSignupScreenState extends State<PatientSignupScreen> {
         phoneVal = phone.startsWith('+') ? phone : '+91$phone';
       }
 
-      // Prepare patient model for database insert
+      // Prepare patient model for database insert (auth_user_id enables patient RLS)
       final patient = Patient(
         id: user.id,
         firstName: _firstNameCtrl.text.trim(),
@@ -98,11 +122,12 @@ class _PatientSignupScreenState extends State<PatientSignupScreen> {
         phone: phoneVal ?? '',
         email: email.isNotEmpty ? email : null,
         createdAt: DateTime.now(),
+        authUserId: user.id,
       );
 
-      // Save into Supabase Patients Table
+      // Save into Supabase Patients Table (upsert so retries after partial failure work)
       final repo = PatientRepository();
-      await repo.create(patient);
+      await repo.upsert(patient);
 
       // Set App Role securely to ensure we navigate to patient view
       await AppRoleService.setRole(AppRole.patient);

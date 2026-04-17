@@ -12,6 +12,8 @@ class Patient {
     this.medicalHistory,
     this.dentalHistory,
     this.createdAt,
+    /// Same as [id] when this row is the logged-in auth user (patient portal).
+    this.authUserId,
   });
 
   final String id;
@@ -26,6 +28,9 @@ class Patient {
   final String? medicalHistory;
   final String? dentalHistory;
   final DateTime? createdAt;
+
+  /// Supabase `auth.users.id` when linked to patient portal login.
+  final String? authUserId;
 
   String get fullName =>
       [firstName, lastName].where((s) => s != null && s.isNotEmpty).join(' ');
@@ -59,6 +64,7 @@ class Patient {
       createdAt: json['created_at'] == null
           ? null
           : DateTime.tryParse(json['created_at'] as String),
+      authUserId: json['auth_user_id'] as String?,
     );
   }
 
@@ -75,5 +81,6 @@ class Patient {
     if (address != null) 'address': address,
     if (medicalHistory != null) 'medical_history': medicalHistory,
     if (dentalHistory != null) 'dental_history': dentalHistory,
+    if (authUserId != null) 'auth_user_id': authUserId,
   };
 }

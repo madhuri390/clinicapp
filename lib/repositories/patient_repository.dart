@@ -37,6 +37,15 @@ class PatientRepository {
     return Patient.fromJson(result);
   }
 
+  /// Insert or replace by primary key (used after auth sign-up).
+  Future<Patient> upsert(Patient patient) async {
+    final result = await _db
+        .upsert(patient.toInsertJson(), onConflict: 'id')
+        .select()
+        .single();
+    return Patient.fromJson(result);
+  }
+
   Future<Patient> update(String id, Map<String, dynamic> changes) async {
     final result =
         await _db.update(changes).eq('id', id).select().single();
