@@ -486,36 +486,6 @@ class _TreatmentAccordion extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () {
-                              showModalBottomSheet(
-                                context: context,
-                                isScrollControlled: true,
-                                backgroundColor: Colors.transparent,
-                                builder: (_) => _AddFileSheet(
-                                  visitId: treatment.visitId,
-                                  treatmentId: treatment.id,
-                                  onSave: (file) {
-                                    LocalStore.instance.addFile(file);
-                                    onRefresh();
-                                    Navigator.pop(context);
-                                  },
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.attach_file, size: 20),
-                            label: const Text('Add File'),
-                            style: OutlinedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              side: BorderSide(color: Colors.grey.shade300),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                          ),
-                        ),
                       ],
                     ),
                     const SizedBox(height: 24),
@@ -756,42 +726,7 @@ class _TreatmentAccordion extends StatelessWidget {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.end,
                                 children: [
-                                  TextButton(
-                                    onPressed: () {
-                                      showModalBottomSheet(
-                                        context: context,
-                                        isScrollControlled: true,
-                                        backgroundColor: Colors.transparent,
-                                        builder: (_) => _AddFileSheet(
-                                          visitId: treatment.visitId,
-                                          treatmentId: treatment.id,
-                                          file: f,
-                                          onSave: (updated) {
-                                            LocalStore.instance
-                                                .updateFileAttachment(updated);
-                                            onRefresh();
-                                            Navigator.pop(context);
-                                          },
-                                        ),
-                                      );
-                                    },
-                                    style: TextButton.styleFrom(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                      ),
-                                      minimumSize: Size.zero,
-                                      tapTargetSize:
-                                          MaterialTapTargetSize.shrinkWrap,
-                                    ),
-                                    child: Text(
-                                      'Edit',
-                                      style: GoogleFonts.poppins(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.orange.shade700,
-                                      ),
-                                    ),
-                                  ),
+
                                   if ((f.price ?? 0) > 0 && f.payment == null)
                                     TextButton(
                                       onPressed: () {
@@ -1145,88 +1080,6 @@ class _AddPrescriptionSheetState extends State<_AddPrescriptionSheet> {
   }
 }
 
-class _AddFileSheet extends StatefulWidget {
-  const _AddFileSheet({
-    this.visitId,
-    this.treatmentId,
-    this.file,
-    required this.onSave,
-  });
-
-  final String? visitId;
-  final String? treatmentId;
-  final FileAttachment? file;
-  final ValueChanged<FileAttachment> onSave;
-
-  @override
-  State<_AddFileSheet> createState() => _AddFileSheetState();
-}
-
-class _AddFileSheetState extends State<_AddFileSheet> {
-  late final TextEditingController _nameCtrl;
-  late final TextEditingController _priceCtrl;
-  bool _saving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _nameCtrl = TextEditingController(text: widget.file?.fileName);
-    _priceCtrl = TextEditingController(
-      text: widget.file?.price?.toStringAsFixed(0),
-    );
-  }
-
-  @override
-  void dispose() {
-    _nameCtrl.dispose();
-    _priceCtrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return _BottomSheetWrapper(
-      title: 'Upload File (Mock)',
-      child: Column(
-        children: [
-          _SheetField(controller: _nameCtrl, label: 'File Name *'),
-          const SizedBox(height: 12),
-          _SheetField(
-            controller: _priceCtrl,
-            label: 'Price (Optional)',
-            keyboardType: TextInputType.number,
-          ),
-          const SizedBox(height: 20),
-          _SaveButton(
-            isSaving: _saving,
-            label: 'Save File',
-            onPressed: () {
-              if (_nameCtrl.text.trim().isEmpty) return;
-              setState(() => _saving = true);
-              final f = widget.file;
-              widget.onSave(
-                f != null
-                    ? f.copyWith(
-                        fileName: _nameCtrl.text.trim(),
-                        price: double.tryParse(_priceCtrl.text.trim()) ?? 0.0,
-                      )
-                    : FileAttachment(
-                        id: DateTime.now().millisecondsSinceEpoch.toString(),
-                        visitId: widget.visitId,
-                        treatmentPlanId: widget.treatmentId,
-                        fileName: _nameCtrl.text.trim(),
-                        fileType: 'image/jpeg',
-                        fileUrl: 'mock_url',
-                        price: double.tryParse(_priceCtrl.text.trim()) ?? 0.0,
-                      ),
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 void _showBillPreview(
   BuildContext context,
