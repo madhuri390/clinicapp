@@ -30,8 +30,8 @@ class PatientHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = patient?.fullName ?? displayName;
-    final age = patient?.age ?? 34;
-    final gender = patient?.gender ?? 'Female';
+    final age = patient?.age;
+    final gender = patient?.gender;
     final initials = _initials(name);
 
     return Container(
@@ -92,10 +92,14 @@ class PatientHeader extends StatelessWidget {
                       ),
                   ],
                 ),
-                Text(
-                  '$age yrs · $gender',
-                  style: GoogleFonts.lato(fontSize: 12, color: kRefMuted),
-                ),
+                if (age != null || (gender != null && gender.isNotEmpty))
+                  Text(
+                    [
+                      if (age != null) '$age yrs',
+                      if (gender != null && gender.isNotEmpty) gender,
+                    ].join(' · '),
+                    style: GoogleFonts.lato(fontSize: 12, color: kRefMuted),
+                  ),
               ],
             ),
           ),

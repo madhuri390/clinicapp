@@ -15,28 +15,38 @@ const _slate400 = Color(0xFF94A3B8);
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
 
+  static MainShellState? of(BuildContext context) {
+    return context.findAncestorStateOfType<MainShellState>();
+  }
+
   @override
-  State<MainShell> createState() => _MainShellState();
+  State<MainShell> createState() => MainShellState();
 }
 
-class _MainShellState extends State<MainShell> {
+class MainShellState extends State<MainShell> {
   int _currentIndex = 0;
 
   final List<Widget> _screens = const [
     DashboardScreen(),
     PatientListScreen(),
     AppointmentsScreen(),
-    // MessagesScreen(),
-    // InventoryScreen(),
   ];
 
   final List<GlobalKey<NavigatorState>> _navigatorKeys = [
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
-    // GlobalKey<NavigatorState>(),
-    // GlobalKey<NavigatorState>(),
   ];
+
+  void setTabIndex(int index) {
+    if (index < 0 || index >= _screens.length) return;
+    setState(() => _currentIndex = index);
+  }
+
+  NavigatorState? getNavigatorForTab(int index) {
+    if (index < 0 || index >= _navigatorKeys.length) return null;
+    return _navigatorKeys[index].currentState;
+  }
 
   @override
   Widget build(BuildContext context) {

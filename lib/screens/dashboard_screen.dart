@@ -6,8 +6,8 @@ import '../services/app_role_service.dart';
 import '../theme/app_theme.dart';
 import 'appointments_screen.dart';
 import 'login_screen.dart';
+import 'main_shell.dart';
 import 'patient_form_screen.dart';
-import 'patient_list_screen.dart';
 import 'profile_screen.dart';
 
 // ── Reference colors (Tailwind) ─────────────────────────────────────────────
@@ -270,7 +270,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _onAddPatient() {
-    _go(const PatientFormScreen());
+    final shell = MainShell.of(context);
+    if (shell != null) {
+      shell.setTabIndex(1); // Switch to Patients tab
+      shell.getNavigatorForTab(1)?.push(
+        MaterialPageRoute<void>(builder: (_) => const PatientFormScreen()),
+      );
+    } else {
+      _go(const PatientFormScreen());
+    }
   }
 
   /*
@@ -835,7 +843,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
               GestureDetector(
-                onTap: () => _go(const PatientListScreen()),
+                onTap: () {
+                  final shell = MainShell.of(context);
+                  if (shell != null) {
+                    shell.setTabIndex(2); // Switch to Appointments tab
+                  } else {
+                    _go(const AppointmentsScreen());
+                  }
+                },
                 child: Text(
                   'View All',
                   style: GoogleFonts.inter(
@@ -986,7 +1001,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   color: _purple50,
                   borderRadius: BorderRadius.circular(8),
                   child: InkWell(
-                    onTap: () => _go(const AppointmentsScreen()),
+                    onTap: () {
+                      final shell = MainShell.of(context);
+                      if (shell != null) {
+                        shell.setTabIndex(2); // Switch to Appointments tab
+                      } else {
+                        _go(const AppointmentsScreen());
+                      }
+                    },
                     borderRadius: BorderRadius.circular(8),
                     child: Container(
                       padding: const EdgeInsets.symmetric(

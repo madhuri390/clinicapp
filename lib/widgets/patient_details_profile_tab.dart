@@ -21,9 +21,9 @@ class ProfileTab extends StatelessWidget {
     }
 
     final p = patient;
-    final phone = p?.phone ?? 'Not provided';
-    final email = p?.email ?? 'Not provided';
-    final address = p?.address ?? 'Not provided';
+    final phone = p?.phone;
+    final email = p?.email;
+    final address = p?.address;
     final regDate = p?.createdAt != null
         ? ProfileTab.formatDate(p!.createdAt!)
         : 'N/A';
@@ -48,9 +48,12 @@ class ProfileTab extends StatelessWidget {
                 label: 'Contact details',
               ),
               const SizedBox(height: 16),
-              _ContactRow(icon: Icons.phone_outlined, text: phone),
-              _ContactRow(icon: Icons.email_outlined, text: email),
-              _ContactRow(icon: Icons.location_on_outlined, text: address),
+              if (phone != null && phone.isNotEmpty)
+                _ContactRow(icon: Icons.phone_outlined, text: phone),
+              if (email != null && email.isNotEmpty)
+                _ContactRow(icon: Icons.email_outlined, text: email),
+              if (address != null && address.isNotEmpty)
+                _ContactRow(icon: Icons.location_on_outlined, text: address),
               _ContactRow(
                 icon: Icons.calendar_today_outlined,
                 text: 'Registered: $regDate',
