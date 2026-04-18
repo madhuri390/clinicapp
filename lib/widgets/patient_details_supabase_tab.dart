@@ -1,30 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../models/payment_model.dart';
 import '../models/prescription_model.dart';
 import '../models/sitting_model.dart';
 import '../models/treatment_plan_model.dart';
+import '../models/treatment_template_model.dart';
 import '../models/visit_detail_model.dart';
 import '../repositories/visit_detail_repository.dart';
 import '../widgets/patient_details_header.dart';
 import '../widgets/patient_details_profile_tab.dart';
 
-// ── Reference design constants (from referencedesign.html CSS) ────────────
+// ── Reference design constants ──────────────────────────────────────────
 const _cardRadius   = 28.0;
 const _cardPadding  = EdgeInsets.all(18);
-const _cardBorder   = kRefBorder;         // #EDF2F7
+const _cardBorder   = kRefBorder;
 const _cardShadow   = BoxShadow(color: Color(0x05000000), blurRadius: 8, offset: Offset(0, 2));
 
-const _badgePlanBg  = Color(0xFFFFF2E0);  // .badge-plan
+const _badgePlanBg  = Color(0xFFFFF2E0);
 const _badgePlanFg  = Color(0xFFC47B2E);
-const _badgeCompBg  = Color(0xFFE0F7EF);  // .badge-complete
+const _badgeCompBg  = Color(0xFFE0F7EF);
 const _badgeCompFg  = Color(0xFF1E7B5C);
 
-const _sittingBg    = Color(0xFFF8FAFE);  // .sitting-item
-const _prescBg      = Color(0xFFF1F5F9);  // .prescription-chip
-const _treatBg      = Color(0xFFF8FAFE);  // .treatment-chip
+const _sittingBg    = Color(0xFFF8FAFE);
+const _prescBg      = Color(0xFFF1F5F9);
+const _treatBg      = Color(0xFFF8FAFE);
+const _btnBorder    = Color(0xFFCBD5E1);
 
-const _btnBorder    = Color(0xFFCBD5E1);  // .btn-outline-sm border
 // ═══════════════════════════════════════════════════════════════════════════
 // ONGOING TAB
 // ═══════════════════════════════════════════════════════════════════════════
@@ -68,7 +70,6 @@ class OngoingTab extends StatelessWidget {
         detail: visitDetails[i],
         isOngoing: true,
         onRefresh: onRefresh,
-        onEditVisit: onEditVisit != null ? () => onEditVisit!(visitDetails[i]) : null,
         onComplete: onComplete,
         readOnly: readOnly,
       ),
@@ -119,7 +120,7 @@ class HistoryTab extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// VISIT CARD  — .ongoing-item / .history-item
+// VISIT CARD — the core widget, renders one visit with full hierarchy
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _VisitCard extends StatelessWidget {
@@ -127,7 +128,6 @@ class _VisitCard extends StatelessWidget {
     required this.detail,
     required this.isOngoing,
     required this.onRefresh,
-    this.onEditVisit,
     this.onComplete,
     this.readOnly = false,
   });
@@ -135,14 +135,12 @@ class _VisitCard extends StatelessWidget {
   final VisitDetail detail;
   final bool isOngoing;
   final VoidCallback onRefresh;
-  final VoidCallback? onEditVisit;
   final VoidCallback? onComplete;
   final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
     final repo = VisitDetailRepository();
-    final totalPaid = detail.totalPaid;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -156,7 +154,7 @@ class _VisitCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Row 1: badge + date (.flex-between) ──────────────────
+          // ── Row 1: badge + date ──────────────────────────────────
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -168,7 +166,7 @@ class _VisitCard extends StatelessWidget {
             ],
           ),
 
-          // ── Row 2: title (h3) ─────────────────────────────────────
+          // ── Row 2: title ──────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.only(top: 8, bottom: 4),
             child: Text(
@@ -181,21 +179,33 @@ class _VisitCard extends StatelessWidget {
             ),
           ),
 
-          // ── Row 3: diagnosis (.text-muted) ─────────────────────────
+          // ── Row 3: doctor · diagnosis ─────────────────────────────
           Text(
-            detail.visit.diagnosis ?? 'Pending diagnosis',
+            '${detail.doctorName} · ${detail.visit.diagnosis ?? 'Pending diagnosis'}',
             style: GoogleFonts.lato(fontSize: 12, color: kRefMuted),
           ),
 
-          // ── Sittings list ─────────────────────────────────────────
-          if (detail.sittings.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            ...detail.sittings.map((s) => _SittingItem(
-              sitting: s,
-              repo: repo,
-              onRefresh: onRefresh,
-              readOnly: readOnly,
-            )),
+          // ── Treatment sections (grouped sittings) ─────────────────
+          if (detail.treatments.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            ...detail.treatments.map(
+              (t) {
+                // Treatment is paid only if there is a direct treatment-level payment
+                // (sittingId == null). Sitting-level payments must NOT affect this.
+                final treatmentPaid = detail.payments.any(
+                  (p) => p.treatmentPlanId == t.id && p.sittingId == null,
+                );
+                return _TreatmentSection(
+                  treatment: t,
+                  sittings: detail.sittingsForTreatment(t.id),
+                  visitId: detail.visit.id,
+                  isPaid: treatmentPaid,
+                  repo: repo,
+                  onRefresh: onRefresh,
+                  readOnly: readOnly,
+                );
+              },
+            ),
           ],
 
           // ── Prescriptions as chips ────────────────────────────────
@@ -208,18 +218,7 @@ class _VisitCard extends StatelessWidget {
             ),
           ],
 
-          // ── Treatment chips (per treatment plan) ──────────────────
-          if (detail.treatments.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            ...detail.treatments.map(
-              (t) => _TreatmentChip(
-                treatment: t,
-                sittingCount: detail.sittingsForTreatment(t.id).length,
-              ),
-            ),
-          ],
-
-          // ── Action buttons (.action-buttons) ──────────────────────
+          // ── Action buttons ────────────────────────────────────────
           if (isOngoing && !readOnly) ...[
             const SizedBox(height: 12),
             Wrap(
@@ -227,64 +226,123 @@ class _VisitCard extends StatelessWidget {
               runSpacing: 8,
               children: [
                 _BtnOutlineSm(
-                  icon: Icons.calendar_today_outlined,
-                  label: 'Add Sitting',
-                  onTap: () => _showAddSitting(context, repo),
+                  icon: Icons.add_circle_outline,
+                  label: 'Add Treatment',
+                  onTap: () => _showAddTreatment(context, repo),
                 ),
+                if (detail.treatments.isNotEmpty)
+                  _BtnOutlineSm(
+                    icon: Icons.calendar_today_outlined,
+                    label: 'Add Sitting',
+                    onTap: () => _showAddSitting(context, repo),
+                  ),
                 _BtnOutlineSm(
                   icon: Icons.medication_outlined,
                   label: 'Add Prescription',
                   onTap: () => _showAddPrescription(context, repo),
                 ),
+                _BtnOutlineSm(
+                  icon: Icons.payment_outlined,
+                  label: 'Add Payment',
+                  onTap: () => _showAddPayment(context, repo),
+                ),
               ],
             ),
           ],
 
-          // ── Footer: amount chip + primary button (.card-footer) ───
+          // ── Footer: amount chip row ───────────────────────────────
           const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // .amount-chip — shows total cost of all sittings
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                decoration: BoxDecoration(
-                  color: _sittingBg,
-                  borderRadius: BorderRadius.circular(40),
-                ),
-                child: Text(
-                  detail.totalCost > 0
-                      ? 'Total: ₹${detail.totalCost.toStringAsFixed(0)}'
-                      : totalPaid > 0
-                          ? 'Total: ₹${totalPaid.toStringAsFixed(0)}'
-                          : '₹0',
-                  style: GoogleFonts.lato(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: kRefDark,
-                  ),
-                ),
+          // Amount chip — always full width on its own row
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            decoration: BoxDecoration(
+              color: _sittingBg,
+              borderRadius: BorderRadius.circular(40),
+            ),
+            child: Text(
+              _buildAmountLabel(),
+              style: GoogleFonts.lato(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: kRefDark,
               ),
-              if (!readOnly)
-                isOngoing
-                    ? _BtnPrimarySm(
-                        icon: Icons.check_circle_outline,
-                        label: 'Complete Treatment',
-                        onTap: () => _onComplete(context, repo),
-                      )
-                    : _BtnPrimarySm(
-                        icon: Icons.receipt_long_outlined,
-                        label: 'View Bill',
-                        onTap: () => _showBill(context),
-                      ),
-            ],
+            ),
           ),
+          // ── Action button row — right-aligned on its own row ───────
+          if (!readOnly) ...[
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: isOngoing
+                  ? _BtnPrimarySm(
+                      icon: Icons.check_circle_outline,
+                      label: 'Complete Treatment',
+                      onTap: () => _onComplete(context, repo),
+                    )
+                  : _BtnPrimarySm(
+                      icon: Icons.receipt_long_outlined,
+                      label: 'View Bill',
+                      onTap: () => _showBill(context),
+                    ),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  // ── helpers ──────────────────────────────────────────────────────────────
+  String _buildAmountLabel() {
+    final treatCost = detail.totalTreatmentCost;
+    final sitCost = detail.totalSittingsCost;
+    final grandTotal = treatCost + sitCost;
+    final paid = _effectivePaid();
+    if (grandTotal > 0) {
+      return 'Total: ₹${grandTotal.toStringAsFixed(0)} · Paid: ₹${paid.toStringAsFixed(0)}';
+    }
+    if (paid > 0) {
+      return 'Paid: ₹${paid.toStringAsFixed(0)}';
+    }
+    return '₹0';
+  }
+
+  /// Sums explicit payment records + paid sitting costs that don't yet have
+  /// a linked payment record (e.g. sittings toggled before auto-payment).
+  double _effectivePaid() {
+    final fromPayments = detail.totalPaid;
+    // sitting IDs already covered by a payment record
+    final coveredSittingIds = detail.payments
+        .where((p) => p.sittingId != null)
+        .map((p) => p.sittingId!)
+        .toSet();
+    final fromUnlinkedSittings = detail.sittings
+        .where(
+          (s) =>
+              (s.status.toLowerCase() == 'completed' ||
+                  s.status.toLowerCase() == 'paid') &&
+              !coveredSittingIds.contains(s.id) &&
+              (s.cost ?? 0) > 0,
+        )
+        .fold(0.0, (sum, s) => sum + s.cost!);
+    return fromPayments + fromUnlinkedSittings;
+  }
+
+  // ── Dialog helpers ────────────────────────────────────────────────────
+
+  void _showAddTreatment(BuildContext context, VisitDetailRepository repo) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (_) => _ModalDialog(
+        title: 'Add Treatment',
+        icon: Icons.add_circle_outline,
+        child: _AddTreatmentForm(
+          visitId: detail.visit.id,
+          repo: repo,
+          onSaved: onRefresh,
+        ),
+      ),
+    );
+  }
 
   void _showAddSitting(BuildContext context, VisitDetailRepository repo) {
     showDialog(
@@ -295,9 +353,7 @@ class _VisitCard extends StatelessWidget {
         icon: Icons.calendar_today_outlined,
         child: _AddSittingForm(
           visitId: detail.visit.id,
-          treatmentPlanId: detail.treatments.isNotEmpty
-              ? detail.treatments.first.id
-              : null,
+          treatments: detail.treatments,
           repo: repo,
           onSaved: onRefresh,
         ),
@@ -324,6 +380,22 @@ class _VisitCard extends StatelessWidget {
     );
   }
 
+  void _showAddPayment(BuildContext context, VisitDetailRepository repo) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (_) => _ModalDialog(
+        title: 'Add Payment',
+        icon: Icons.payment_outlined,
+        child: _AddPaymentForm(
+          visitId: detail.visit.id,
+          repo: repo,
+          onSaved: onRefresh,
+        ),
+      ),
+    );
+  }
+
   Future<void> _onComplete(BuildContext context, VisitDetailRepository repo) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -335,7 +407,7 @@ class _VisitCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'This will mark the consultation as completed.',
+              'This will mark the consultation as completed and move it to History.',
               style: GoogleFonts.lato(fontSize: 14, color: kRefMuted),
             ),
             const SizedBox(height: 20),
@@ -365,7 +437,10 @@ class _VisitCard extends StatelessWidget {
       await repo.completeVisit(detail.visit.id);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Consultation completed'), backgroundColor: Color(0xFF1E7B5C)),
+          const SnackBar(
+            content: Text('Consultation completed'),
+            backgroundColor: Color(0xFF1E7B5C),
+          ),
         );
       }
       onRefresh();
@@ -389,7 +464,182 @@ class _VisitCard extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  BADGE  — .badge-plan / .badge-complete
+// TREATMENT SECTION — one treatment with its sittings grouped below
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _TreatmentSection extends StatelessWidget {
+  const _TreatmentSection({
+    required this.treatment,
+    required this.sittings,
+    required this.visitId,
+    required this.isPaid,
+    required this.repo,
+    required this.onRefresh,
+    this.readOnly = false,
+  });
+  final TreatmentPlan treatment;
+  final List<Sitting> sittings;
+  final String visitId;
+  final bool isPaid;
+  final VisitDetailRepository repo;
+  final VoidCallback onRefresh;
+  final bool readOnly;
+
+  @override
+  Widget build(BuildContext context) {
+    final status = treatment.status ?? 'planned';
+    final hasCost = (treatment.totalCost ?? 0) > 0;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _treatBg,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFEFF3F8)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Treatment header row: name | status pill | payment toggle
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  treatment.treatmentName ?? 'Treatment',
+                  style: GoogleFonts.lato(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: kRefDark,
+                  ),
+                ),
+              ),
+              _StatusPill(label: status),
+              if (!readOnly && hasCost) ...[
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => _togglePayment(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: isPaid ? _badgeCompBg : _badgePlanBg,
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: Text(
+                      isPaid ? 'Paid' : 'Pending',
+                      style: GoogleFonts.lato(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: isPaid ? _badgeCompFg : _badgePlanFg,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          // Cost + sittings count subtitle
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              hasCost
+                  ? '₹${treatment.totalCost!.toStringAsFixed(0)} · ${sittings.length} sitting${sittings.length == 1 ? '' : 's'}'
+                  : '${sittings.length} sitting${sittings.length == 1 ? '' : 's'}',
+              style: GoogleFonts.lato(fontSize: 11, color: kRefMuted),
+            ),
+          ),
+          // Sittings grouped under this treatment
+          if (sittings.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            ...sittings.map((s) => _SittingItem(
+              sitting: s,
+              visitId: visitId,
+              repo: repo,
+              onRefresh: onRefresh,
+              readOnly: readOnly,
+            )),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _togglePayment(BuildContext context) async {
+    if (isPaid) {
+      // Already paid — show info snackbar, no reverse action
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Payment already recorded for ${treatment.treatmentName ?? 'treatment'}'),
+            backgroundColor: _badgeCompFg,
+          ),
+        );
+      }
+      return;
+    }
+    // Mark as paid → add a UPI payment for the full treatment cost
+    try {
+      final payment = Payment(
+        id: '',
+        visitId: visitId,
+        treatmentPlanId: treatment.id,
+        amountPaid: treatment.totalCost ?? 0,
+        paymentMode: 'UPI',
+        paymentDate: DateTime.now(),
+      );
+      await repo.addPayment(payment);
+      onRefresh();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Payment of ₹${treatment.totalCost!.toStringAsFixed(0)} recorded via UPI',
+            ),
+            backgroundColor: _badgeCompFg,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// STATUS PILL — small pill for treatment status
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final isComplete = label.toLowerCase() == 'completed';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      decoration: BoxDecoration(
+        color: isComplete ? _badgeCompBg : _badgePlanBg,
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: Text(
+        label[0].toUpperCase() + label.substring(1),
+        style: GoogleFonts.lato(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: isComplete ? _badgeCompFg : _badgePlanFg,
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BADGE — .badge-plan / .badge-complete
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _Badge extends StatelessWidget {
@@ -419,17 +669,19 @@ class _Badge extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  SITTING ITEM  — .sitting-item
+// SITTING ITEM
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _SittingItem extends StatelessWidget {
   const _SittingItem({
     required this.sitting,
+    required this.visitId,
     required this.repo,
     required this.onRefresh,
     this.readOnly = false,
   });
   final Sitting sitting;
+  final String visitId;
   final VisitDetailRepository repo;
   final VoidCallback onRefresh;
   final bool readOnly;
@@ -440,11 +692,11 @@ class _SittingItem extends StatelessWidget {
         sitting.status.toLowerCase() == 'paid';
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: _sittingBg,
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         children: [
@@ -470,9 +722,8 @@ class _SittingItem extends StatelessWidget {
             ),
             const SizedBox(width: 12),
           ],
-          // Tappable payment status toggle
           GestureDetector(
-            onTap: readOnly ? null : () => _togglePayment(context, isPaid),
+            onTap: readOnly ? null : () => _toggleStatus(context, isPaid),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
@@ -481,7 +732,11 @@ class _SittingItem extends StatelessWidget {
               ),
               child: Text(
                 isPaid ? 'Paid' : 'Pending',
-                style: GoogleFonts.lato(fontSize: 10, fontWeight: FontWeight.w600, color: isPaid ? _badgeCompFg : _badgePlanFg),
+                style: GoogleFonts.lato(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: isPaid ? _badgeCompFg : _badgePlanFg,
+                ),
               ),
             ),
           ),
@@ -490,15 +745,35 @@ class _SittingItem extends StatelessWidget {
     );
   }
 
-  Future<void> _togglePayment(BuildContext context, bool currentlyPaid) async {
+  Future<void> _toggleStatus(BuildContext context, bool currentlyPaid) async {
     final newStatus = currentlyPaid ? 'Scheduled' : 'Completed';
     try {
+      // 1. Update sitting status
       await repo.updateSittingStatus(sitting.id, newStatus);
+
+      // 2. When marking as Paid, auto-create a UPI payment for this sitting's cost
+      if (!currentlyPaid && (sitting.cost ?? 0) > 0) {
+        final payment = Payment(
+          id: '',
+          visitId: visitId,
+          treatmentPlanId: sitting.treatmentPlanId,
+          sittingId: sitting.id,
+          amountPaid: sitting.cost!,
+          paymentMode: 'UPI',
+          paymentDate: DateTime.now(),
+        );
+        await repo.addPayment(payment);
+      }
+
       onRefresh();
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Payment marked as ${currentlyPaid ? 'Pending' : 'Paid'}'),
+            content: Text(
+              currentlyPaid
+                  ? 'Sitting marked as Pending'
+                  : 'Sitting paid via UPI (₹${(sitting.cost ?? 0).toStringAsFixed(0)})',
+            ),
             backgroundColor: currentlyPaid ? _badgePlanFg : _badgeCompFg,
           ),
         );
@@ -514,7 +789,7 @@ class _SittingItem extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  PRESCRIPTION CHIP  — .prescription-chip
+// PRESCRIPTION CHIP
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _PrescriptionChip extends StatelessWidget {
@@ -551,34 +826,7 @@ class _PrescriptionChip extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  TREATMENT CHIP  — .treatment-chip
-// ═══════════════════════════════════════════════════════════════════════════
-
-class _TreatmentChip extends StatelessWidget {
-  const _TreatmentChip({required this.treatment, required this.sittingCount});
-  final TreatmentPlan treatment;
-  final int sittingCount;
-
-  @override
-  Widget build(BuildContext context) {
-    final status = treatment.status ?? 'planned';
-    return Container(
-      margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: _treatBg,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        '${treatment.treatmentName ?? 'Treatment'} · $sittingCount sitting${sittingCount == 1 ? '' : 's'} · ${status[0].toUpperCase()}${status.substring(1)}',
-        style: GoogleFonts.lato(fontSize: 12, color: kRefDark),
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  BUTTON SYSTEM  — .btn-outline-sm / .btn-primary-sm
+// BUTTON SYSTEM
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _BtnOutlineSm extends StatelessWidget {
@@ -591,11 +839,9 @@ class _BtnOutlineSm extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 100),
+      child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.transparent,
           border: Border.all(color: _btnBorder),
           borderRadius: BorderRadius.circular(40),
         ),
@@ -618,11 +864,7 @@ class _BtnOutlineSm extends StatelessWidget {
 }
 
 class _BtnPrimarySm extends StatelessWidget {
-  const _BtnPrimarySm({
-    required this.label,
-    this.icon,
-    required this.onTap,
-  });
+  const _BtnPrimarySm({required this.label, this.icon, required this.onTap});
   final String label;
   final IconData? icon;
   final VoidCallback onTap;
@@ -657,7 +899,7 @@ class _BtnPrimarySm extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  MODAL DIALOG  — .modal-overlay + .modal-container (32px radius, centered)
+// MODAL DIALOG
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _ModalDialog extends StatelessWidget {
@@ -679,19 +921,16 @@ class _ModalDialog extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // .modal-container h3
               Row(
                 children: [
                   if (icon != null) ...[
                     Icon(icon, size: 22, color: kRefPrimary),
                     const SizedBox(width: 8),
                   ],
-                  Text(
-                    title,
-                    style: GoogleFonts.lato(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: kRefDark,
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: GoogleFonts.lato(fontSize: 20, fontWeight: FontWeight.w700, color: kRefDark),
                     ),
                   ),
                 ],
@@ -707,7 +946,7 @@ class _ModalDialog extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  MODAL INPUT FIELD  — .modal-container input
+// MODAL INPUT FIELD
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _ModalField extends StatelessWidget {
@@ -755,50 +994,80 @@ class _ModalField extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  ADD SITTING FORM (inside modal)
+// ADD TREATMENT FORM — picks from templates or custom entry
 // ═══════════════════════════════════════════════════════════════════════════
 
-class _AddSittingForm extends StatefulWidget {
-  const _AddSittingForm({
+class _AddTreatmentForm extends StatefulWidget {
+  const _AddTreatmentForm({
     required this.visitId,
-    this.treatmentPlanId,
     required this.repo,
     required this.onSaved,
   });
   final String visitId;
-  final String? treatmentPlanId;
   final VisitDetailRepository repo;
   final VoidCallback onSaved;
 
   @override
-  State<_AddSittingForm> createState() => _AddSittingFormState();
+  State<_AddTreatmentForm> createState() => _AddTreatmentFormState();
 }
 
-class _AddSittingFormState extends State<_AddSittingForm> {
+class _AddTreatmentFormState extends State<_AddTreatmentForm> {
   final _nameCtrl = TextEditingController();
+  final _descCtrl = TextEditingController();
   final _costCtrl = TextEditingController();
-  DateTime _date = DateTime.now();
+  List<TreatmentTemplate>? _templates;
+  TreatmentTemplate? _selected;
   bool _saving = false;
+  bool _loadingTemplates = true;
 
   @override
-  void dispose() { _nameCtrl.dispose(); _costCtrl.dispose(); super.dispose(); }
+  void initState() {
+    super.initState();
+    _loadTemplates();
+  }
+
+  Future<void> _loadTemplates() async {
+    try {
+      final t = await widget.repo.getTreatmentTemplates();
+      if (mounted) setState(() { _templates = t; _loadingTemplates = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loadingTemplates = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _descCtrl.dispose();
+    _costCtrl.dispose();
+    super.dispose();
+  }
+
+  void _selectTemplate(TreatmentTemplate t) {
+    setState(() {
+      _selected = t;
+      _nameCtrl.text = t.name;
+      _descCtrl.text = t.description ?? '';
+      _costCtrl.text = t.defaultCost > 0 ? t.defaultCost.toStringAsFixed(0) : '';
+    });
+  }
 
   Future<void> _save() async {
-    if (_nameCtrl.text.trim().isEmpty) return;
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) return;
     setState(() => _saving = true);
     try {
-      final sitting = Sitting(
+      final plan = TreatmentPlan(
         id: '',
         visitId: widget.visitId,
-        treatmentPlanId: widget.treatmentPlanId,
-        sittingDate: _date,
-        durationStr: '30 mins',
-        notes: _nameCtrl.text.trim(),
-        cost: double.tryParse(_costCtrl.text.trim()) ?? 0,
+        treatmentName: name,
+        description: _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
+        totalCost: double.tryParse(_costCtrl.text.trim()) ?? 0,
+        status: 'planned',
       );
-      await widget.repo.addSitting(sitting);
-      widget.onSaved();
+      await widget.repo.addTreatment(plan);
       if (mounted) Navigator.pop(context);
+      widget.onSaved();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -813,8 +1082,166 @@ class _AddSittingFormState extends State<_AddSittingForm> {
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _ModalField(controller: _nameCtrl, placeholder: 'Sitting name (e.g., Fluoride Application)'),
+        // Template picker
+        if (_loadingTemplates)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 12),
+            child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+          )
+        else if (_templates != null && _templates!.isNotEmpty) ...[
+          Text('Select template:', style: GoogleFonts.lato(fontSize: 12, fontWeight: FontWeight.w600, color: kRefMuted)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: _templates!.map((t) {
+              final selected = _selected?.id == t.id;
+              return GestureDetector(
+                onTap: () => _selectTemplate(t),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: selected ? kRefPrimary : Colors.white,
+                    border: Border.all(color: selected ? kRefPrimary : _btnBorder),
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: Text(
+                    t.name,
+                    style: GoogleFonts.lato(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: selected ? Colors.white : kRefDark,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 14),
+          Text('Or enter custom:', style: GoogleFonts.lato(fontSize: 12, fontWeight: FontWeight.w600, color: kRefMuted)),
+          const SizedBox(height: 8),
+        ],
+        _ModalField(controller: _nameCtrl, placeholder: 'Treatment name *'),
+        _ModalField(controller: _descCtrl, placeholder: 'Description (optional)'),
+        _ModalField(controller: _costCtrl, placeholder: 'Cost (₹)', keyboardType: TextInputType.number),
+        const SizedBox(height: 4),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            _BtnOutlineSm(label: 'Cancel', onTap: () => Navigator.pop(context)),
+            const SizedBox(width: 12),
+            _saving
+                ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                : _BtnPrimarySm(label: 'Add Treatment', onTap: _save),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ADD SITTING FORM — requires treatment selection
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _AddSittingForm extends StatefulWidget {
+  const _AddSittingForm({
+    required this.visitId,
+    required this.treatments,
+    required this.repo,
+    required this.onSaved,
+  });
+  final String visitId;
+  final List<TreatmentPlan> treatments;
+  final VisitDetailRepository repo;
+  final VoidCallback onSaved;
+
+  @override
+  State<_AddSittingForm> createState() => _AddSittingFormState();
+}
+
+class _AddSittingFormState extends State<_AddSittingForm> {
+  final _nameCtrl = TextEditingController();
+  final _costCtrl = TextEditingController();
+  DateTime _date = DateTime.now();
+  late String _selectedTreatmentId;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedTreatmentId = widget.treatments.first.id;
+  }
+
+  @override
+  void dispose() { _nameCtrl.dispose(); _costCtrl.dispose(); super.dispose(); }
+
+  Future<void> _save() async {
+    if (_nameCtrl.text.trim().isEmpty) return;
+    setState(() => _saving = true);
+    try {
+      final sitting = Sitting(
+        id: '',
+        visitId: widget.visitId,
+        treatmentPlanId: _selectedTreatmentId,
+        sittingDate: _date,
+        notes: _nameCtrl.text.trim(),
+        cost: double.tryParse(_costCtrl.text.trim()),
+      );
+      await widget.repo.addSitting(sitting);
+      if (mounted) Navigator.pop(context);
+      widget.onSaved();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Treatment selector
+        if (widget.treatments.length > 1) ...[
+          Text('Under treatment:', style: GoogleFonts.lato(fontSize: 12, fontWeight: FontWeight.w600, color: kRefMuted)),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: widget.treatments.map((t) {
+              final selected = t.id == _selectedTreatmentId;
+              return GestureDetector(
+                onTap: () => setState(() => _selectedTreatmentId = t.id),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: selected ? kRefPrimary : Colors.white,
+                    border: Border.all(color: selected ? kRefPrimary : _btnBorder),
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: Text(
+                    t.treatmentName ?? 'Treatment',
+                    style: GoogleFonts.lato(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: selected ? Colors.white : kRefDark,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 14),
+        ],
+        _ModalField(controller: _nameCtrl, placeholder: 'Sitting name *'),
         _ModalField(controller: _costCtrl, placeholder: 'Cost (₹)', keyboardType: TextInputType.number),
         GestureDetector(
           onTap: () async {
@@ -834,9 +1261,15 @@ class _AddSittingFormState extends State<_AddSittingForm> {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: const Color(0xFFDDDDDD)),
             ),
-            child: Text(
-              '${_date.day}/${_date.month}/${_date.year}',
-              style: GoogleFonts.lato(fontSize: 14, color: kRefDark),
+            child: Row(
+              children: [
+                const Icon(Icons.calendar_today_outlined, size: 14, color: kRefPrimary),
+                const SizedBox(width: 8),
+                Text(
+                  '${_date.day}/${_date.month}/${_date.year}',
+                  style: GoogleFonts.lato(fontSize: 14, color: kRefDark),
+                ),
+              ],
             ),
           ),
         ),
@@ -857,7 +1290,7 @@ class _AddSittingFormState extends State<_AddSittingForm> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  ADD PRESCRIPTION FORM (inside modal)
+// ADD PRESCRIPTION FORM
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _AddPrescriptionForm extends StatefulWidget {
@@ -898,8 +1331,8 @@ class _AddPrescriptionFormState extends State<_AddPrescriptionForm> {
         instructions: _instrCtrl.text.trim().isEmpty ? null : _instrCtrl.text.trim(),
       );
       await widget.repo.addPrescription(rx);
-      widget.onSaved();
       if (mounted) Navigator.pop(context);
+      widget.onSaved();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -915,9 +1348,9 @@ class _AddPrescriptionFormState extends State<_AddPrescriptionForm> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _ModalField(controller: _nameCtrl, placeholder: 'Medication name'),
-        _ModalField(controller: _dosageCtrl, placeholder: 'Dosage (e.g., 1-0-1 = Morning & Night)'),
-        _ModalField(controller: _instrCtrl, placeholder: 'Instructions (e.g., after meals)', maxLines: 2),
+        _ModalField(controller: _nameCtrl, placeholder: 'Medication name *'),
+        _ModalField(controller: _dosageCtrl, placeholder: 'Dosage (e.g., 1-0-1)'),
+        _ModalField(controller: _instrCtrl, placeholder: 'Instructions', maxLines: 2),
         const SizedBox(height: 4),
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
@@ -935,7 +1368,117 @@ class _AddPrescriptionFormState extends State<_AddPrescriptionForm> {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  BILL DIALOG  — .bill-preview
+// ADD PAYMENT FORM — visit-level payments
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _AddPaymentForm extends StatefulWidget {
+  const _AddPaymentForm({
+    required this.visitId,
+    required this.repo,
+    required this.onSaved,
+  });
+  final String visitId;
+  final VisitDetailRepository repo;
+  final VoidCallback onSaved;
+
+  @override
+  State<_AddPaymentForm> createState() => _AddPaymentFormState();
+}
+
+class _AddPaymentFormState extends State<_AddPaymentForm> {
+  final _amountCtrl = TextEditingController();
+  final _notesCtrl = TextEditingController();
+  String _paymentMode = 'Cash';
+  bool _saving = false;
+
+  @override
+  void dispose() { _amountCtrl.dispose(); _notesCtrl.dispose(); super.dispose(); }
+
+  Future<void> _save() async {
+    final amount = double.tryParse(_amountCtrl.text.trim());
+    if (amount == null || amount <= 0) return;
+    setState(() => _saving = true);
+    try {
+      final payment = Payment(
+        id: '',
+        visitId: widget.visitId,
+        amountPaid: amount,
+        paymentMode: _paymentMode,
+        paymentDate: DateTime.now(),
+        notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+      );
+      await widget.repo.addPayment(payment);
+      if (mounted) Navigator.pop(context);
+      widget.onSaved();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _ModalField(
+          controller: _amountCtrl,
+          placeholder: 'Amount (₹) *',
+          keyboardType: TextInputType.number,
+        ),
+        // Payment mode selector
+        Text('Payment mode:', style: GoogleFonts.lato(fontSize: 12, fontWeight: FontWeight.w600, color: kRefMuted)),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          children: ['Cash', 'UPI', 'Card'].map((mode) {
+            final selected = mode == _paymentMode;
+            return GestureDetector(
+              onTap: () => setState(() => _paymentMode = mode),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                decoration: BoxDecoration(
+                  color: selected ? kRefPrimary : Colors.white,
+                  border: Border.all(color: selected ? kRefPrimary : _btnBorder),
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: Text(
+                  mode,
+                  style: GoogleFonts.lato(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: selected ? Colors.white : kRefDark,
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 12),
+        _ModalField(controller: _notesCtrl, placeholder: 'Notes (optional)'),
+        const SizedBox(height: 4),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            _BtnOutlineSm(label: 'Cancel', onTap: () => Navigator.pop(context)),
+            const SizedBox(width: 12),
+            _saving
+                ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                : _BtnPrimarySm(label: 'Add Payment', onTap: _save),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BILL DIALOG
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _BillDialog extends StatelessWidget {
@@ -944,92 +1487,277 @@ class _BillDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final treatCost = detail.totalTreatmentCost;
+    final sitCost = detail.totalSittingsCost;
+    final grandTotal = treatCost + sitCost;
+    final paid = _effectivePaidAmount();
+    final balance = grandTotal - paid;
+
     return Dialog(
       backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Clinic header
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEAF5FB),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      'Prodontics Clinic',
-                      style: GoogleFonts.lato(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: kRefPrimary,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: 600, maxWidth: 400),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Clinic header ─────────────────────────────────────────
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEAF5FB),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Prodontics Clinic',
+                        style: GoogleFonts.lato(
+                          fontSize: 18, fontWeight: FontWeight.w700, color: kRefPrimary,
+                        ),
                       ),
-                    ),
-                    Text(
-                      'Professional Dental Care',
-                      style: GoogleFonts.lato(
-                        fontSize: 13,
-                        color: kRefPrimary,
+                      Text(
+                        'Professional Dental Care',
+                        style: GoogleFonts.lato(fontSize: 12, color: kRefPrimary),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              _billRow('Visit Date', ProfileTab.formatDate(detail.visit.visitDate)),
-              _billRow('Complaint', detail.visit.chiefComplaint ?? '-'),
-              _billRow('Doctor', detail.doctorName),
-              const Divider(height: 24),
-              Text(
-                'Treatments',
-                style: GoogleFonts.lato(fontSize: 14, fontWeight: FontWeight.w700, color: kRefDark),
-              ),
-              const SizedBox(height: 8),
-              ...detail.treatments.map(
-                (t) => _billRow(
-                  t.treatmentName ?? '',
-                  '₹${(t.totalCost ?? 0).toStringAsFixed(0)}',
-                ),
-              ),
-              const Divider(height: 24),
-              _billRow('Total Sittings', '${detail.sittings.length}'),
-              _billRow(
-                'Amount Paid',
-                '₹${detail.totalPaid.toStringAsFixed(0)}',
-                bold: true,
-              ),
-              if (detail.balance > 0.01)
+                const SizedBox(height: 16),
+
+                // ── Visit meta ────────────────────────────────────────────
+                _billRow('Visit Date', ProfileTab.formatDate(detail.visit.visitDate)),
+                _billRow('Complaint', detail.visit.chiefComplaint ?? '-'),
+                _billRow('Doctor', detail.doctorName),
+
+                // ── Treatments ────────────────────────────────────────────
+                const Divider(height: 24),
+                _sectionHeader('Treatments', Icons.healing_outlined),
+                const SizedBox(height: 8),
+                if (detail.treatments.isEmpty)
+                  _emptyNote('No treatments added')
+                else
+                  ...detail.treatments.map((t) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _billRow(
+                          t.treatmentName ?? 'Treatment',
+                          (t.totalCost ?? 0) > 0
+                              ? '₹${t.totalCost!.toStringAsFixed(0)}'
+                              : '—',
+                          bold: true,
+                        ),
+                        const SizedBox(height: 2),
+                      ],
+                    );
+                  }),
+                if (treatCost > 0)
+                  _subtotalRow('Treatment Subtotal', treatCost),
+
+                // ── Sittings ──────────────────────────────────────────────
+                const Divider(height: 24),
+                _sectionHeader('Sittings', Icons.event_note_outlined),
+                const SizedBox(height: 8),
+                if (detail.sittings.isEmpty)
+                  _emptyNote('No sittings recorded')
+                else ...[
+                  ...detail.treatments.map((t) {
+                    final sittings = detail.sittingsForTreatment(t.id);
+                    if (sittings.isEmpty) return const SizedBox.shrink();
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 4),
+                          child: Text(
+                            t.treatmentName ?? 'Treatment',
+                            style: GoogleFonts.lato(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: kRefPrimary,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                        ...sittings.map((s) {
+                          final isPaid = s.status.toLowerCase() == 'completed' ||
+                              s.status.toLowerCase() == 'paid';
+                          return Padding(
+                            padding: const EdgeInsets.only(left: 8, bottom: 5),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  isPaid
+                                      ? Icons.check_circle_outline
+                                      : Icons.radio_button_unchecked,
+                                  size: 13,
+                                  color: isPaid ? _badgeCompFg : kRefMuted,
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    '${ProfileTab.formatDate(s.sittingDate)}'
+                                    '${s.notes != null ? '  ·  ${s.notes}' : ''}',
+                                    style: GoogleFonts.lato(fontSize: 12, color: kRefMuted),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                Text(
+                                  (s.cost ?? 0) > 0
+                                      ? '₹${s.cost!.toStringAsFixed(0)}'
+                                      : '—',
+                                  style: GoogleFonts.lato(
+                                    fontSize: 12,
+                                    color: isPaid ? _badgeCompFg : kRefDark,
+                                    fontWeight: isPaid ? FontWeight.w600 : FontWeight.w400,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+                        const SizedBox(height: 4),
+                      ],
+                    );
+                  }),
+                  if (sitCost > 0) _subtotalRow('Sittings Subtotal', sitCost),
+                ],
+
+                // ── Prescriptions ─────────────────────────────────────────
+                if (detail.prescriptions.isNotEmpty) ...[
+                  const Divider(height: 24),
+                  _sectionHeader('Prescriptions', Icons.medication_outlined),
+                  const SizedBox(height: 8),
+                  ...detail.prescriptions.map((rx) {
+                    final name = rx.medicineName ?? 'Medicine';
+                    final meta = [
+                      if (rx.dosage != null) rx.dosage!,
+                      if (rx.duration != null) rx.duration!,
+                    ].join(' · ');
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(Icons.circle, size: 6, color: kRefMuted),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name,
+                                  style: GoogleFonts.lato(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: kRefDark,
+                                  ),
+                                ),
+                                if (meta.isNotEmpty)
+                                  Text(
+                                    meta,
+                                    style: GoogleFonts.lato(fontSize: 11, color: kRefMuted),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          if ((rx.price ?? 0) > 0)
+                            Text(
+                              '₹${rx.price!.toStringAsFixed(0)}',
+                              style: GoogleFonts.lato(
+                                fontSize: 12, fontWeight: FontWeight.w500, color: kRefDark,
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+
+                // ── Summary ───────────────────────────────────────────────
+                const Divider(height: 24),
+                _billRow('Grand Total', '₹${grandTotal.toStringAsFixed(0)}'),
                 _billRow(
-                  'Balance Due',
-                  '₹${detail.balance.toStringAsFixed(0)}',
-                  color: Colors.red,
+                  'Amount Paid',
+                  '₹${paid.toStringAsFixed(0)}',
+                  bold: true,
+                  color: _badgeCompFg,
                 ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text(
-                    'Close',
-                    style: GoogleFonts.lato(
-                      color: kRefPrimary,
-                      fontWeight: FontWeight.w600,
+                if (balance > 0.01)
+                  _billRow('Balance Due', '₹${balance.toStringAsFixed(0)}', color: Colors.red),
+
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(
+                      'Close',
+                      style: GoogleFonts.lato(color: kRefPrimary, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
+  }
+
+  Widget _sectionHeader(String title, IconData icon) => Row(
+    children: [
+      Icon(icon, size: 15, color: kRefPrimary),
+      const SizedBox(width: 6),
+      Text(
+        title,
+        style: GoogleFonts.lato(fontSize: 13, fontWeight: FontWeight.w700, color: kRefDark),
+      ),
+    ],
+  );
+
+  Widget _emptyNote(String text) => Padding(
+    padding: const EdgeInsets.only(bottom: 4),
+    child: Text(text, style: GoogleFonts.lato(fontSize: 12, color: kRefMuted)),
+  );
+
+  Widget _subtotalRow(String label, double amount) => Padding(
+    padding: const EdgeInsets.only(top: 4, bottom: 2),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: GoogleFonts.lato(fontSize: 12, color: kRefMuted, fontStyle: FontStyle.italic)),
+        Text(
+          '₹${amount.toStringAsFixed(0)}',
+          style: GoogleFonts.lato(fontSize: 12, fontWeight: FontWeight.w600, color: kRefMuted),
+        ),
+      ],
+    ),
+  );
+
+  /// Payments from records + paid sitting costs with no linked payment record.
+  double _effectivePaidAmount() {
+    final fromPayments = detail.totalPaid;
+    final coveredSittingIds = detail.payments
+        .where((p) => p.sittingId != null)
+        .map((p) => p.sittingId!)
+        .toSet();
+    final fromUnlinkedSittings = detail.sittings
+        .where(
+          (s) =>
+              (s.status.toLowerCase() == 'completed' ||
+                  s.status.toLowerCase() == 'paid') &&
+              !coveredSittingIds.contains(s.id) &&
+              (s.cost ?? 0) > 0,
+        )
+        .fold(0.0, (sum, s) => sum + s.cost!);
+    return fromPayments + fromUnlinkedSittings;
   }
 
   Widget _billRow(String label, String value, {bool bold = false, Color? color}) {
@@ -1038,10 +1766,7 @@ class _BillDialog extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: GoogleFonts.lato(fontSize: 13, color: kRefMuted),
-          ),
+          Flexible(child: Text(label, style: GoogleFonts.lato(fontSize: 13, color: kRefMuted))),
           Text(
             value,
             style: GoogleFonts.lato(
@@ -1057,7 +1782,7 @@ class _BillDialog extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  EMPTY STATE
+// EMPTY STATE
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _EmptyState extends StatelessWidget {

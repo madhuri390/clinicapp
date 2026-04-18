@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -13,11 +14,13 @@ class NewConsultationSheet extends StatefulWidget {
     required this.patientId,
     required this.onSave,
     this.existingVisit,
+    this.doctorId,
   });
 
   final String patientId;
   final Future<void> Function(Visit) onSave;
   final Visit? existingVisit;
+  final String? doctorId;
 
   @override
   State<NewConsultationSheet> createState() => _NewConsultationSheetState();
@@ -52,16 +55,20 @@ class _NewConsultationSheetState extends State<NewConsultationSheet> {
   }
 
   Future<void> _save() async {
+    debugPrint('[NewConsultation] _save() called');
     final complaint = _complaintCtrl.text.trim();
     if (complaint.isEmpty) {
       setState(() => _error = 'Chief complaint is required');
+      debugPrint('[NewConsultation] Validation failed: complaint empty');
       return;
     }
     setState(() { _saving = true; _error = null; });
+    debugPrint('[NewConsultation] Saving started, spinner shown');
 
     final visit = Visit(
       id: widget.existingVisit?.id ?? '',
       patientId: widget.patientId,
+      doctorId: widget.existingVisit?.doctorId ?? widget.doctorId,
       visitDate: _visitDate,
       chiefComplaint: complaint,
       diagnosis: _diagnosisCtrl.text.trim().isEmpty
@@ -71,11 +78,18 @@ class _NewConsultationSheetState extends State<NewConsultationSheet> {
       nextVisitDate: widget.existingVisit?.nextVisitDate,
       createdAt: widget.existingVisit?.createdAt,
     );
+    debugPrint('[NewConsultation] Visit object built: complaint=$complaint, patientId=${widget.patientId}');
 
     try {
+      debugPrint('[NewConsultation] Calling onSave...');
       await widget.onSave(visit);
-      // onSave is responsible for popping the dialog on success
+      debugPrint('[NewConsultation] onSave completed — popping dialog with result=true');
+      // Pop with explicit result so showDialog's Future resolves with `true`.
+      // Use rootNavigator: true to match how showDialog pushes the route
+      // (rootNavigator: true by default), avoiding any nested-navigator confusion.
+      if (mounted) Navigator.of(context, rootNavigator: true).pop(true);
     } catch (e) {
+      debugPrint('[NewConsultation] onSave threw error: $e');
       if (mounted) {
         setState(() {
           _saving = false;

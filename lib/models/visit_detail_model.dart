@@ -5,7 +5,7 @@ import 'treatment_plan_model.dart';
 import 'visit_model.dart';
 
 /// A fully-loaded visit with all nested relationships.
-/// Populated by [VisitDetailRepository.getForPatient].
+/// Populated by [VisitDetailRepository] from a single Supabase nested select.
 class VisitDetail {
   const VisitDetail({
     required this.visit,
@@ -23,32 +23,33 @@ class VisitDetail {
   final List<Prescription> prescriptions;
   final List<Payment> payments;
 
+  /// Sum of all payments linked to this visit.
   double get totalPaid =>
-      payments.fold(0, (s, p) => s + p.amountPaid);
+      payments.fold(0.0, (s, p) => s + p.amountPaid);
 
-  double get totalCost {
-    double c = 0;
-    for (final s in sittings) {
-      c += s.cost ?? 0;
-    }
-    for (final rx in prescriptions) {
-      c += rx.price ?? 0;
-    }
-    return c;
-  }
+  /// Sum of treatment_plans.total_cost (treatment-level cost).
+  double get totalTreatmentCost =>
+      treatments.fold(0.0, (s, t) => s + (t.totalCost ?? 0));
+
+  /// Sum of individual sitting costs (tracked separately from treatment cost).
+  double get totalSittingsCost =>
+      sittings.fold(0.0, (s, si) => s + (si.cost ?? 0));
+
+  /// Grand total = treatment costs + sitting costs.
+  double get totalCost => totalTreatmentCost + totalSittingsCost;
 
   double get balance => totalCost - totalPaid;
 
+  /// Sittings belonging to a specific treatment plan.
   List<Sitting> sittingsForTreatment(String treatmentPlanId) =>
       sittings.where((s) => s.treatmentPlanId == treatmentPlanId).toList();
 
+  /// Prescriptions belonging to a specific treatment plan.
   List<Prescription> prescriptionsForTreatment(String treatmentPlanId) =>
       prescriptions
           .where((p) => p.treatmentPlanId == treatmentPlanId)
           .toList();
 
-  /// Returns a copy with refreshed payments/sittings/prescriptions after
-  /// a mutation without re-fetching the whole list.
   VisitDetail copyWith({
     Visit? visit,
     String? doctorName,
@@ -70,18 +71,18 @@ class VisitDetail {
   factory VisitDetail.fromJson(Map<String, dynamic> json) {
     final visit = Visit.fromJson(json);
 
-    // doctor name from joined doctors table
+    // Doctor name from joined doctors table
     final doctorJson = json['doctors'] as Map<String, dynamic>?;
     final doctorName = doctorJson != null
         ? 'Dr. ${doctorJson['first_name'] ?? ''} ${doctorJson['last_name'] ?? ''}'.trim()
         : 'Unknown Doctor';
 
-    // treatment_plans array
+    // Treatment plans array
     final treatmentsList = (json['treatment_plans'] as List? ?? [])
         .map((t) => TreatmentPlan.fromJson(t as Map<String, dynamic>))
         .toList();
 
-    // sittings — nested under each treatment_plan
+    // Sittings — nested under each treatment_plan in the Supabase response
     final sittingsList = <Sitting>[];
     for (final tp in (json['treatment_plans'] as List? ?? [])) {
       final tpMap = tp as Map<String, dynamic>;
@@ -90,12 +91,12 @@ class VisitDetail {
       }
     }
 
-    // prescriptions
+    // Prescriptions
     final prescriptionsList = (json['prescriptions'] as List? ?? [])
         .map((p) => Prescription.fromJson(p as Map<String, dynamic>))
         .toList();
 
-    // payments
+    // Payments
     final paymentsList = (json['payments'] as List? ?? [])
         .map((p) => Payment.fromJson(p as Map<String, dynamic>))
         .toList();

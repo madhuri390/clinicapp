@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -39,17 +40,26 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
   bool _loadingOngoing = true;
   bool _loadingHistory = true;
 
+  String? _doctorId;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _loadAll();
+    _resolveDoctorId();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _resolveDoctorId() async {
+    try {
+      _doctorId = await _visitRepo.getDoctorIdForCurrentUser();
+    } catch (_) {}
   }
 
   Future<void> _loadAll() async {
@@ -62,7 +72,10 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
     try {
       final p = await _patientRepo.getById(widget.patientId);
       if (!mounted) return;
-      setState(() { _patient = p; _loadingPatient = false; });
+      setState(() {
+        _patient = p;
+        _loadingPatient = false;
+      });
     } catch (_) {
       if (mounted) setState(() => _loadingPatient = false);
     }
@@ -70,44 +83,69 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
 
   Future<void> _loadOngoing() async {
     if (!mounted) return;
+    debugPrint(
+      '[PatientDetails] Loading ongoing visits for ${widget.patientId}',
+    );
     setState(() => _loadingOngoing = true);
     try {
       final v = await _visitRepo.getOngoing(widget.patientId);
+      debugPrint('[PatientDetails] Loaded ${v.length} ongoing visits');
       if (!mounted) return;
-      setState(() { _ongoingVisits = v; _loadingOngoing = false; });
-    } catch (_) {
+      setState(() {
+        _ongoingVisits = v;
+        _loadingOngoing = false;
+      });
+    } catch (e) {
+      debugPrint('[PatientDetails] Error loading ongoing: $e');
       if (mounted) setState(() => _loadingOngoing = false);
     }
   }
 
   Future<void> _loadHistory() async {
     if (!mounted) return;
+    debugPrint(
+      '[PatientDetails] Loading history visits for ${widget.patientId}',
+    );
     setState(() => _loadingHistory = true);
     try {
       final v = await _visitRepo.getHistory(widget.patientId);
+      debugPrint('[PatientDetails] Loaded ${v.length} history visits');
       if (!mounted) return;
-      setState(() { _historyVisits = v; _loadingHistory = false; });
-    } catch (_) {
+      setState(() {
+        _historyVisits = v;
+        _loadingHistory = false;
+      });
+    } catch (e) {
+      debugPrint('[PatientDetails] Error loading history: $e');
       if (mounted) setState(() => _loadingHistory = false);
     }
   }
 
-  void _showNewConsultationModal() {
-    showDialog(
+  Future<void> _showNewConsultationModal() async {
+    debugPrint('[PatientDetails] Opening new consultation modal');
+
+    // onSave only does the DB insert; the dialog closes itself with result=true.
+    // We await the dialog here, so tab animation + refresh happen AFTER the
+    // dialog is fully dismissed — avoiding any navigator confusion.
+    final saved = await showDialog<bool>(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.45),
       builder: (_) => NewConsultationSheet(
         patientId: widget.patientId,
+        doctorId: _doctorId,
         onSave: (v) async {
-          await _visitRepo.createVisit(v);
-          if (mounted) {
-            Navigator.pop(context);
-            _tabController.animateTo(1);
-            _loadOngoing();
-          }
+          debugPrint('[PatientDetails] onSave — inserting visit into Supabase');
+          final result = await _visitRepo.createVisit(v);
+          debugPrint('[PatientDetails] Visit inserted: id=${result.id}');
         },
       ),
     );
+
+    // Refresh ongoing list and switch to Ongoing tab after save
+    if (saved == true && mounted) {
+      await _loadOngoing();
+      _tabController.animateTo(1);
+    }
   }
 
   Future<void> _showEditPatient() async {
@@ -147,7 +185,6 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
       body: SafeArea(
         child: Column(
           children: [
-            // ── Main header (patient-header + new-btn) ──────────────
             _loadingPatient
                 ? const SizedBox(
                     height: 80,
@@ -162,7 +199,6 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
                     onEdit: widget.patientPortalMode ? null : _showEditPatient,
                   ),
 
-            // ── Tab bar (underline style, matching .tab-bar) ────────
             Container(
               decoration: const BoxDecoration(
                 color: Colors.white,
@@ -223,7 +259,6 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
               ),
             ),
 
-            // ── Screen container (#F9FAFE bg) ───────────────────────
             Expanded(
               child: Container(
                 color: kRefScreenBg,
@@ -237,9 +272,6 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
                       isLoading: _loadingOngoing,
                       onRefresh: _loadOngoing,
                       onRefreshAll: _loadAll,
-                      onEditVisit: widget.patientPortalMode
-                          ? null
-                          : _showEditConsultationModal,
                       onComplete: widget.patientPortalMode
                           ? null
                           : () {

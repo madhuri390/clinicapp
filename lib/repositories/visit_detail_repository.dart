@@ -8,16 +8,13 @@ import '../models/treatment_template_model.dart';
 import '../models/visit_detail_model.dart';
 import '../models/visit_model.dart';
 
-/// Single repository for the full Patient → Visits → TreatmentPlans →
-/// Sittings → Payments hierarchy. All operations hit Supabase directly;
-/// no local mock data.
+/// Single repository for Patient → Visits → TreatmentPlans → Sittings → Payments.
+/// All operations hit Supabase directly; no local mock data.
 class VisitDetailRepository {
   static final _client = Supabase.instance.client;
 
-  // ── Nested select used by both ongoing and history tabs ──────────────────
+  // ── Nested select (single round-trip, no N+1) ─────────────────────────
 
-  /// Supabase nested select query that pulls a full visit with all children
-  /// in a single round-trip.
   static const _nestedSelect = '''
     id, patient_id, doctor_id, visit_date, chief_complaint,
     diagnosis, notes, next_visit_date, status, created_at,
@@ -40,9 +37,8 @@ class VisitDetailRepository {
     )
   ''';
 
-  // ── Reads ────────────────────────────────────────────────────────────────
+  // ── Reads ─────────────────────────────────────────────────────────────
 
-  /// Fetch ongoing visits (status = 'ongoing') for a patient.
   Future<List<VisitDetail>> getOngoing(String patientId) async {
     final data = await _client
         .from('visits')
@@ -55,7 +51,6 @@ class VisitDetailRepository {
         .toList();
   }
 
-  /// Fetch completed visits (status = 'complete') for a patient.
   Future<List<VisitDetail>> getHistory(String patientId) async {
     final data = await _client
         .from('visits')
@@ -68,7 +63,6 @@ class VisitDetailRepository {
         .toList();
   }
 
-  /// Fetch a single visit with all nested data.
   Future<VisitDetail?> getById(String visitId) async {
     final data = await _client
         .from('visits')
@@ -79,9 +73,23 @@ class VisitDetailRepository {
     return VisitDetail.fromJson(data);
   }
 
-  // ── Visit mutations ──────────────────────────────────────────────────────
+  // ── Doctor lookup ─────────────────────────────────────────────────────
 
-  /// Create a new consultation (returns inserted row).
+  /// Returns the doctor row ID for the currently authenticated user.
+  /// Returns null if the user is not a doctor or not logged in.
+  Future<String?> getDoctorIdForCurrentUser() async {
+    final uid = _client.auth.currentUser?.id;
+    if (uid == null) return null;
+    final row = await _client
+        .from('doctors')
+        .select('id')
+        .eq('auth_user_id', uid)
+        .maybeSingle();
+    return row?['id'] as String?;
+  }
+
+  // ── Visit mutations ───────────────────────────────────────────────────
+
   Future<Visit> createVisit(Visit visit) async {
     final result = await _client
         .from('visits')
@@ -91,21 +99,17 @@ class VisitDetailRepository {
     return Visit.fromJson(result);
   }
 
-  /// Update any fields on a visit (e.g. complete it).
   Future<void> updateVisit(String visitId, Map<String, dynamic> changes) =>
       _client.from('visits').update(changes).eq('id', visitId);
 
-  /// Mark a visit as completed.
   Future<void> completeVisit(String visitId) =>
       updateVisit(visitId, {'status': 'complete'});
 
-  /// Delete a visit (cascades to treatments/sittings/payments via FK).
   Future<void> deleteVisit(String visitId) =>
       _client.from('visits').delete().eq('id', visitId);
 
-  // ── Treatment plan mutations ─────────────────────────────────────────────
+  // ── Treatment plan mutations ──────────────────────────────────────────
 
-  /// Fetch all active treatment templates (for picker).
   Future<List<TreatmentTemplate>> getTreatmentTemplates() async {
     final data = await _client
         .from('treatment_templates')
@@ -117,7 +121,6 @@ class VisitDetailRepository {
         .toList();
   }
 
-  /// Insert a new treatment plan.
   Future<TreatmentPlan> addTreatment(TreatmentPlan plan) async {
     final result = await _client
         .from('treatment_plans')
@@ -127,13 +130,11 @@ class VisitDetailRepository {
     return TreatmentPlan.fromJson(result);
   }
 
-  /// Update treatment plan status.
   Future<void> updateTreatmentStatus(String id, String status) =>
       _client.from('treatment_plans').update({'status': status}).eq('id', id);
 
-  // ── Sitting mutations ────────────────────────────────────────────────────
+  // ── Sitting mutations ─────────────────────────────────────────────────
 
-  /// Insert a new sitting.
   Future<Sitting> addSitting(Sitting sitting) async {
     final result = await _client
         .from('sittings')
@@ -143,13 +144,11 @@ class VisitDetailRepository {
     return Sitting.fromJson(result);
   }
 
-  /// Update a sitting's status.
   Future<void> updateSittingStatus(String id, String status) =>
       _client.from('sittings').update({'status': status}).eq('id', id);
 
-  // ── Prescription mutations ───────────────────────────────────────────────
+  // ── Prescription mutations ────────────────────────────────────────────
 
-  /// Insert a prescription.
   Future<Prescription> addPrescription(Prescription prescription) async {
     final result = await _client
         .from('prescriptions')
@@ -162,9 +161,8 @@ class VisitDetailRepository {
   Future<void> deletePrescription(String id) =>
       _client.from('prescriptions').delete().eq('id', id);
 
-  // ── Payment mutations ────────────────────────────────────────────────────
+  // ── Payment mutations ─────────────────────────────────────────────────
 
-  /// Insert a payment.
   Future<Payment> addPayment(Payment payment) async {
     final result = await _client
         .from('payments')

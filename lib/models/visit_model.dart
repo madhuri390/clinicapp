@@ -2,6 +2,7 @@ class Visit {
   const Visit({
     required this.id,
     required this.patientId,
+    this.doctorId,
     required this.visitDate,
     this.chiefComplaint,
     this.diagnosis,
@@ -13,6 +14,7 @@ class Visit {
 
   final String id;
   final String patientId;
+  final String? doctorId;
   final DateTime visitDate;
   final String? chiefComplaint;
   final String? diagnosis;
@@ -24,6 +26,7 @@ class Visit {
   factory Visit.fromJson(Map<String, dynamic> json) => Visit(
     id: json['id'] as String,
     patientId: json['patient_id'] as String,
+    doctorId: json['doctor_id'] as String?,
     visitDate: DateTime.parse(json['visit_date'] as String),
     chiefComplaint: json['chief_complaint'] as String?,
     diagnosis: json['diagnosis'] as String?,
@@ -39,6 +42,7 @@ class Visit {
 
   Map<String, dynamic> toInsertJson() => {
     'patient_id': patientId,
+    if (doctorId != null) 'doctor_id': doctorId,
     'visit_date': visitDate.toIso8601String(),
     if (chiefComplaint != null) 'chief_complaint': chiefComplaint,
     if (diagnosis != null) 'diagnosis': diagnosis,
@@ -60,6 +64,7 @@ class Visit {
   Visit copyWith({
     String? id,
     String? patientId,
+    String? doctorId,
     DateTime? visitDate,
     String? chiefComplaint,
     String? diagnosis,
@@ -71,6 +76,7 @@ class Visit {
     return Visit(
       id: id ?? this.id,
       patientId: patientId ?? this.patientId,
+      doctorId: doctorId ?? this.doctorId,
       visitDate: visitDate ?? this.visitDate,
       chiefComplaint: chiefComplaint ?? this.chiefComplaint,
       diagnosis: diagnosis ?? this.diagnosis,

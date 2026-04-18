@@ -2,9 +2,9 @@ class Sitting {
   const Sitting({
     required this.id,
     required this.visitId,
-    this.treatmentPlanId,
+    required this.treatmentPlanId,
     required this.sittingDate,
-    required this.durationStr,
+    this.durationStr = '30 min',
     this.notes,
     this.cost,
     this.status = 'Scheduled',
@@ -13,20 +13,20 @@ class Sitting {
 
   final String id;
   final String visitId;
-  final String? treatmentPlanId;
+  final String treatmentPlanId;
   final DateTime sittingDate;
   final String durationStr;
   final String? notes;
   final double? cost;
-  final String status; // Scheduled, Completed
+  final String status;
   final DateTime? createdAt;
 
   factory Sitting.fromJson(Map<String, dynamic> json) => Sitting(
     id: json['id'] as String,
     visitId: json['visit_id'] as String? ?? '',
-    treatmentPlanId: json['treatment_plan_id'] as String?,
+    treatmentPlanId: json['treatment_plan_id'] as String? ?? '',
     sittingDate: DateTime.parse(json['sitting_date'] as String),
-    durationStr: json['duration_str'] as String,
+    durationStr: json['duration_str'] as String? ?? '30 min',
     notes: json['notes'] as String?,
     cost: json['cost'] == null ? null : (json['cost'] as num).toDouble(),
     status: json['status'] as String? ?? 'Scheduled',
@@ -37,7 +37,7 @@ class Sitting {
 
   Map<String, dynamic> toInsertJson() => {
     'visit_id': visitId,
-    if (treatmentPlanId != null) 'treatment_plan_id': treatmentPlanId,
+    'treatment_plan_id': treatmentPlanId,
     'sitting_date': sittingDate.toIso8601String(),
     'duration_str': durationStr,
     if (notes != null) 'notes': notes,
