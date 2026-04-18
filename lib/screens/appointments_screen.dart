@@ -859,7 +859,8 @@ class _ActionButton extends StatelessWidget {
           onTap: onTap,
           borderRadius: BorderRadius.circular(6),
           child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 6),
+            height: 30,
+            alignment: Alignment.center,
             decoration: outlined
                 ? BoxDecoration(
                     borderRadius: BorderRadius.circular(6),
@@ -869,16 +870,23 @@ class _ActionButton extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                const SizedBox(width: 4),
                 Icon(icon, size: 14, color: outlined ? color : Colors.white),
                 const SizedBox(width: 4),
-                Text(
-                  label,
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: outlined ? color : Colors.white,
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      label,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: outlined ? color : Colors.white,
+                      ),
+                    ),
                   ),
                 ),
+                const SizedBox(width: 4),
               ],
             ),
           ),
