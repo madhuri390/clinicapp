@@ -21,13 +21,19 @@ class ProfileTab extends StatelessWidget {
     }
 
     final p = patient;
-    final phone = p?.phone ?? '+91 8688957695';
-    final email =
-        p?.email ?? '${p?.firstName.toLowerCase() ?? 'user'}@gmail.com';
-    final address = p?.address ?? '123 Oak Street, Springfield, IL';
+    final phone = p?.phone ?? 'Not provided';
+    final email = p?.email ?? 'Not provided';
+    final address = p?.address ?? 'Not provided';
     final regDate = p?.createdAt != null
         ? ProfileTab.formatDate(p!.createdAt!)
-        : 'Apr 17, 2026';
+        : 'N/A';
+
+    final medicalConditions = p?.medicalHistory
+            ?.split(',')
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty)
+            .toList() ??
+        [];
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(18, 20, 18, 24),
@@ -62,31 +68,91 @@ class ProfileTab extends StatelessWidget {
                 label: 'Medical Conditions',
               ),
               const SizedBox(height: 16),
-              Wrap(
-                spacing: 8,
-                runSpacing: 10,
-                children: [
-                  _ConditionTag(icon: Icons.warning_amber_rounded, label: 'Penicillin Allergy'),
-                  _ConditionTag(icon: Icons.water_drop_outlined, label: 'Diabetes'),
-                  _ConditionTag(icon: Icons.favorite_border, label: 'Hypertension'),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Icon(Icons.info_outline, size: 14, color: kRefMuted),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Last updated Apr 10, 2026',
-                    style: GoogleFonts.lato(fontSize: 12, color: kRefMuted),
+              if (medicalConditions.isNotEmpty)
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 10,
+                  children: medicalConditions.map((condition) {
+                    return _ConditionTag(
+                      icon: _getConditionIcon(condition),
+                      label: condition,
+                    );
+                  }).toList(),
+                )
+              else
+                Text(
+                  'No medical conditions recorded.',
+                  style: GoogleFonts.lato(
+                    fontSize: 14,
+                    color: kRefMuted,
+                    fontStyle: FontStyle.italic,
                   ),
-                ],
+                ),
+              if (p?.createdAt != null) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 14, color: kRefMuted),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Last updated ${ProfileTab.formatDate(p!.createdAt!)}',
+                      style: GoogleFonts.lato(fontSize: 12, color: kRefMuted),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // ── Dental History card (.info-card) ─────────────────────
+          _InfoCard(
+            children: [
+              const _SectionTitle(
+                icon: Icons.health_and_safety_outlined,
+                label: 'Dental History',
               ),
+              const SizedBox(height: 16),
+              if (p?.dentalHistory != null && p!.dentalHistory!.isNotEmpty)
+                Text(
+                  p.dentalHistory!,
+                  style: GoogleFonts.lato(
+                    fontSize: 14,
+                    color: kRefDark,
+                    height: 1.5,
+                  ),
+                )
+              else
+                Text(
+                  'No dental history recorded.',
+                  style: GoogleFonts.lato(
+                    fontSize: 14,
+                    color: kRefMuted,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
             ],
           ),
         ],
       ),
     );
+  }
+
+  IconData _getConditionIcon(String condition) {
+    final lower = condition.toLowerCase();
+    if (lower.contains('allergy') || lower.contains('allergic')) {
+      return Icons.warning_amber_rounded;
+    }
+    if (lower.contains('diabetes') || lower.contains('sugar')) {
+      return Icons.water_drop_outlined;
+    }
+    if (lower.contains('heart') || lower.contains('hypertension') || lower.contains('bp')) {
+      return Icons.favorite_border;
+    }
+    if (lower.contains('asthma') || lower.contains('lung') || lower.contains('breath')) {
+      return Icons.air;
+    }
+    return Icons.medical_services_outlined;
   }
 
   static String formatDate(DateTime d) {

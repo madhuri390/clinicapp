@@ -19,11 +19,13 @@ class PatientHeader extends StatelessWidget {
     this.patient,
     required this.displayName,
     this.onNewConsultation,
+    this.onEdit,
   });
 
   final Patient? patient;
   final String displayName;
   final VoidCallback? onNewConsultation;
+  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -67,14 +69,28 @@ class PatientHeader extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  name,
-                  style: GoogleFonts.lato(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: kRefDark,
-                    height: 1.2,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      name,
+                      style: GoogleFonts.lato(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: kRefDark,
+                        height: 1.2,
+                      ),
+                    ),
+                    if (onEdit != null)
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined, size: 16),
+                        onPressed: onEdit,
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        color: kRefTabInactive,
+                        tooltip: 'Edit Patient',
+                      ),
+                  ],
                 ),
                 Text(
                   '$age yrs · $gender',

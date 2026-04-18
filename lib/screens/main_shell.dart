@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'appointments_screen.dart';
 import 'dashboard_screen.dart';
-import 'inventory_screen.dart';
-import 'messages_screen.dart';
+// import 'inventory_screen.dart';
+// import 'messages_screen.dart';
 import 'patient_list_screen.dart';
 
 // Reference: PatientTrackingVersion4 bottom-nav.tsx colors
@@ -26,16 +26,16 @@ class _MainShellState extends State<MainShell> {
     DashboardScreen(),
     PatientListScreen(),
     AppointmentsScreen(),
-    MessagesScreen(),
-    InventoryScreen(),
+    // MessagesScreen(),
+    // InventoryScreen(),
   ];
 
   final List<GlobalKey<NavigatorState>> _navigatorKeys = [
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
-    GlobalKey<NavigatorState>(),
-    GlobalKey<NavigatorState>(),
+    // GlobalKey<NavigatorState>(),
+    // GlobalKey<NavigatorState>(),
   ];
 
   @override
@@ -99,6 +99,7 @@ class _BottomNavBar extends StatelessWidget {
       activeIcon: Icons.calendar_today,
       label: 'Appointments',
     ),
+    /*
     (
       icon: Icons.chat_bubble_outline,
       activeIcon: Icons.chat_bubble,
@@ -109,6 +110,7 @@ class _BottomNavBar extends StatelessWidget {
       activeIcon: Icons.inventory_2,
       label: 'Inventory',
     ),
+    */
   ];
 
   @override

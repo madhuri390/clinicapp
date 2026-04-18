@@ -6,6 +6,7 @@ import '../services/app_role_service.dart';
 import '../theme/app_theme.dart';
 import 'appointments_screen.dart';
 import 'login_screen.dart';
+import 'patient_form_screen.dart';
 import 'patient_list_screen.dart';
 import 'profile_screen.dart';
 
@@ -269,8 +270,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _onAddPatient() {
-    // Reference navigates to /patients
-    _go(const PatientListScreen());
+    _go(const PatientFormScreen());
   }
 
   /*

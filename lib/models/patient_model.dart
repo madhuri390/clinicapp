@@ -69,7 +69,7 @@ class Patient {
   }
 
   Map<String, dynamic> toInsertJson() => {
-    'id': id,
+    if (id.isNotEmpty) 'id': id,
     'first_name': firstName,
     if (lastName != null) 'last_name': lastName,
     'phone': phone,
@@ -83,4 +83,11 @@ class Patient {
     if (dentalHistory != null) 'dental_history': dentalHistory,
     if (authUserId != null) 'auth_user_id': authUserId,
   };
+
+  Map<String, dynamic> toUpdateJson() {
+    final map = toInsertJson();
+    map.remove('id');
+    map.remove('created_at');
+    return map;
+  }
 }

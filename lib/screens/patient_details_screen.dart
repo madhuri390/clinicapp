@@ -6,6 +6,7 @@ import '../models/visit_detail_model.dart';
 import '../repositories/patient_repository.dart';
 import '../repositories/visit_detail_repository.dart';
 import '../widgets/patient_details_widgets.dart';
+import 'patient_form_screen.dart';
 
 class PatientDetailsScreen extends StatefulWidget {
   const PatientDetailsScreen({
@@ -109,6 +110,18 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
     );
   }
 
+  Future<void> _showEditPatient() async {
+    if (_patient == null) return;
+    final updated = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => PatientFormScreen(initialPatient: _patient),
+      ),
+    );
+    if (updated == true && mounted) {
+      _loadPatient();
+    }
+  }
+
   void _showEditConsultationModal(VisitDetail detail) {
     showDialog(
       context: context,
@@ -143,8 +156,10 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
                 : PatientHeader(
                     patient: _patient,
                     displayName: widget.patientName,
-                    onNewConsultation:
-                        widget.patientPortalMode ? null : _showNewConsultationModal,
+                    onNewConsultation: widget.patientPortalMode
+                        ? null
+                        : _showNewConsultationModal,
+                    onEdit: widget.patientPortalMode ? null : _showEditPatient,
                   ),
 
             // ── Tab bar (underline style, matching .tab-bar) ────────

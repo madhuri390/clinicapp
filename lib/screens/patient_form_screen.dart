@@ -6,7 +6,9 @@ import '../theme/app_theme.dart';
 
 /// Form screen to add a new patient with validation and scrollable layout.
 class PatientFormScreen extends StatefulWidget {
-  const PatientFormScreen({super.key});
+  const PatientFormScreen({super.key, this.initialPatient});
+
+  final Patient? initialPatient;
 
   @override
   State<PatientFormScreen> createState() => _PatientFormScreenState();
@@ -20,13 +22,46 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
   final _addressController = TextEditingController();
   final _medicalHistoryController = TextEditingController();
   final _dentalHistoryController = TextEditingController();
+  final _emailController = TextEditingController();
+
+  List<String> _medicalConditions = [];
+  final _conditionInputController = TextEditingController();
 
   String? _gender;
   DateTime? _dateOfBirth;
   String? _bloodGroup;
   bool _saving = false;
+  AutovalidateMode _autovalidateMode = AutovalidateMode.disabled;
+
+  bool get _isEditing => widget.initialPatient != null;
 
   final _repo = PatientRepository();
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isEditing) {
+      final p = widget.initialPatient!;
+      _firstNameController.text = p.firstName;
+      _lastNameController.text = p.lastName ?? '';
+      _phoneController.text = p.phone;
+      _addressController.text = p.address ?? '';
+      _medicalHistoryController.text = p.medicalHistory ?? '';
+      _dentalHistoryController.text = p.dentalHistory ?? '';
+      _emailController.text = p.email ?? '';
+      _gender = p.gender;
+      _dateOfBirth = p.dateOfBirth;
+      _bloodGroup = p.bloodGroup;
+
+      if (p.medicalHistory != null && p.medicalHistory!.isNotEmpty) {
+        _medicalConditions = p.medicalHistory!
+            .split(',')
+            .map((s) => s.trim())
+            .where((s) => s.isNotEmpty)
+            .toList();
+      }
+    }
+  }
 
   static const List<String> _genders = [
     'Male',
@@ -54,6 +89,8 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
     _addressController.dispose();
     _medicalHistoryController.dispose();
     _dentalHistoryController.dispose();
+    _emailController.dispose();
+    _conditionInputController.dispose();
     super.dispose();
   }
 
@@ -71,7 +108,16 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
   }
 
   Future<void> _onSave() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      setState(() => _autovalidateMode = AutovalidateMode.always);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please correct the highlighted errors'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     setState(() => _saving = true);
 
     try {
@@ -82,24 +128,34 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
             ? null
             : _lastNameController.text.trim(),
         phone: _phoneController.text.trim(),
+        email: _emailController.text.trim().isEmpty
+            ? null
+            : _emailController.text.trim(),
         gender: _gender,
         dateOfBirth: _dateOfBirth,
         bloodGroup: _bloodGroup,
         address: _addressController.text.trim().isEmpty
             ? null
             : _addressController.text.trim(),
-        medicalHistory: _medicalHistoryController.text.trim().isEmpty
+        medicalHistory: _medicalConditions.isEmpty
             ? null
-            : _medicalHistoryController.text.trim(),
+            : _medicalConditions.join(', '),
         dentalHistory: _dentalHistoryController.text.trim().isEmpty
             ? null
             : _dentalHistoryController.text.trim(),
       );
-      await _repo.create(patient);
+      if (_isEditing) {
+        await _repo.update(widget.initialPatient!.id, patient.toUpdateJson());
+      } else {
+        await _repo.create(patient);
+      }
+
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Patient ${patient.fullName} saved successfully'),
+          content: Text(
+            'Patient ${patient.fullName} ${_isEditing ? 'updated' : 'saved'} successfully',
+          ),
           behavior: SnackBarBehavior.floating,
           backgroundColor: AppTheme.primaryColor,
         ),
@@ -124,9 +180,9 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
-        title: const Text(
-          'Add Patient',
-          style: TextStyle(
+        title: Text(
+          _isEditing ? 'Edit Patient' : 'Add Patient',
+          style: const TextStyle(
             color: Colors.black87,
             fontWeight: FontWeight.w600,
             fontSize: 20,
@@ -140,6 +196,7 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
       ),
       body: Form(
         key: _formKey,
+        autovalidateMode: _autovalidateMode,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
           children: [
@@ -179,8 +236,58 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
                 hintText: 'Enter phone number',
                 prefixIcon: Icon(Icons.phone_outlined),
               ),
+              onChanged: (v) {
+                if (_autovalidateMode == AutovalidateMode.always) return;
+                // Trigger validation of email when phone changes to clear/show errors
+                _formKey.currentState?.validate();
+              },
               validator: (v) {
-                if (v == null || v.trim().isEmpty) return 'Phone is required';
+                final phone = v?.trim() ?? '';
+                final email = _emailController.text.trim();
+                
+                if (phone.isEmpty && email.isEmpty) {
+                  return 'Phone or Email is required';
+                }
+                
+                if (phone.isNotEmpty) {
+                  final phoneRegex = RegExp(r'^\+?[0-9]{7,15}$');
+                  if (!phoneRegex.hasMatch(phone)) {
+                    return 'Enter a valid phone number';
+                  }
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              onChanged: (v) {
+                if (_autovalidateMode == AutovalidateMode.always) return;
+                // Trigger validation of phone when email changes to clear/show errors
+                _formKey.currentState?.validate();
+              },
+              decoration: const InputDecoration(
+                labelText: 'Email Address',
+                hintText: 'Enter email address',
+                prefixIcon: Icon(Icons.email_outlined),
+              ),
+              validator: (v) {
+                final email = v?.trim() ?? '';
+                final phone = _phoneController.text.trim();
+
+                if (email.isEmpty && phone.isEmpty) {
+                  return 'Phone or Email is required';
+                }
+
+                if (email.isNotEmpty) {
+                  final emailRegex = RegExp(
+                    r'^[a-zA-Z0-9.]+@[a-zA-Z0-9]+\.[a-zA-Z]+',
+                  );
+                  if (!emailRegex.hasMatch(email)) {
+                    return 'Enter a valid email address';
+                  }
+                }
                 return null;
               },
             ),
@@ -247,16 +354,7 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
             const SizedBox(height: 24),
             _SectionHeader(title: 'Medical & Dental History'),
             const SizedBox(height: 12),
-            TextFormField(
-              controller: _medicalHistoryController,
-              maxLines: 4,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(
-                labelText: 'Medical History',
-                hintText: 'Allergies, conditions, medications...',
-                alignLabelWithHint: true,
-              ),
-            ),
+            _buildPillInput(),
             const SizedBox(height: 16),
             TextFormField(
               controller: _dentalHistoryController,
@@ -285,13 +383,107 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
                         ),
                       )
                     : const Icon(Icons.save_outlined, size: 20),
-                label: Text(_saving ? 'Saving...' : 'Save Patient'),
+                label: Text(
+                  _saving
+                      ? 'Saving...'
+                      : (_isEditing ? 'Update Patient' : 'Save Patient'),
+                ),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildPillInput() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Medical Conditions',
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey.shade700,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (_medicalConditions.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8.0),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _medicalConditions.map((condition) {
+                return Chip(
+                  label: Text(
+                    condition,
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                  backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
+                  deleteIcon: const Icon(Icons.close, size: 14),
+                  onDeleted: () {
+                    setState(() {
+                      _medicalConditions.remove(condition);
+                    });
+                  },
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    side: BorderSide(
+                      color: AppTheme.primaryColor.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                );
+              }).toList(),
+            ),
+          ),
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _conditionInputController,
+                decoration: const InputDecoration(
+                  hintText: 'Add condition (e.g. Asthma)',
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                ),
+                onFieldSubmitted: (v) => _addCondition(),
+              ),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              onPressed: _addCondition,
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                minimumSize: const Size(0, 44),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text('Add'),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  void _addCondition() {
+    final text = _conditionInputController.text.trim();
+    if (text.isNotEmpty) {
+      setState(() {
+        if (!_medicalConditions.contains(text)) {
+          _medicalConditions.add(text);
+        }
+        _conditionInputController.clear();
+      });
+    }
   }
 
   static String _formatDate(DateTime d) {
