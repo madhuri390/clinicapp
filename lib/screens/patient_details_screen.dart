@@ -2,17 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/patient_model.dart';
-import '../models/payment_model.dart';
-import '../models/prescription_model.dart';
-import '../models/treatment_plan_model.dart';
-import '../models/visit_model.dart';
+import '../models/visit_detail_model.dart';
 import '../repositories/patient_repository.dart';
-import '../services/local_store.dart';
-import '../theme/app_theme.dart';
-import '../theme/patient_portal_theme.dart';
+import '../repositories/visit_detail_repository.dart';
 import '../widgets/patient_details_widgets.dart';
-
-// ── Screen ────────────────────────────────────────────────────────────────────
 
 class PatientDetailsScreen extends StatefulWidget {
   const PatientDetailsScreen({
@@ -24,8 +17,6 @@ class PatientDetailsScreen extends StatefulWidget {
 
   final String patientId;
   final String patientName;
-
-  /// Patient app: no new consultation; ongoing/history are read-only.
   final bool patientPortalMode;
 
   @override
@@ -36,26 +27,21 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
     with TickerProviderStateMixin {
   late final TabController _tabController;
 
-  // Repos
   final _patientRepo = PatientRepository();
+  final _visitRepo = VisitDetailRepository();
 
-  // Data
   Patient? _patient;
-  List<Visit> _visits = [];
-  List<TreatmentPlan> _treatments = [];
-  List<Prescription> _prescriptions = [];
-  List<Payment> _payments = [];
+  List<VisitDetail> _ongoingVisits = [];
+  List<VisitDetail> _historyVisits = [];
 
-  // Data Loading flags
   bool _loadingPatient = true;
-
-  static const _tabLabels = ['Profile', 'Ongoing', 'History'];
+  bool _loadingOngoing = true;
+  bool _loadingHistory = true;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _tabLabels.length, vsync: this);
-    LocalStore.instance.seedIfNeeded();
+    _tabController = TabController(length: 3, vsync: this);
     _loadAll();
   }
 
@@ -67,323 +53,199 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
 
   Future<void> _loadAll() async {
     _loadPatient();
-    _loadVisits();
+    _loadOngoing();
+    _loadHistory();
   }
 
   Future<void> _loadPatient() async {
     try {
       final p = await _patientRepo.getById(widget.patientId);
       if (!mounted) return;
-      setState(() {
-        _patient = p;
-        _loadingPatient = false;
-      });
-    } catch (e) {
-      if (mounted) {
-        setState(() => _loadingPatient = false);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
+      setState(() { _patient = p; _loadingPatient = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loadingPatient = false);
     }
   }
 
-  Future<void> _loadVisits() async {
+  Future<void> _loadOngoing() async {
+    if (!mounted) return;
+    setState(() => _loadingOngoing = true);
     try {
-      // Seed rich ongoing mock data for this patient so the Ongoing tab
-      // has useful examples (only happens once per patientId).
-      LocalStore.instance.seedOngoingForPatient(widget.patientId);
-
-      final refreshedStoreVisits = LocalStore.instance.getVisitsForPatient(
-        widget.patientId,
-      );
-
-      // Combine and deduplicate visits (DB + local + seeded)
-      final allVisits = [...refreshedStoreVisits];
-      final seenIds = <String>{};
-      final uniqueVisits = allVisits.where((v) => seenIds.add(v.id)).toList();
-      uniqueVisits.sort((a, b) => (b.visitDate).compareTo(a.visitDate));
-
+      final v = await _visitRepo.getOngoing(widget.patientId);
       if (!mounted) return;
-      setState(() {
-        _visits = uniqueVisits;
-      });
-      // Load treatments + prescriptions after visits
-      _loadTreatmentsAndPrescriptions(uniqueVisits.map((v) => v.id).toList());
-    } catch (e) {
-      if (!mounted) return;
-      // If DB fails, still show store visits
-      final storeVisits = LocalStore.instance.getVisitsForPatient(
-        widget.patientId,
-      );
-      setState(() {
-        _visits = storeVisits;
-      });
+      setState(() { _ongoingVisits = v; _loadingOngoing = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loadingOngoing = false);
     }
   }
 
-  Future<void> _loadTreatmentsAndPrescriptions(List<String> visitIds) async {
+  Future<void> _loadHistory() async {
+    if (!mounted) return;
+    setState(() => _loadingHistory = true);
     try {
-      final storeTreatments = LocalStore.instance.getTreatmentsForVisits(
-        visitIds,
-      );
-
+      final v = await _visitRepo.getHistory(widget.patientId);
       if (!mounted) return;
-      setState(() {
-        _treatments = storeTreatments;
-      });
-    } catch (_) {}
-
-    try {
-      final storePrescriptions = LocalStore.instance.getPrescriptionsForVisits(
-        visitIds,
-      );
-
-      if (!mounted) return;
-      setState(() {
-        _prescriptions = storePrescriptions;
-      });
-    } catch (_) {}
-
-    _loadPayments();
+      setState(() { _historyVisits = v; _loadingHistory = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loadingHistory = false);
+    }
   }
-
-  Future<void> _loadPayments() async {
-    final visitIds = _visits.map((v) => v.id).toList();
-    if (visitIds.isEmpty) return;
-
-    try {
-      final storePayments = LocalStore.instance.getPaymentsForVisits(visitIds);
-      if (!mounted) return;
-      setState(() {
-        _payments = storePayments;
-      });
-    } catch (_) {}
-  }
-
-  // ── Modals / Forms ─────────────────────────────────────────────────────────
 
   void _showNewConsultationModal() {
-    showModalBottomSheet(
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.45),
       builder: (_) => NewConsultationSheet(
         patientId: widget.patientId,
-        onSave: (v) {
-          // Generate a mock ID if it's new
-          final newVisit = Visit(
-            id: 'mock_v_${DateTime.now().millisecondsSinceEpoch}',
-            patientId: v.patientId,
-            visitDate: v.visitDate,
-            chiefComplaint: v.chiefComplaint,
-            diagnosis: v.diagnosis,
-            notes: v.notes,
-          );
-          LocalStore.instance.addVisit(newVisit);
+        onSave: (v) async {
+          await _visitRepo.createVisit(v);
           if (mounted) {
             Navigator.pop(context);
             _tabController.animateTo(1);
+            _loadOngoing();
           }
-          _loadVisits();
         },
       ),
     );
   }
 
-  void _showEditConsultationModal(Visit visit) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => NewConsultationSheet(
-        patientId: widget.patientId,
-        existingVisit: visit,
-        onSave: (v) {
-          LocalStore.instance.updateVisit(v);
-          if (mounted) Navigator.pop(context);
-          _loadVisits();
-        },
-      ),
-    );
-  }
-
-  void _deleteVisit(Visit visit) {
+  void _showEditConsultationModal(VisitDetail detail) {
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Consultation?'),
-        content: const Text(
-          'Are you sure you want to delete this consultation? This action cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              LocalStore.instance.deleteVisit(visit.id);
-              _loadVisits();
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
-          ),
-        ],
+      barrierColor: Colors.black.withValues(alpha: 0.45),
+      builder: (_) => NewConsultationSheet(
+        patientId: widget.patientId,
+        existingVisit: detail.visit,
+        onSave: (v) async {
+          await _visitRepo.updateVisit(v.id, v.toUpdateJson());
+          if (mounted) {
+            Navigator.pop(context);
+            _loadOngoing();
+          }
+        },
       ),
     );
   }
-
-  // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    final bg = widget.patientPortalMode
-        ? PatientPortalTheme.surface
-        : AppTheme.lightBlueBackground;
-    final primary = widget.patientPortalMode
-        ? PatientPortalTheme.skyBlue
-        : AppTheme.primaryColor;
-
     return Scaffold(
-      backgroundColor: bg,
-      appBar: AppBar(
-        backgroundColor: bg,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        iconTheme: IconThemeData(
-          color: widget.patientPortalMode
-              ? PatientPortalTheme.navyBlue
-              : Colors.black87,
-        ),
-      ),
-      body: NestedScrollView(
-        headerSliverBuilder: (context, _) => [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Column(
-                children: [
-                  _loadingPatient
-                      ? const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(20),
-                            child: CircularProgressIndicator(),
-                          ),
-                        )
-                      : PatientHeader(
-                          patient: _patient,
-                          displayName: widget.patientName,
-                        ),
-                  const SizedBox(height: 16),
-                  if (!widget.patientPortalMode) ...[
-                    SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: primary,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          elevation: 0,
-                        ),
-                        onPressed: _showNewConsultationModal,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.add, size: 20),
-                            const SizedBox(width: 8),
-                            Text(
-                              'New Consultation',
-                              style: GoogleFonts.poppins(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // ── Main header (patient-header + new-btn) ──────────────
+            _loadingPatient
+                ? const SizedBox(
+                    height: 80,
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                : PatientHeader(
+                    patient: _patient,
+                    displayName: widget.patientName,
+                    onNewConsultation:
+                        widget.patientPortalMode ? null : _showNewConsultationModal,
+                  ),
+
+            // ── Tab bar (underline style, matching .tab-bar) ────────
+            Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(
+                  bottom: BorderSide(color: kRefBorder, width: 1.5),
+                ),
+              ),
+              child: TabBar(
+                controller: _tabController,
+                indicatorColor: kRefPrimary,
+                indicatorWeight: 2.5,
+                indicatorSize: TabBarIndicatorSize.tab,
+                labelColor: kRefPrimary,
+                unselectedLabelColor: kRefTabInactive,
+                labelStyle: GoogleFonts.lato(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+                unselectedLabelStyle: GoogleFonts.lato(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+                dividerColor: Colors.transparent,
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                labelPadding: EdgeInsets.zero,
+                tabs: const [
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.person_outline, size: 16),
+                        SizedBox(width: 6),
+                        Text('Profile'),
+                      ],
                     ),
-                    const SizedBox(height: 20),
-                  ],
+                  ),
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.calendar_today_outlined, size: 14),
+                        SizedBox(width: 6),
+                        Text('Ongoing'),
+                      ],
+                    ),
+                  ),
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.history, size: 16),
+                        SizedBox(width: 6),
+                        Text('History'),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
-          ),
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: SliverAppBarDelegate(
-              TabBar(
-                controller: _tabController,
-                indicatorSize: TabBarIndicatorSize.tab,
-                dividerColor: Colors.transparent,
-                indicator: BoxDecoration(
-                  gradient: widget.patientPortalMode
-                      ? PatientPortalTheme.accentGradient
-                      : null,
-                  color: widget.patientPortalMode ? null : primary,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: primary.withValues(alpha: 0.2),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
+
+            // ── Screen container (#F9FAFE bg) ───────────────────────
+            Expanded(
+              child: Container(
+                color: kRefScreenBg,
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    ProfileTab(patient: _patient, isLoading: _loadingPatient),
+                    OngoingTab(
+                      patientId: widget.patientId,
+                      visitDetails: _ongoingVisits,
+                      isLoading: _loadingOngoing,
+                      onRefresh: _loadOngoing,
+                      onRefreshAll: _loadAll,
+                      onEditVisit: widget.patientPortalMode
+                          ? null
+                          : _showEditConsultationModal,
+                      onComplete: widget.patientPortalMode
+                          ? null
+                          : () {
+                              _loadOngoing();
+                              _loadHistory();
+                              _tabController.animateTo(2);
+                            },
+                      readOnly: widget.patientPortalMode,
+                    ),
+                    HistoryTab(
+                      patientId: widget.patientId,
+                      visitDetails: _historyVisits,
+                      isLoading: _loadingHistory,
+                      onRefresh: _loadHistory,
+                      readOnly: widget.patientPortalMode,
                     ),
                   ],
                 ),
-                labelPadding: const EdgeInsets.symmetric(horizontal: 4),
-                labelColor: Colors.white,
-                unselectedLabelColor: primary.withValues(
-                  alpha: 0.75,
-                ),
-                labelStyle: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
-                unselectedLabelStyle: GoogleFonts.poppins(
-                  fontWeight: FontWeight.w500,
-                  fontSize: 13,
-                ),
-                tabs: _tabLabels.map((t) => Tab(text: t)).toList(),
-                splashBorderRadius: BorderRadius.circular(24),
               ),
-              backgroundColor: bg,
             ),
-          ),
-        ],
-        body: Container(
-          color: bg,
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              ProfileTab(patient: _patient, isLoading: _loadingPatient),
-              OngoingTabPlaceholder(
-                visits: _visits,
-                treatments: _treatments,
-                prescriptions: _prescriptions,
-                payments: _payments,
-                onRefresh: _loadAll,
-                onEditVisit: widget.patientPortalMode
-                    ? (_) {}
-                    : _showEditConsultationModal,
-                onComplete: widget.patientPortalMode
-                    ? null
-                    : () {
-                        _loadAll();
-                        _tabController.animateTo(2);
-                      },
-                readOnly: widget.patientPortalMode,
-              ),
-              HistoryTabPlaceholder(
-                visits: _visits,
-                onRefresh: _loadVisits,
-                readOnly: widget.patientPortalMode,
-              ),
-            ],
-          ),
+          ],
         ),
       ),
     );
