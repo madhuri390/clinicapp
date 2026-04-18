@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/patient_portal_logo.dart';
 import '../widgets/role_aware_shell.dart';
 import 'login_screen.dart';
 
@@ -134,10 +135,11 @@ class ProdonticsBadge extends StatelessWidget {
         ],
       ),
       child: Center(
-        child: Icon(
-          Icons.medical_information_outlined,
-          color: AppTheme.primaryColor,
-          size: iconSize,
+        child: ClipOval(
+          child: PatientPortalLogo(
+            height: iconSize * 1.2,
+            width: iconSize * 1.2,
+          ),
         ),
       ),
     );
