@@ -71,16 +71,15 @@ class Patient {
   Map<String, dynamic> toInsertJson() => {
     if (id.isNotEmpty) 'id': id,
     'first_name': firstName,
-    if (lastName != null) 'last_name': lastName,
+    'last_name': lastName,
     'phone': phone,
-    if (email != null) 'email': email,
-    if (gender != null) 'gender': gender,
-    if (dateOfBirth != null)
-      'date_of_birth': dateOfBirth!.toIso8601String().split('T').first,
-    if (bloodGroup != null) 'blood_group': bloodGroup,
-    if (address != null) 'address': address,
-    if (medicalHistory != null) 'medical_history': medicalHistory,
-    if (dentalHistory != null) 'dental_history': dentalHistory,
+    'email': email,
+    'gender': gender,
+    'date_of_birth': dateOfBirth?.toIso8601String().split('T').first,
+    'blood_group': bloodGroup,
+    'address': address,
+    'medical_history': medicalHistory,
+    'dental_history': dentalHistory,
     if (authUserId != null) 'auth_user_id': authUserId,
   };
 

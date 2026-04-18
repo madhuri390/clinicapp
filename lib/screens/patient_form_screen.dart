@@ -198,7 +198,7 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
         key: _formKey,
         autovalidateMode: _autovalidateMode,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
           children: [
             _SectionHeader(title: 'Personal Information'),
             const SizedBox(height: 12),
@@ -367,30 +367,29 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
               ),
             ),
             const SizedBox(height: 32),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _saving ? null : _onSave,
-                icon: _saving
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.white,
-                          ),
-                        ),
-                      )
-                    : const Icon(Icons.save_outlined, size: 20),
-                label: Text(
-                  _saving
-                      ? 'Saving...'
-                      : (_isEditing ? 'Update Patient' : 'Save Patient'),
-                ),
-              ),
-            ),
           ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _saving ? null : _onSave,
+        backgroundColor: AppTheme.primaryColor,
+        foregroundColor: Colors.white,
+        elevation: 4,
+        icon: _saving
+            ? const SizedBox(
+                height: 18,
+                width: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
+            : const Icon(Icons.save_outlined),
+        label: Text(
+          _saving
+              ? 'Saving...'
+              : (_isEditing ? 'Update Patient' : 'Save Patient'),
+          style: const TextStyle(fontWeight: FontWeight.w600),
         ),
       ),
     );
