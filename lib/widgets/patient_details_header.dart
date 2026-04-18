@@ -2,120 +2,154 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/patient_model.dart';
-import '../theme/app_theme.dart';
 
-class SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
-  SliverAppBarDelegate(this.tabBar, {this.backgroundColor});
-  final TabBar tabBar;
-  final Color? backgroundColor;
+// ── Reference design palette (single source of truth) ─────────────────────
+const kRefPrimary   = Color(0xFF0D8DC4);
+const kRefPrimaryDk = Color(0xFF0A719D);
+const kRefDark      = Color(0xFF0F172A);
+const kRefMuted     = Color(0xFF5B6E8C);
+const kRefTabInactive = Color(0xFF94A3B8);
+const kRefBorder    = Color(0xFFEDF2F7);
+const kRefScreenBg  = Color(0xFFF9FAFE);
 
-  @override
-  double get minExtent => 60.0;
-  @override
-  double get maxExtent => 60.0;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    return Container(
-      color: backgroundColor ?? AppTheme.lightBlueBackground,
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
-      alignment: Alignment.center,
-      child: Container(
-        height: 48,
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade200,
-          borderRadius: BorderRadius.circular(24),
-        ),
-        child: tabBar,
-      ),
-    );
-  }
-
-  @override
-  bool shouldRebuild(SliverAppBarDelegate oldDelegate) {
-    return oldDelegate.tabBar != tabBar ||
-        oldDelegate.backgroundColor != backgroundColor;
-  }
-}
-
+/// Header matching `.main-header > .header-row > .patient-header + .new-btn`.
 class PatientHeader extends StatelessWidget {
-  const PatientHeader({super.key, this.patient, required this.displayName});
+  const PatientHeader({
+    super.key,
+    this.patient,
+    required this.displayName,
+    this.onNewConsultation,
+  });
 
   final Patient? patient;
   final String displayName;
+  final VoidCallback? onNewConsultation;
 
   @override
   Widget build(BuildContext context) {
     final name = patient?.fullName ?? displayName;
-    final gender = patient?.gender ?? 'Female';
     final age = patient?.age ?? 34;
-    final bloodGroup = patient?.bloodGroup ?? 'O+';
+    final gender = patient?.gender ?? 'Female';
+    final initials = _initials(name);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-      decoration: BoxDecoration(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+      decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border(bottom: BorderSide(color: kRefBorder, width: 1)),
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 28,
-            backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-            child: Icon(
-              Icons.person_outline,
-              color: AppTheme.primaryColor,
-              size: 30,
+          // Gradient avatar (48×48, borderRadius 28)
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(28),
+              gradient: const LinearGradient(
+                colors: [kRefPrimary, kRefPrimaryDk],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              initials,
+              style: GoogleFonts.lato(
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   name,
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.lato(
                     fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                    fontWeight: FontWeight.w800,
+                    color: kRefDark,
+                    height: 1.2,
                   ),
                 ),
                 Text(
-                  '$age years • $gender',
-                  style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black54,
-                  ),
+                  '$age yrs · $gender',
+                  style: GoogleFonts.lato(fontSize: 12, color: kRefMuted),
                 ),
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: Text(
-              bloodGroup,
-              style: GoogleFonts.poppins(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
+          if (onNewConsultation != null)
+            GestureDetector(
+              onTap: onNewConsultation,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: kRefPrimary,
+                  borderRadius: BorderRadius.circular(30),
+                  boxShadow: [
+                    BoxShadow(
+                      color: kRefPrimary.withValues(alpha: 0.20),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.add_circle_outline, size: 16, color: Colors.white),
+                    const SizedBox(width: 6),
+                    Text(
+                      'New',
+                      style: GoogleFonts.lato(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
         ],
       ),
     );
   }
+
+  String _initials(String name) {
+    final parts = name.trim().split(RegExp(r'\s+'));
+    if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    if (parts.isNotEmpty && parts[0].isNotEmpty) return parts[0][0].toUpperCase();
+    return '?';
+  }
+}
+
+/// Tab bar delegate matching `.tab-bar` — underline-style, not pill-style.
+class SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
+  SliverAppBarDelegate(this.tabBar, {this.backgroundColor});
+  final TabBar tabBar;
+  final Color? backgroundColor;
+
+  @override
+  double get minExtent => 48.0;
+  @override
+  double get maxExtent => 48.0;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      color: backgroundColor ?? Colors.white,
+      padding: const EdgeInsets.only(left: 20, right: 20, top: 8),
+      child: tabBar,
+    );
+  }
+
+  @override
+  bool shouldRebuild(SliverAppBarDelegate oldDelegate) =>
+      oldDelegate.tabBar != tabBar || oldDelegate.backgroundColor != backgroundColor;
 }

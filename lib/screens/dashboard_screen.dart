@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../services/auth_service.dart';
 import '../services/app_role_service.dart';
+import '../theme/app_theme.dart';
 import 'appointments_screen.dart';
 import 'login_screen.dart';
 import 'patient_list_screen.dart';
@@ -10,8 +11,6 @@ import 'profile_screen.dart';
 
 // ── Reference colors (Tailwind) ─────────────────────────────────────────────
 const _blue600 = Color(0xFF2563EB);
-const _blue500 = Color(0xFF3B82F6);
-const _blue400 = Color(0xFF60A5FA);
 const _blue100 = Color(0xFFDBEAFE);
 const _slate50 = Color(0xFFF8FAFC);
 // const _slate100 = Color(0xFFF1F5F9);
@@ -400,7 +399,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildHeader(BuildContext context) {
     final topPadding = MediaQuery.paddingOf(context).top;
     return Container(
-      color: _blue600,
+      color: AppTheme.primaryColor,
       padding: EdgeInsets.fromLTRB(16, topPadding + 16, 16, 20),
       child: Row(
         children: [
@@ -419,7 +418,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const SizedBox(height: 4),
                 Text(
                   'Welcome back, Dr. Foster',
-                  style: GoogleFonts.inter(fontSize: 14, color: _blue100),
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    color: Colors.white.withValues(alpha: 0.88),
+                  ),
                 ),
               ],
             ),
@@ -470,7 +472,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 bottom: 4,
               ),
               decoration: BoxDecoration(
-                color: _blue500,
+                color: Color.lerp(
+                  AppTheme.primaryColor,
+                  Colors.white,
+                  0.14,
+                ),
                 borderRadius: BorderRadius.circular(999),
               ),
               child: Row(
@@ -480,7 +486,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     width: 32,
                     height: 32,
                     decoration: BoxDecoration(
-                      color: _blue400,
+                      color: Color.lerp(
+                        AppTheme.primaryColor,
+                        Colors.white,
+                        0.35,
+                      ),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(

@@ -5,46 +5,37 @@ import '../services/auth_service.dart';
 import '../services/app_role_service.dart';
 import 'login_screen.dart';
 
-// Reference colors (Tailwind)
-const _blue600 = Color(0xFF0D8DC4);
-const _blue500 = Color(0xFF28A0D4);
-const _blue400 = Color(0xFF45B5E5);
-const _blue100 = Color(0xFFB4E0F0);
-const _slate50 = Color(0xFFF8FAFC);
+// ── Reference design colours ──────────────────────────────────────────────
+const _primary = Color(0xFF0D8DC4);
+const _primaryDk = Color(0xFF0A719D);
+const _bg = Color(0xFFF9FAFE);
+const _muted = Color(0xFF5B6E8C);
+const _dark = Color(0xFF0F172A);
 const _slate200 = Color(0xFFE2E8F0);
-const _slate400 = Color(0xFF94A3B8);
-const _slate500 = Color(0xFF64748B);
 const _slate600 = Color(0xFF475569);
-const _slate900 = Color(0xFF0F172A);
-const _green600 = Color(0xFF16A34A);
-const _red500 = Color(0xFFEF4444);
 const _red50 = Color(0xFFFEF2F2);
+const _red400 = Color(0xFFEF4444);
+const _red500 = Color(0xFFEF4444);
 
-/// Profile screen matching PatientTrackingVersion4/src/app/components/profile.tsx
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
-
-  static const _totalRevenue = 6850;
-  static const _thisMonthRevenue = 2340;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _slate50,
+      backgroundColor: _bg,
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(child: _buildHeader(context)),
           SliverPadding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
-                _buildContactInfo(context),
+                _buildContactCard(),
                 const SizedBox(height: 16),
-                _buildRevenueStats(context),
+                _buildSettingsCard(context),
                 const SizedBox(height: 16),
-                _buildSettingsMenu(context),
-                const SizedBox(height: 16),
-                _buildAccountActions(context),
+                _buildAccountCard(context),
                 const SizedBox(height: 24),
                 _buildAppInfo(),
               ]),
@@ -55,11 +46,19 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
+  // ── Header ──────────────────────────────────────────────────────────────
+
   Widget _buildHeader(BuildContext context) {
-    final topPadding = MediaQuery.paddingOf(context).top;
+    final top = MediaQuery.paddingOf(context).top;
     return Container(
-      color: _blue600,
-      padding: EdgeInsets.fromLTRB(16, topPadding + 16, 16, 20),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [_primary, _primaryDk],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      padding: EdgeInsets.fromLTRB(16, top + 12, 16, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -71,258 +70,158 @@ class ProfileScreen extends StatelessWidget {
               minimumSize: const Size(40, 40),
             ),
           ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              // Gradient avatar circle
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF28A0D4), _primaryDk],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.18),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Center(
+                  child: Text(
+                    'AF',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Dr. Amanda Foster',
+                      style: GoogleFonts.lato(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'General Dentist · Prodontics Kokapet',
+                      style: GoogleFonts.lato(
+                        fontSize: 12,
+                        color: Colors.white.withValues(alpha: 0.82),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Contact card ────────────────────────────────────────────────────────
+
+  Widget _buildContactCard() {
+    return _InfoCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionTitle(icon: Icons.badge_outlined, label: 'Contact details'),
+          const SizedBox(height: 14),
+          _ContactRow(icon: Icons.phone_outlined, value: '+91 98765 43210'),
+          const SizedBox(height: 10),
+          _ContactRow(
+            icon: Icons.email_outlined,
+            value: 'dr.foster@prodontics.in',
+          ),
+          const SizedBox(height: 10),
+          _ContactRow(
+            icon: Icons.location_on_outlined,
+            value: 'Kokapet, Hyderabad',
+          ),
+          const SizedBox(height: 10),
+          _ContactRow(
+            icon: Icons.calendar_today_outlined,
+            value: 'Joined: Jan 2020',
+            muted: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Settings card ───────────────────────────────────────────────────────
+
+  Widget _buildSettingsCard(BuildContext context) {
+    return _InfoCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionTitle(icon: Icons.settings_outlined, label: 'Settings'),
           const SizedBox(height: 8),
-          Text(
-            'Profile',
-            style: GoogleFonts.inter(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: _blue500,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  decoration: BoxDecoration(
-                    color: _blue400,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.person,
-                    color: Colors.white,
-                    size: 32,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Dr. Amanda Foster',
-                        style: GoogleFonts.inter(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                      Text(
-                        'Dental Surgeon',
-                        style: GoogleFonts.inter(fontSize: 14, color: _blue100),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildContactInfo(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: _slate200),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Contact Information',
-            style: GoogleFonts.inter(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: _slate900,
-            ),
-          ),
-          const SizedBox(height: 12),
-          _ContactRow(
-            icon: Icons.mail_outline,
-            label: 'Email',
-            value: 'amanda.foster@dentalcare.com',
-          ),
-          const SizedBox(height: 12),
-          _ContactRow(
-            icon: Icons.phone_outlined,
-            label: 'Phone',
-            value: '+1 555-0100',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRevenueStats(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: _slate200),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Row(
-          //   children: [
-          //     Icon(Icons.currency_rupee, color: _green600, size: 20),
-          //     const SizedBox(width: 8),
-          //     Text(
-          //       'Revenue Statistics',
-          //       style: GoogleFonts.inter(
-          //         fontSize: 16,
-          //         fontWeight: FontWeight.w600,
-          //         color: _slate900,
-          //       ),
-          //     ),
-          //   ],
-          // ),
-          // const SizedBox(height: 12),
-          // Row(
-          //   children: [
-          //     Expanded(
-          //       child: Column(
-          //         crossAxisAlignment: CrossAxisAlignment.start,
-          //         children: [
-          //           Text(
-          //             'Total Revenue',
-          //             style: GoogleFonts.inter(fontSize: 12, color: _slate500),
-          //           ),
-          //           Text(
-          //             '₹${ProfileScreen._totalRevenue}',
-          //             style: GoogleFonts.inter(
-          //               fontSize: 24,
-          //               fontWeight: FontWeight.bold,
-          //               color: _slate900,
-          //             ),
-          //           ),
-          //         ],
-          //       ),
-          //     ),
-          //     Expanded(
-          //       child: Column(
-          //         crossAxisAlignment: CrossAxisAlignment.start,
-          //         children: [
-          //           Text(
-          //             'This Month',
-          //             style: GoogleFonts.inter(fontSize: 12, color: _slate500),
-          //           ),
-          //           Text(
-          //             '₹${ProfileScreen._thisMonthRevenue}',
-          //             style: GoogleFonts.inter(
-          //               fontSize: 24,
-          //               fontWeight: FontWeight.bold,
-          //               color: _green600,
-          //             ),
-          //           ),
-          //         ],
-          //       ),
-          //     ),
-          //   ],
-          // ),
-          const SizedBox(height: 12),
-          const Divider(height: 1),
-          const SizedBox(height: 12),
-          GestureDetector(
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('View Detailed Report'),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            },
-            child: Row(
-              children: [
-                Text(
-                  'View Detailed Report',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: _blue600,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Icon(Icons.chevron_right, color: _blue600, size: 16),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSettingsMenu(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: _slate200),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        children: [
           _SettingsTile(
-            icon: Icons.settings,
+            icon: Icons.tune_outlined,
             title: 'General Settings',
             subtitle: 'App preferences and configurations',
-            onTap: () => _showComingSoon(context, 'General Settings'),
+            onTap: () => _toast(context, 'General Settings coming soon'),
           ),
-          const Divider(height: 1),
+          _divider(),
           _SettingsTile(
-            icon: Icons.people,
+            icon: Icons.people_outline,
             title: 'Manage Staff',
             subtitle: 'Add and manage staff members',
-            onTap: () => _showComingSoon(context, 'Manage Staff'),
+            onTap: () => _toast(context, 'Manage Staff coming soon'),
           ),
-          const Divider(height: 1),
+          _divider(),
           _SettingsTile(
             icon: Icons.shield_outlined,
             title: 'Roles & Permissions',
             subtitle: 'Manage user roles and access',
-            onTap: () => _showComingSoon(context, 'Roles & Permissions'),
+            onTap: () => _toast(context, 'Roles & Permissions coming soon'),
           ),
-          const Divider(height: 1),
+          _divider(),
           _SettingsTile(
             icon: Icons.notifications_outlined,
             title: 'Notifications',
             subtitle: 'Configure notification preferences',
-            onTap: () => _showComingSoon(context, 'Notifications'),
+            onTap: () => _toast(context, 'Notifications coming soon'),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildAccountActions(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: _slate200),
-        borderRadius: BorderRadius.circular(8),
-      ),
+  // ── Account card ────────────────────────────────────────────────────────
+
+  Widget _buildAccountCard(BuildContext context) {
+    return _InfoCard(
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _SectionTitle(icon: Icons.person_outline, label: 'Account'),
+          const SizedBox(height: 8),
           _SettingsTile(
-            icon: Icons.person,
+            icon: Icons.manage_accounts_outlined,
             title: 'Account Settings',
             subtitle: 'Update profile and password',
-            onTap: () => _showComingSoon(context, 'Account Settings'),
+            onTap: () => _toast(context, 'Account Settings coming soon'),
           ),
-          const Divider(height: 1),
+          _divider(),
           _SettingsTile(
             icon: Icons.logout,
             title: 'Logout',
@@ -387,60 +286,113 @@ class ProfileScreen extends StatelessWidget {
       child: Column(
         children: [
           Text(
-            'Dental Care Management System',
-            style: GoogleFonts.inter(fontSize: 14, color: _slate500),
+            'Prodontics Dental Management',
+            style: GoogleFonts.lato(fontSize: 13, color: _muted),
           ),
           const SizedBox(height: 4),
           Text(
             'Version 1.0.0',
-            style: GoogleFonts.inter(fontSize: 14, color: _slate500),
+            style: GoogleFonts.lato(fontSize: 12, color: _muted),
           ),
         ],
       ),
     );
   }
 
-  static void _showComingSoon(BuildContext context, String name) {
+  static Widget _divider() =>
+      Divider(height: 1, color: const Color(0xFFEFF3F8));
+
+  static void _toast(BuildContext context, String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$name coming soon'),
-        behavior: SnackBarBehavior.floating,
+      SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating),
+    );
+  }
+}
+
+// ── Shared components ────────────────────────────────────────────────────
+
+/// Card with 24-radius, subtle shadow and border (matches reference 28px style).
+class _InfoCard extends StatelessWidget {
+  const _InfoCard({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFEFF3F8)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x05000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+/// Section title with blue left-border accent.
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle({required this.icon, required this.label});
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border(left: BorderSide(color: _primary, width: 3)),
+      ),
+      padding: const EdgeInsets.only(left: 12),
+      child: Row(
+        children: [
+          Icon(icon, color: _primary, size: 18),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: GoogleFonts.lato(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: _dark,
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
+/// Contact info row — blue icon, label + value.
 class _ContactRow extends StatelessWidget {
   const _ContactRow({
     required this.icon,
-    required this.label,
     required this.value,
+    this.muted = false,
   });
-
   final IconData icon;
-  final String label;
   final String value;
+  final bool muted;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: _slate400, size: 20),
+        Icon(icon, color: _primary, size: 18),
         const SizedBox(width: 12),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: GoogleFonts.inter(fontSize: 12, color: _slate500),
-              ),
-              Text(
-                value,
-                style: GoogleFonts.inter(fontSize: 14, color: _slate900),
-              ),
-            ],
+          child: Text(
+            value,
+            style: GoogleFonts.lato(
+              fontSize: 14,
+              color: muted ? _muted : _dark,
+            ),
           ),
         ),
       ],
@@ -448,6 +400,7 @@ class _ContactRow extends StatelessWidget {
   }
 }
 
+/// Settings / menu list tile.
 class _SettingsTile extends StatelessWidget {
   const _SettingsTile({
     required this.icon,
@@ -465,42 +418,44 @@ class _SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isDestructive ? _red500 : _slate600;
-    final subtitleColor = isDestructive ? _red500 : _slate500;
+    final color = isDestructive ? _red400 : _primary;
 
     return Material(
       color: isDestructive ? _red50 : Colors.transparent,
+      borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(vertical: 12),
           child: Row(
             children: [
               Icon(icon, color: color, size: 20),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       title,
-                      style: GoogleFonts.inter(
+                      style: GoogleFonts.lato(
                         fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: isDestructive ? _red500 : _slate900,
+                        fontWeight: FontWeight.w600,
+                        color: isDestructive ? _red400 : _dark,
                       ),
                     ),
                     Text(
                       subtitle,
-                      style: GoogleFonts.inter(
-                        fontSize: 12,
-                        color: subtitleColor,
-                      ),
+                      style: GoogleFonts.lato(fontSize: 12, color: _muted),
                     ),
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right, color: _slate400, size: 20),
+              Icon(
+                Icons.chevron_right,
+                color: isDestructive ? _red400 : _slate200,
+                size: 20,
+              ),
             ],
           ),
         ),

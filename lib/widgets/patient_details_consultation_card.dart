@@ -178,30 +178,45 @@ class ConsultationCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           Divider(height: 1, color: Colors.grey.shade200),
           if (treatments.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
               child: Column(
-                children: treatments
-                    .map(
-                      (t) => _TreatmentAccordion(
-                        treatment: t,
-                        prescriptions: prescriptions
-                            .where((p) => p.treatmentPlanId == t.id)
-                            .toList(),
-                        files: LocalStore.instance.getFilesForTreatment(t.id),
-                        sittings: sittings
-                            .where((s) => s.treatmentPlanId == t.id)
-                            .toList(),
-                        payments: payments,
-                        onRefresh: onRefresh,
-                        isOngoing: isOngoing,
-                        readOnly: readOnly,
-                      ),
-                    )
-                    .toList(),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Treatments planned',
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Column(
+                    children: treatments
+                        .map(
+                          (t) => _TreatmentAccordion(
+                            treatment: t,
+                            prescriptions: prescriptions
+                                .where((p) => p.treatmentPlanId == t.id)
+                                .toList(),
+                            files:
+                                LocalStore.instance.getFilesForTreatment(t.id),
+                            sittings: sittings
+                                .where((s) => s.treatmentPlanId == t.id)
+                                .toList(),
+                            payments: payments,
+                            onRefresh: onRefresh,
+                            isOngoing: isOngoing,
+                            readOnly: readOnly,
+                          ),
+                        )
+                        .toList(),
+                  ),
+                ],
               ),
             ),
           Padding(

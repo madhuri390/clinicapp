@@ -412,39 +412,14 @@ class LocalStore {
     );
   }
 
-  /// Seed rich ongoing data for a specific patient so the Ongoing tab
-  /// can showcase different lifecycle stages (planned, in‑progress, completed).
+  /// Seed ongoing mock data for the Ongoing tab (single active treatment).
   void seedOngoingForPatient(String patientId) {
     if (_seededOngoingPatients.contains(patientId)) return;
     _seededOngoingPatients.add(patientId);
 
     final now = DateTime.now();
 
-    // Visit 1: Planned consultation, treatment defined but no sittings/payments yet.
-    final plannedVisitId = 'ongoing_${patientId}_planned';
-    final vPlanned = Visit(
-      id: plannedVisitId,
-      patientId: patientId,
-      visitDate: now.subtract(const Duration(days: 1)),
-      chiefComplaint: 'Mild tooth sensitivity to cold drinks',
-      diagnosis: 'Early enamel wear (planned evaluation)',
-    );
-    _mockVisits.add(vPlanned);
-
-    final tPlannedId = 'ongoing_t_${patientId}_planned';
-    _mockTreatments.add(
-      TreatmentPlan(
-        id: tPlannedId,
-        visitId: plannedVisitId,
-        treatmentName: 'Fluoride Varnish Application',
-        description:
-            'Topical fluoride to strengthen enamel and reduce sensitivity.',
-        totalCost: 150,
-        status: 'Planned',
-      ),
-    );
-
-    // Visit 2: Active treatment with multiple sittings and partial payments.
+    // ── Single ongoing visit + one treatment (doctor UI demo) ─────────────
     final activeVisitId = 'ongoing_${patientId}_active';
     final vActive = Visit(
       id: activeVisitId,
@@ -498,7 +473,6 @@ class LocalStore {
         paymentDate: now.subtract(const Duration(days: 7)),
         notes: 'Initial deposit for aligner therapy',
       ),
-      // Second sitting still partially unpaid to show a balance.
       Payment(
         id: 'ongoing_p_${patientId}_active_partial',
         visitId: vActive.id,
@@ -510,100 +484,61 @@ class LocalStore {
       ),
     ]);
 
-    // Visit 3: Recently completed single‑visit treatment with full payment.
+    /*
+    // Extra demo visits / treatments (commented — keep one treatment above only)
+    final plannedVisitId = 'ongoing_${patientId}_planned';
+    _mockVisits.add(Visit(
+      id: plannedVisitId,
+      patientId: patientId,
+      visitDate: now.subtract(const Duration(days: 1)),
+      chiefComplaint: 'Mild tooth sensitivity to cold drinks',
+      diagnosis: 'Early enamel wear (planned evaluation)',
+    ));
+    _mockTreatments.add(TreatmentPlan(
+      id: 'ongoing_t_${patientId}_planned',
+      visitId: plannedVisitId,
+      treatmentName: 'Fluoride Varnish Application',
+      description:
+          'Topical fluoride to strengthen enamel and reduce sensitivity.',
+      totalCost: 150,
+      status: 'Planned',
+    ));
+
     final completedVisitId = 'ongoing_${patientId}_completed';
-    final vCompleted = Visit(
+    _mockVisits.add(Visit(
       id: completedVisitId,
       patientId: patientId,
       visitDate: now.subtract(const Duration(days: 3)),
       chiefComplaint: 'Coffee stains on front teeth',
       diagnosis: 'Extrinsic staining',
       status: 'complete',
-    );
-    _mockVisits.add(vCompleted);
+    ));
+    _mockTreatments.add(TreatmentPlan(
+      id: 'ongoing_t_${patientId}_completed',
+      visitId: completedVisitId,
+      treatmentName: 'In‑office Teeth Whitening',
+      description:
+          'Single‑visit whitening session with custom shade matching.',
+      totalCost: 500,
+      status: 'Completed',
+    ));
 
-    final tCompletedId = 'ongoing_t_${patientId}_completed';
-    _mockTreatments.add(
-      TreatmentPlan(
-        id: tCompletedId,
-        visitId: completedVisitId,
-        treatmentName: 'In‑office Teeth Whitening',
-        description:
-            'Single‑visit whitening session with custom shade matching.',
-        totalCost: 500,
-        status: 'Completed',
-      ),
-    );
-
-    final sCompleted = Sitting(
-      id: 'ongoing_s_${patientId}_completed_1',
-      visitId: vCompleted.id,
-      treatmentPlanId: tCompletedId,
-      sittingDate: now.subtract(const Duration(days: 3)),
-      durationStr: '60 mins',
-      notes:
-          'Full whitening session completed. Post‑op sensitivity instructions given.',
-      cost: 500,
-    );
-    _mockSittings.add(sCompleted);
-
-    _mockPayments.add(
-      Payment(
-        id: 'ongoing_p_${patientId}_completed_full',
-        visitId: vCompleted.id,
-        sittingId: sCompleted.id,
-        amountPaid: 500,
-        paymentMode: 'Cash',
-        paymentDate: now.subtract(const Duration(days: 3)),
-        notes: 'Full payment for whitening session',
-      ),
-    );
-
-    // Visit 4: Another active case – Root Canal with pending sittings
     final rctVisitId = 'ongoing_${patientId}_rct';
-    _mockVisits.add(
-      Visit(
-        id: rctVisitId,
-        patientId: patientId,
-        visitDate: now.subtract(const Duration(days: 14)),
-        chiefComplaint: 'Sharp pain when biting',
-        diagnosis: 'Irreversible pulpitis #46',
-      ),
-    );
-
-    final tRctId = 'ongoing_t_${patientId}_rct';
-    _mockTreatments.add(
-      TreatmentPlan(
-        id: tRctId,
-        visitId: rctVisitId,
-        treatmentName: 'Root Canal Treatment (RCT)',
-        description: 'Endodontic therapy followed by crown placement.',
-        totalCost: 1800,
-        status: 'In Progress',
-      ),
-    );
-
-    final sRct1 = Sitting(
-      id: 'ongoing_s_${patientId}_rct_1',
+    _mockVisits.add(Visit(
+      id: rctVisitId,
+      patientId: patientId,
+      visitDate: now.subtract(const Duration(days: 14)),
+      chiefComplaint: 'Sharp pain when biting',
+      diagnosis: 'Irreversible pulpitis #46',
+    ));
+    _mockTreatments.add(TreatmentPlan(
+      id: 'ongoing_t_${patientId}_rct',
       visitId: rctVisitId,
-      treatmentPlanId: tRctId,
-      sittingDate: now.subtract(const Duration(days: 14)),
-      durationStr: '60 mins',
-      notes: 'Access opening and pulp extirpation.',
-      cost: 500,
-    );
-    _mockSittings.add(sRct1);
-
-    _mockPayments.add(
-      Payment(
-        id: 'ongoing_p_${patientId}_rct_1',
-        visitId: rctVisitId,
-        sittingId: sRct1.id,
-        amountPaid: 500,
-        paymentMode: 'UPI',
-        paymentDate: now.subtract(const Duration(days: 14)),
-        notes: 'RCT Stage 1 payment',
-      ),
-    );
+      treatmentName: 'Root Canal Treatment (RCT)',
+      description: 'Endodontic therapy followed by crown placement.',
+      totalCost: 1800,
+      status: 'In Progress',
+    ));
+    */
   }
 }

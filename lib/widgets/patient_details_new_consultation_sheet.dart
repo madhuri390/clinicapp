@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/visit_model.dart';
+import 'patient_details_header.dart';
 
+/// Centered modal dialog for creating / editing a consultation.
+/// [onSave] is async — the dialog stays open (shows spinner) until the
+/// future resolves, then closes itself on success or resets on error.
 class NewConsultationSheet extends StatefulWidget {
   const NewConsultationSheet({
     super.key,
@@ -12,7 +16,7 @@ class NewConsultationSheet extends StatefulWidget {
   });
 
   final String patientId;
-  final ValueChanged<Visit> onSave;
+  final Future<void> Function(Visit) onSave;
   final Visit? existingVisit;
 
   @override
@@ -22,19 +26,20 @@ class NewConsultationSheet extends StatefulWidget {
 class _NewConsultationSheetState extends State<NewConsultationSheet> {
   final _complaintCtrl = TextEditingController();
   final _diagnosisCtrl = TextEditingController();
-  final _notesCtrl = TextEditingController();
-  DateTime _visitDate = DateTime.now();
-  bool _saving = false;
+  final _notesCtrl     = TextEditingController();
+  DateTime _visitDate  = DateTime.now();
+  bool _saving         = false;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    final existing = widget.existingVisit;
-    if (existing != null) {
-      _complaintCtrl.text = existing.chiefComplaint ?? '';
-      _diagnosisCtrl.text = existing.diagnosis ?? '';
-      _notesCtrl.text = existing.notes ?? '';
-      _visitDate = existing.visitDate;
+    final e = widget.existingVisit;
+    if (e != null) {
+      _complaintCtrl.text = e.chiefComplaint ?? '';
+      _diagnosisCtrl.text = e.diagnosis ?? '';
+      _notesCtrl.text     = e.notes ?? '';
+      _visitDate          = e.visitDate;
     }
   }
 
@@ -46,183 +51,274 @@ class _NewConsultationSheetState extends State<NewConsultationSheet> {
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final isEditing = widget.existingVisit != null;
-    return _SheetScaffold(
-      title: isEditing ? 'Edit Consultation' : 'New Consultation',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          GestureDetector(
-            onTap: () async {
-              final d = await showDatePicker(
-                context: context,
-                initialDate: _visitDate,
-                firstDate: DateTime(2000),
-                lastDate: DateTime.now().add(
-                  const Duration(days: 36500),
-                ), // Allow up to 100 years in future
-              );
-              if (d != null) setState(() => _visitDate = d);
-            },
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade50,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.calendar_today_outlined, size: 18),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Consultation Date: ${_visitDate.day}/${_visitDate.month}/${_visitDate.year}',
-                    style: GoogleFonts.poppins(fontSize: 14),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          _SheetField(
-            controller: _complaintCtrl,
-            label: 'Chief Complaint',
-            maxLines: 2,
-          ),
-          const SizedBox(height: 12),
-          _SheetField(
-            controller: _diagnosisCtrl,
-            label: 'Diagnosis (Optional)',
-            maxLines: 2,
-          ),
-          const SizedBox(height: 12),
-          _SheetField(controller: _notesCtrl, label: 'Notes', maxLines: 2),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0F0B1A),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              onPressed: _saving ? null : _save,
-              child: _saving
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation(Colors.white),
-                      ),
-                    )
-                  : Text(
-                      isEditing ? 'Update Consultation' : 'Create Consultation',
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
-                      ),
-                    ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  Future<void> _save() async {
+    final complaint = _complaintCtrl.text.trim();
+    if (complaint.isEmpty) {
+      setState(() => _error = 'Chief complaint is required');
+      return;
+    }
+    setState(() { _saving = true; _error = null; });
 
-  void _save() {
-    if (_complaintCtrl.text.trim().isEmpty) return;
-    setState(() => _saving = true);
     final visit = Visit(
       id: widget.existingVisit?.id ?? '',
       patientId: widget.patientId,
       visitDate: _visitDate,
-      chiefComplaint: _complaintCtrl.text.trim(),
-      diagnosis: _diagnosisCtrl.text.trim(),
-      notes: _notesCtrl.text.trim(),
+      chiefComplaint: complaint,
+      diagnosis: _diagnosisCtrl.text.trim().isEmpty
+          ? null
+          : _diagnosisCtrl.text.trim(),
+      notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
       nextVisitDate: widget.existingVisit?.nextVisitDate,
       createdAt: widget.existingVisit?.createdAt,
     );
-    widget.onSave(visit);
+
+    try {
+      await widget.onSave(visit);
+      // onSave is responsible for popping the dialog on success
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _error = 'Failed to save: $e';
+        });
+      }
+    }
   }
-}
-
-class _SheetScaffold extends StatelessWidget {
-  const _SheetScaffold({required this.title, required this.child});
-
-  final String title;
-  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: EdgeInsets.fromLTRB(
-        20,
-        20,
-        20,
-        20 + MediaQuery.viewInsetsOf(context).bottom,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
+    final isEditing = widget.existingVisit != null;
+
+    return Dialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          20, 24, 20,
+          20 + MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                children: [
+                  const Icon(Icons.medical_services_outlined, size: 22, color: kRefPrimary),
+                  const SizedBox(width: 8),
+                  Text(
+                    isEditing ? 'Edit Consultation' : 'New Consultation',
+                    style: GoogleFonts.lato(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: kRefDark,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              _ModalInput(
+                controller: _complaintCtrl,
+                placeholder: 'Chief complaint *',
+              ),
+              _ModalInput(
+                controller: _diagnosisCtrl,
+                placeholder: 'Diagnosis (optional)',
+              ),
+              _ModalInput(
+                controller: _notesCtrl,
+                placeholder: 'Notes (optional)',
+                maxLines: 2,
+              ),
+
+              // Date picker
+              GestureDetector(
+                onTap: _saving ? null : () async {
+                  final d = await showDatePicker(
+                    context: context,
+                    initialDate: _visitDate,
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime.now().add(const Duration(days: 36500)),
+                  );
+                  if (d != null) setState(() => _visitDate = d);
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: const Color(0xFFDDDDDD)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.calendar_today_outlined, size: 16, color: kRefPrimary),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Date: ${_visitDate.day}/${_visitDate.month}/${_visitDate.year}',
+                        style: GoogleFonts.lato(fontSize: 14, color: kRefDark),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: GoogleFonts.poppins(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Colors.black87,
+
+              // Error message
+              if (_error != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  _error!,
+                  style: GoogleFonts.lato(fontSize: 12, color: Colors.red),
+                ),
+                const SizedBox(height: 8),
+              ],
+
+              const SizedBox(height: 4),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  _OutlineBtn(
+                    label: 'Cancel',
+                    enabled: !_saving,
+                    onTap: () => Navigator.pop(context),
+                  ),
+                  const SizedBox(width: 12),
+                  _PrimaryBtn(
+                    label: isEditing ? 'Update' : 'Save',
+                    saving: _saving,
+                    onTap: _save,
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 16),
-            child,
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _SheetField extends StatelessWidget {
-  const _SheetField({
+// ── Input field ────────────────────────────────────────────────────────────
+
+class _ModalInput extends StatelessWidget {
+  const _ModalInput({
     required this.controller,
-    required this.label,
+    required this.placeholder,
     this.maxLines = 1,
   });
-
   final TextEditingController controller;
-  final String label;
+  final String placeholder;
   final int maxLines;
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      maxLines: maxLines,
-      decoration: InputDecoration(
-        labelText: label,
-        alignLabelWithHint: maxLines > 1,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: TextField(
+        controller: controller,
+        maxLines: maxLines,
+        style: GoogleFonts.lato(fontSize: 14, color: kRefDark),
+        decoration: InputDecoration(
+          hintText: placeholder,
+          hintStyle: GoogleFonts.lato(fontSize: 14, color: kRefMuted),
+          contentPadding: const EdgeInsets.all(12),
+          filled: false,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: kRefPrimary, width: 1.5),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Buttons ────────────────────────────────────────────────────────────────
+
+class _OutlineBtn extends StatelessWidget {
+  const _OutlineBtn({required this.label, required this.onTap, this.enabled = true});
+  final String label;
+  final VoidCallback onTap;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: enabled ? onTap : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: enabled ? const Color(0xFFCBD5E1) : const Color(0xFFE2E8F0),
+          ),
+          borderRadius: BorderRadius.circular(40),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.lato(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: enabled ? kRefDark : kRefMuted,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PrimaryBtn extends StatelessWidget {
+  const _PrimaryBtn({
+    required this.label,
+    required this.onTap,
+    this.saving = false,
+  });
+  final String label;
+  final Future<void> Function() onTap;
+  final bool saving;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: saving ? null : onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+        decoration: BoxDecoration(
+          color: saving ? const Color(0xFFCBD5E1) : kRefPrimary,
+          borderRadius: BorderRadius.circular(40),
+          boxShadow: saving
+              ? []
+              : [
+                  BoxShadow(
+                    color: kRefPrimary.withValues(alpha: 0.20),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+        ),
+        child: saving
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              )
+            : Text(
+                label,
+                style: GoogleFonts.lato(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
       ),
     );
   }
