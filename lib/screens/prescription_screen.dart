@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/pdf_generator_service.dart';
 import '../theme/app_theme.dart';
 
 /// Mock medicine item in a prescription.
@@ -97,13 +98,18 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
     );
   }
 
-  void _onGeneratePdf() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Generate PDF (coming soon)'),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: AppTheme.primaryColor,
-      ),
+  Future<void> _onGeneratePdf() async {
+    final medicinesMap = _medicines.map((m) => {
+      'name': m.name,
+      'dosage': m.dosage,
+      'duration': m.duration,
+      'instructions': m.instructions,
+    }).toList();
+
+    await PdfGeneratorService.generatePrescriptionPdf(
+      patientName: 'John Doe', // Currently mocked in screen, but you can pass dynamic patient names
+      visitDate: DateTime.now(),
+      medicines: medicinesMap,
     );
   }
 

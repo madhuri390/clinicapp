@@ -268,6 +268,7 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
                     ProfileTab(patient: _patient, isLoading: _loadingPatient),
                     OngoingTab(
                       patientId: widget.patientId,
+                      patientName: widget.patientName,
                       visitDetails: _ongoingVisits,
                       isLoading: _loadingOngoing,
                       onRefresh: _loadOngoing,
@@ -283,6 +284,7 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
                     ),
                     HistoryTab(
                       patientId: widget.patientId,
+                      patientName: widget.patientName,
                       visitDetails: _historyVisits,
                       isLoading: _loadingHistory,
                       onRefresh: _loadHistory,

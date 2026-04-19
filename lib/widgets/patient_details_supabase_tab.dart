@@ -8,6 +8,7 @@ import '../models/treatment_plan_model.dart';
 import '../models/treatment_template_model.dart';
 import '../models/visit_detail_model.dart';
 import '../repositories/visit_detail_repository.dart';
+import '../services/pdf_generator_service.dart';
 import '../widgets/patient_details_header.dart';
 import '../widgets/patient_details_profile_tab.dart';
 
@@ -35,6 +36,7 @@ class OngoingTab extends StatelessWidget {
   const OngoingTab({
     super.key,
     required this.patientId,
+    required this.patientName,
     required this.visitDetails,
     required this.isLoading,
     required this.onRefresh,
@@ -45,6 +47,7 @@ class OngoingTab extends StatelessWidget {
   });
 
   final String patientId;
+  final String patientName;
   final List<VisitDetail> visitDetails;
   final bool isLoading;
   final VoidCallback onRefresh;
@@ -68,6 +71,7 @@ class OngoingTab extends StatelessWidget {
       itemCount: visitDetails.length,
       itemBuilder: (_, i) => _VisitCard(
         detail: visitDetails[i],
+        patientName: patientName,
         isOngoing: true,
         onRefresh: onRefresh,
         onComplete: onComplete,
@@ -85,6 +89,7 @@ class HistoryTab extends StatelessWidget {
   const HistoryTab({
     super.key,
     required this.patientId,
+    required this.patientName,
     required this.visitDetails,
     required this.isLoading,
     required this.onRefresh,
@@ -92,6 +97,7 @@ class HistoryTab extends StatelessWidget {
   });
 
   final String patientId;
+  final String patientName;
   final List<VisitDetail> visitDetails;
   final bool isLoading;
   final VoidCallback onRefresh;
@@ -111,6 +117,7 @@ class HistoryTab extends StatelessWidget {
       itemCount: visitDetails.length,
       itemBuilder: (_, i) => _VisitCard(
         detail: visitDetails[i],
+        patientName: patientName,
         isOngoing: false,
         onRefresh: onRefresh,
         readOnly: readOnly,
@@ -126,6 +133,7 @@ class HistoryTab extends StatelessWidget {
 class _VisitCard extends StatelessWidget {
   const _VisitCard({
     required this.detail,
+    required this.patientName,
     required this.isOngoing,
     required this.onRefresh,
     this.onComplete,
@@ -133,6 +141,7 @@ class _VisitCard extends StatelessWidget {
   });
 
   final VisitDetail detail;
+  final String patientName;
   final bool isOngoing;
   final VoidCallback onRefresh;
   final VoidCallback? onComplete;
@@ -397,6 +406,42 @@ class _VisitCard extends StatelessWidget {
   }
 
   Future<void> _onComplete(BuildContext context, VisitDetailRepository repo) async {
+    final treatCost = detail.totalTreatmentCost;
+    final sitCost = detail.totalSittingsCost;
+    final rxCost = detail.prescriptions.fold(0.0, (s, rx) => s + (rx.price ?? 0));
+    final grandTotal = treatCost + sitCost + rxCost;
+    final paid = _effectivePaid();
+    final balance = grandTotal - paid;
+
+    if (balance > 0) {
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          barrierColor: Colors.black54,
+          builder: (ctx) => _ModalDialog(
+            title: 'Outstanding Balance',
+            icon: Icons.error_outline,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Cannot complete consultation. There is an outstanding balance of ₹${balance.toStringAsFixed(0)}. Please collect payment first.',
+                  style: GoogleFonts.lato(fontSize: 14, color: kRefMuted),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                _BtnPrimarySm(
+                  label: 'OK',
+                  onTap: () => Navigator.pop(ctx),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
     final ok = await showDialog<bool>(
       context: context,
       barrierColor: Colors.black54,
@@ -458,7 +503,7 @@ class _VisitCard extends StatelessWidget {
     showDialog(
       context: context,
       barrierColor: Colors.black54,
-      builder: (_) => _BillDialog(detail: detail),
+      builder: (_) => _BillDialog(detail: detail, patientName: patientName),
     );
   }
 }
@@ -1482,14 +1527,16 @@ class _AddPaymentFormState extends State<_AddPaymentForm> {
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _BillDialog extends StatelessWidget {
-  const _BillDialog({required this.detail});
+  const _BillDialog({required this.detail, required this.patientName});
   final VisitDetail detail;
+  final String patientName;
 
   @override
   Widget build(BuildContext context) {
     final treatCost = detail.totalTreatmentCost;
     final sitCost = detail.totalSittingsCost;
-    final grandTotal = treatCost + sitCost;
+    final rxCost = detail.prescriptions.fold(0.0, (s, rx) => s + (rx.price ?? 0));
+    final grandTotal = treatCost + sitCost + rxCost;
     final paid = _effectivePaidAmount();
     final balance = grandTotal - paid;
 
@@ -1693,15 +1740,46 @@ class _BillDialog extends StatelessWidget {
                   _billRow('Balance Due', '₹${balance.toStringAsFixed(0)}', color: Colors.red),
 
                 const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text(
-                      'Close',
-                      style: GoogleFonts.lato(color: kRefPrimary, fontWeight: FontWeight.w600),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _BtnOutlineSm(
+                      icon: Icons.picture_as_pdf_outlined,
+                      label: 'Generate PDF',
+                      onTap: () async {
+                           final lineItems = <Map<String, dynamic>>[];
+                           for (final t in detail.treatments) {
+                             if ((t.totalCost ?? 0) > 0) {
+                               lineItems.add({'name': t.treatmentName ?? 'Treatment', 'amount': t.totalCost!});
+                             }
+                           }
+                           for (final s in detail.sittings) {
+                             if ((s.cost ?? 0) > 0) {
+                               lineItems.add({'name': 'Sitting: ${s.notes ?? 'Follow-up'}', 'amount': s.cost!});
+                             }
+                           }
+                           for (final rx in detail.prescriptions) {
+                             if ((rx.price ?? 0) > 0) {
+                               lineItems.add({'name': 'Rx: ${rx.medicineName ?? 'Medicine'}', 'amount': rx.price!});
+                             }
+                           }
+                           
+                           await PdfGeneratorService.generateInvoicePdf(
+                             patientName: patientName,
+                             visitDate: detail.visit.visitDate,
+                             treatments: lineItems,
+                             totalAmount: grandTotal,
+                             paidAmount: paid,
+                             balance: balance,
+                           );
+                      },
                     ),
-                  ),
+                    const SizedBox(width: 16),
+                    _BtnPrimarySm(
+                      label: 'Close',
+                      onTap: () => Navigator.pop(context),
+                    ),
+                  ],
                 ),
               ],
             ),

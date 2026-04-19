@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/pdf_generator_service.dart';
 import '../theme/app_theme.dart';
 
 /// Mock treatment line item for invoice.
@@ -35,13 +36,19 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
     _TreatmentItem(name: 'X-Ray (Full Mouth)', amount: 95.00),
   ];
 
-  void _onGeneratePdf() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Generate PDF (coming soon)'),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: AppTheme.primaryColor,
-      ),
+  Future<void> _onGeneratePdf() async {
+    final treatmentsMap = _treatments.map((t) => {
+      'name': t.name,
+      'amount': t.amount,
+    }).toList();
+
+    await PdfGeneratorService.generateInvoicePdf(
+      patientName: _patientName,
+      visitDate: _visitDate,
+      treatments: treatmentsMap,
+      totalAmount: _totalAmount,
+      paidAmount: _isPaid ? _totalAmount : _paidAmount,
+      balance: _isPaid ? 0.0 : _balance,
     );
   }
 
