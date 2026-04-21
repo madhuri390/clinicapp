@@ -1,15 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../repositories/patient_repository.dart';
 import '../services/app_role_service.dart';
 import '../services/auth_service.dart';
 import '../services/patient_session.dart';
 import '../theme/patient_portal_theme.dart';
 import 'login_screen.dart';
+import 'patient_form_screen.dart';
 
-class PatientPortalProfileScreen extends StatelessWidget {
+class PatientPortalProfileScreen extends StatefulWidget {
   const PatientPortalProfileScreen({super.key});
 
+  @override
+  State<PatientPortalProfileScreen> createState() => _PatientPortalProfileScreenState();
+}
+
+class _PatientPortalProfileScreenState extends State<PatientPortalProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final patient = PatientSession.linked;
@@ -107,18 +114,34 @@ class PatientPortalProfileScreen extends StatelessWidget {
             icon: Icons.edit_outlined,
             title: 'Edit Personal Details',
             subtitle: 'Update your contact information',
-            onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Edit details coming soon')),
-            ),
-          ),
-          Divider(height: 1, color: Colors.grey.withValues(alpha: 0.1)),
-          _SettingsTile(
-            icon: Icons.settings_outlined,
-            title: 'General Settings',
-            subtitle: 'App preferences and configurations',
-            onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('General Settings coming soon')),
-            ),
+            onTap: () async {
+              final patient = PatientSession.linked;
+              if (patient == null) return;
+              
+              final didUpdate = await Navigator.of(context).push<bool>(
+                MaterialPageRoute(
+                  builder: (_) => PatientFormScreen(
+                    initialPatient: patient,
+                    appBarTitle: 'Edit Personal Details',
+                  ),
+                ),
+              );
+              
+              if (didUpdate == true) {
+                // Fetch updated patient and refresh session
+                final repo = PatientRepository();
+                final updated = await repo.getById(patient.id);
+                if (updated != null) {
+                  final name = updated.fullName.isNotEmpty ? updated.fullName : updated.firstName;
+                  PatientSession.setPortal(
+                    patientId: updated.id,
+                    displayName: name,
+                    patient: updated,
+                  );
+                  if (mounted) setState(() {});
+                }
+              }
+            },
           ),
           Divider(height: 1, color: Colors.grey.withValues(alpha: 0.1)),
           _SettingsTile(
