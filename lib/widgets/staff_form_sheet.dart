@@ -201,7 +201,7 @@ class _StaffFormSheetState extends State<StaffFormSheet> {
                   ),
                   const SizedBox(height: 16),
                   _buildLabel('Full Name *'),
-                  _buildTextField(_nameCtrl, 'Dr. Sarah Smith'),
+                  _buildTextField(_nameCtrl, 'Staff Name'),
                   const SizedBox(height: 16),
                   _buildLabel('Phone Number'),
                   _buildTextField(_phoneCtrl, '+91 98765 43210', keyboardType: TextInputType.phone),

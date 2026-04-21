@@ -116,7 +116,7 @@ class PdfGeneratorService {
               crossAxisAlignment: pw.CrossAxisAlignment.end,
               children: [
                 pw.Text(
-                  doctor?.name ?? 'Dr. Amanda Foster',
+                  doctor?.name ?? 'Doctor',
                   style: pw.TextStyle(font: boldFont, fontSize: 18, color: PdfColors.blue900),
                 ),
                 pw.SizedBox(height: 4),
@@ -124,15 +124,19 @@ class PdfGeneratorService {
                   doctor?.role ?? 'General Dentist',
                   style: pw.TextStyle(font: regularFont, fontSize: 12, color: PdfColors.grey700),
                 ),
-                pw.SizedBox(height: 4),
-                pw.Text(
-                  doctor?.phone ?? '+91 98765 43210',
-                  style: pw.TextStyle(font: regularFont, fontSize: 11, color: PdfColors.grey600),
-                ),
-                pw.Text(
-                  doctor?.email ?? 'info@prodontics.in',
-                  style: pw.TextStyle(font: regularFont, fontSize: 11, color: PdfColors.grey600),
-                ),
+                if (doctor?.phone != null && doctor!.phone!.isNotEmpty) ...[
+                  pw.SizedBox(height: 4),
+                  pw.Text(
+                    doctor.phone!,
+                    style: pw.TextStyle(font: regularFont, fontSize: 11, color: PdfColors.grey600),
+                  ),
+                ],
+                if (doctor?.email != null && doctor!.email!.isNotEmpty) ...[
+                  pw.Text(
+                    doctor.email!,
+                    style: pw.TextStyle(font: regularFont, fontSize: 11, color: PdfColors.grey600),
+                  ),
+                ],
               ],
             ),
           ],

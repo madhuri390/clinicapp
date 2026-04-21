@@ -73,9 +73,13 @@ class VisitDetail {
 
     // Doctor name from joined doctors table
     final doctorJson = json['doctors'] as Map<String, dynamic>?;
-    final doctorName = doctorJson != null
-        ? 'Dr. ${doctorJson['first_name'] ?? ''} ${doctorJson['last_name'] ?? ''}'.trim()
-        : 'Unknown Doctor';
+    final fName = doctorJson?['first_name'] as String? ?? '';
+    final lName = doctorJson?['last_name'] as String? ?? '';
+    final rawName = '$fName $lName'.trim();
+    String doctorName = 'Unknown Doctor';
+    if (rawName.isNotEmpty) {
+      doctorName = rawName.toLowerCase().startsWith('dr.') ? rawName : 'Dr. $rawName';
+    }
 
     // Treatment plans array
     final treatmentsList = (json['treatment_plans'] as List? ?? [])
