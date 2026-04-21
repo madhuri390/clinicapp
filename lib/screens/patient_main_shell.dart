@@ -10,8 +10,9 @@ import '../widgets/patient_portal_logo.dart';
 import 'patient_home_dashboard_screen.dart';
 import 'patient_portal_appointments_screen.dart';
 import 'patient_portal_care_screen.dart';
+import 'patient_portal_profile_screen.dart';
 
-/// Patient app: Home (dashboard), Patient (profile / ongoing / history), Appointments.
+/// Patient app: Home (dashboard), Patient (profile / ongoing / history), Appointments, Profile.
 class PatientMainShell extends StatefulWidget {
   const PatientMainShell({super.key});
 
@@ -28,6 +29,7 @@ class _PatientMainShellState extends State<PatientMainShell> {
   int _patientCareTargetTab = 0;
 
   final _navigatorKeys = [
+    GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
@@ -120,6 +122,7 @@ class _PatientMainShellState extends State<PatientMainShell> {
         careTargetTabResolver: () => _patientCareTargetTab,
       ),
       const PatientPortalAppointmentsScreen(),
+      const PatientPortalProfileScreen(),
     ];
 
     return Theme(
@@ -176,14 +179,19 @@ class _PatientBottomNav extends StatelessWidget {
   static const _items = [
     (icon: Icons.home_outlined, activeIcon: Icons.home_rounded, label: 'Home'),
     (
-      icon: Icons.person_outline_rounded,
-      activeIcon: Icons.person_rounded,
-      label: 'Patient',
+      icon: Icons.favorite_border_rounded,
+      activeIcon: Icons.favorite_rounded,
+      label: 'Care',
     ),
     (
       icon: Icons.calendar_today_outlined,
       activeIcon: Icons.calendar_month_rounded,
       label: 'Appointments',
+    ),
+    (
+      icon: Icons.person_outline_rounded,
+      activeIcon: Icons.person_rounded,
+      label: 'Profile',
     ),
   ];
 
