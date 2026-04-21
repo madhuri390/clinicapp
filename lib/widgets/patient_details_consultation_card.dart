@@ -134,13 +134,6 @@ class ConsultationCard extends StatelessWidget {
                     color: Colors.black87,
                   ),
                 ),
-                Text(
-                  'Dr. Emily Chen',
-                  style: GoogleFonts.poppins(
-                    fontSize: 14,
-                    color: Colors.grey.shade600,
-                  ),
-                ),
                 const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.all(12),
@@ -1168,7 +1161,7 @@ void _showBillPreview(
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _invoiceInfoRow('Doctor', 'Dr. Emily Chen'),
+                  _invoiceInfoRow('Doctor', 'Doctor'),
                   _invoiceInfoRow(
                     'Invoice Date',
                     ProfileTab.formatDate(DateTime.now()),
