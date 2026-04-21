@@ -7,32 +7,18 @@ class LoginFormSection extends StatelessWidget {
   const LoginFormSection({
     super.key,
     required this.formKey,
-    required this.emailOrPhoneController,
+    required this.emailController,
     required this.passwordController,
-    required this.onForgotPassword,
     required this.onSignIn,
-    required this.onSignUp,
     required this.isLoading,
-    required this.onGoogleSignIn,
-    required this.onAppleSignIn,
-    required this.onPhoneSignIn,
-    this.googleLoading = false,
-    this.appleLoading = false,
     this.isPatientPortal = false,
   });
 
   final GlobalKey<FormState> formKey;
-  final TextEditingController emailOrPhoneController;
+  final TextEditingController emailController;
   final TextEditingController passwordController;
-  final VoidCallback onForgotPassword;
   final VoidCallback onSignIn;
-  final VoidCallback onSignUp;
   final bool isLoading;
-  final VoidCallback onGoogleSignIn;
-  final VoidCallback onAppleSignIn;
-  final VoidCallback onPhoneSignIn;
-  final bool googleLoading;
-  final bool appleLoading;
   final bool isPatientPortal;
 
   @override
@@ -64,50 +50,14 @@ class LoginFormSection extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _EmailOrPhoneField(controller: emailOrPhoneController),
+                _EmailField(controller: emailController),
                 const SizedBox(height: 14),
                 _PasswordField(controller: passwordController),
-                const SizedBox(height: 10),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: _ForgotPasswordLink(onTap: onForgotPassword),
-                ),
                 const SizedBox(height: 24),
                 _LoginNowButton(onPressed: onSignIn, isLoading: isLoading),
               ],
             ),
           ),
-
-          // ── Divider ──────────────────────────────────────────────────────
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              Expanded(child: Divider(color: Colors.grey.shade300)),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: Text(
-                  'or continue with',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: Colors.grey.shade500,
-                  ),
-                ),
-              ),
-              Expanded(child: Divider(color: Colors.grey.shade300)),
-            ],
-          ),
-          const SizedBox(height: 20),
-
-          // ── Social buttons ───────────────────────────────────────────────
-          _SocialButton(
-            label: 'Sign in with Google',
-            icon: _GoogleIcon(),
-            isLoading: googleLoading,
-            onTap: onGoogleSignIn,
-          ),
-
-          const SizedBox(height: 28),
-          if (isPatientPortal) _SignUpLink(onTap: onSignUp),
         ],
       ),
     );
@@ -116,8 +66,8 @@ class LoginFormSection extends StatelessWidget {
 
 // ── Fields ────────────────────────────────────────────────────────────────────
 
-class _EmailOrPhoneField extends StatelessWidget {
-  const _EmailOrPhoneField({required this.controller});
+class _EmailField extends StatelessWidget {
+  const _EmailField({required this.controller});
   final TextEditingController controller;
 
   @override
@@ -128,10 +78,10 @@ class _EmailOrPhoneField extends StatelessWidget {
       textInputAction: TextInputAction.next,
       style: GoogleFonts.poppins(fontSize: 15, color: const Color(0xFF263238)),
       decoration: InputDecoration(
-        hintText: 'Email or phone number',
+        hintText: 'Email address',
         hintStyle:
             GoogleFonts.poppins(fontSize: 14, color: Colors.grey.shade500),
-        prefixIcon: const Icon(Icons.person_outline),
+        prefixIcon: const Icon(Icons.email_outlined),
         filled: true,
         fillColor: Colors.grey.shade50,
         border: OutlineInputBorder(
@@ -151,19 +101,9 @@ class _EmailOrPhoneField extends StatelessWidget {
       ),
       validator: (v) {
         final s = v?.trim() ?? '';
-        if (s.isEmpty) return 'Enter email or phone number';
-        final hasLetters = RegExp(r'[a-zA-Z]').hasMatch(s);
-        if (hasLetters) {
-          // Treat as email attempt
-          final re = RegExp(
-              r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
-          if (!re.hasMatch(s)) return 'Enter a valid email address';
-        } else {
-          // Treat as phone attempt
-          if (s.replaceAll(RegExp(r'\D'), '').length < 10) {
-            return 'Enter a valid phone number';
-          }
-        }
+        if (s.isEmpty) return 'Enter your email address';
+        final re = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+        if (!re.hasMatch(s)) return 'Enter a valid email address';
         return null;
       },
     );
@@ -227,26 +167,6 @@ class _PasswordFieldState extends State<_PasswordField> {
   }
 }
 
-class _ForgotPasswordLink extends StatelessWidget {
-  const _ForgotPasswordLink({required this.onTap});
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Text(
-        'Forgot password?',
-        style: GoogleFonts.poppins(
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-          color: AppTheme.primaryColor,
-        ),
-      ),
-    );
-  }
-}
-
 class _LoginNowButton extends StatelessWidget {
   const _LoginNowButton({required this.onPressed, required this.isLoading});
   final VoidCallback onPressed;
@@ -284,110 +204,3 @@ class _LoginNowButton extends StatelessWidget {
   }
 }
 
-// ── Social button ─────────────────────────────────────────────────────────────
-
-class _SocialButton extends StatelessWidget {
-  const _SocialButton({
-    required this.label,
-    required this.icon,
-    required this.onTap,
-    required this.isLoading,
-  });
-
-  final String label;
-  final Widget icon;
-  final VoidCallback onTap;
-  final bool isLoading;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: isLoading ? null : onTap,
-      child: Container(
-        height: 50,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey.shade300),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: isLoading
-            ? const Center(
-                child: SizedBox(
-                  height: 20,
-                  width: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              )
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  icon,
-                  const SizedBox(height: 2),
-                  Text(
-                    label,
-                    style: GoogleFonts.poppins(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.black54,
-                    ),
-                  ),
-                ],
-              ),
-      ),
-    );
-  }
-}
-
-/// Simple Google 'G' icon drawn with coloured text.
-class _GoogleIcon extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return RichText(
-      text: TextSpan(
-        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-        children: const [
-          TextSpan(text: 'G', style: TextStyle(color: Color(0xFF4285F4))),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Sign up link ──────────────────────────────────────────────────────────────
-
-class _SignUpLink extends StatelessWidget {
-  const _SignUpLink({required this.onTap});
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          'No account yet? ',
-          style:
-              GoogleFonts.poppins(fontSize: 13, color: Colors.grey.shade600),
-        ),
-        GestureDetector(
-          onTap: onTap,
-          child: Text(
-            'Sign up now →',
-            style: GoogleFonts.poppins(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.primaryColor,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}

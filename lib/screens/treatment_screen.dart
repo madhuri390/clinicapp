@@ -126,6 +126,7 @@ class _TreatmentScreenState extends State<TreatmentScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: null,
         onPressed: _onAddTreatment,
         backgroundColor: AppTheme.primaryColor,
         icon: const Icon(Icons.add),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../models/staff_model.dart';
+import '../services/staff_service.dart';
 import '../services/auth_service.dart';
 import '../services/app_role_service.dart';
 import 'login_screen.dart';
@@ -18,8 +20,37 @@ const _red50 = Color(0xFFFEF2F2);
 const _red400 = Color(0xFFEF4444);
 const _red500 = Color(0xFFEF4444);
 
-class ProfileScreen extends StatelessWidget {
+
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  Staff? _me;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    try {
+      final uid = AuthService.currentUser?.id;
+      if (uid == null) return;
+      
+      final staffList = await StaffService.instance.getStaff();
+      for (final s in staffList) {
+        if (s.authUserId == uid) {
+          if (mounted) setState(() => _me = s);
+          break;
+        }
+      }
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,6 +82,18 @@ class ProfileScreen extends StatelessWidget {
 
   Widget _buildHeader(BuildContext context) {
     final top = MediaQuery.paddingOf(context).top;
+    
+    // Fallback if _me not loaded yet
+    String name = 'Staff Member';
+    String initials = 'ST';
+    String role = 'Clinician';
+    if (_me != null) {
+      final n = _me!.name.trim();
+      name = n.toLowerCase().startsWith('dr.') ? n : 'Dr. $n';
+      initials = n.isEmpty ? '?' : n.substring(0, 1).toUpperCase();
+      role = _me!.role;
+    }
+
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -93,10 +136,10 @@ class ProfileScreen extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: const Center(
+                child: Center(
                   child: Text(
-                    'AF',
-                    style: TextStyle(
+                    initials,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 20,
                       fontWeight: FontWeight.w700,
@@ -110,7 +153,7 @@ class ProfileScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Dr. Amanda Foster',
+                      name,
                       style: GoogleFonts.lato(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
@@ -119,7 +162,7 @@ class ProfileScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'General Dentist · Prodontics Kokapet',
+                      role,
                       style: GoogleFonts.lato(
                         fontSize: 12,
                         color: Colors.white.withValues(alpha: 0.82),
@@ -142,21 +185,25 @@ class ProfileScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionTitle(icon: Icons.badge_outlined, label: 'Contact details'),
+          const _SectionTitle(icon: Icons.badge_outlined, label: 'Contact details'),
           const SizedBox(height: 14),
-          _ContactRow(icon: Icons.phone_outlined, value: '+91 98765 43210'),
-          const SizedBox(height: 10),
-          _ContactRow(
-            icon: Icons.email_outlined,
-            value: 'dr.foster@prodontics.in',
-          ),
-          const SizedBox(height: 10),
-          _ContactRow(
+          if (_me?.phone != null && _me!.phone!.isNotEmpty) ...[
+            _ContactRow(icon: Icons.phone_outlined, value: _me!.phone!),
+            const SizedBox(height: 10),
+          ],
+          if (_me?.email != null && _me!.email!.isNotEmpty) ...[
+            _ContactRow(
+              icon: Icons.email_outlined,
+              value: _me!.email!,
+            ),
+            const SizedBox(height: 10),
+          ],
+          const _ContactRow(
             icon: Icons.location_on_outlined,
             value: 'Kokapet, Hyderabad',
           ),
           const SizedBox(height: 10),
-          _ContactRow(
+          const _ContactRow(
             icon: Icons.calendar_today_outlined,
             value: 'Joined: Jan 2020',
             muted: true,

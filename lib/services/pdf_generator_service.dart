@@ -256,7 +256,7 @@ class PdfGeneratorService {
               crossAxisAlignment: pw.CrossAxisAlignment.end,
               children: [
                 pw.Text(
-                  doctor?.name ?? 'Dr. Amanda Foster',
+                  doctor?.name ?? 'Doctor',
                   style: pw.TextStyle(
                     font: boldFont,
                     fontSize: 18,

@@ -71,7 +71,6 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class DashboardScreenState extends State<DashboardScreen> {
-  bool _showProfileMenu = false;
 
   final _apptRepo = AppointmentRepository();
   final _visitRepo = VisitDetailRepository();
@@ -265,53 +264,6 @@ class DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  Future<void> _confirmLogout(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Text(
-          'Log Out',
-          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
-        ),
-        content: Text(
-          'Are you sure you want to log out?',
-          style: GoogleFonts.inter(color: _slate600),
-        ),
-        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        actions: [
-          TextButton(
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            ),
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text('Cancel', style: GoogleFonts.inter(color: _slate600)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFEF4444),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text('Log Out', style: GoogleFonts.inter()),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !context.mounted) return;
-    await AuthService.signOut();
-    await AppRoleService.setRole(AppRole.staff);
-    if (!context.mounted) return;
-    Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-      MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
-      (_) => false,
-    );
-  }
-
   void _onAddPatient() {
     final shell = MainShell.of(context);
     if (shell != null) {
@@ -361,91 +313,13 @@ class DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
           ),
-          if (_showProfileMenu) _buildProfileOverlay(context),
-          if (_showProfileMenu) _buildProfileDropdown(context),
+
         ],
       ),
     );
   }
 
-  Widget _buildProfileDropdown(BuildContext context) {
-    return Positioned(
-      top: MediaQuery.paddingOf(context).top + 80,
-      right: 16,
-      child: Material(
-        elevation: 8,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          width: 224,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: _slate200),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _welcomeName,
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: _slate900,
-                      ),
-                    ),
-                    Text(
-                      _profileRole.isEmpty ? 'Staff' : _profileRole,
-                      style: GoogleFonts.inter(fontSize: 12, color: _slate500),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              _ProfileMenuItem(
-                icon: Icons.person,
-                label: 'My Profile',
-                onTap: () {
-                  setState(() => _showProfileMenu = false);
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => const ProfileScreen(),
-                    ),
-                  );
-                },
-              ),
-              _ProfileMenuItem(
-                icon: Icons.settings,
-                label: 'Settings',
-                onTap: () {
-                  setState(() => _showProfileMenu = false);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Settings coming soon'),
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                },
-              ),
-              _ProfileMenuItem(
-                icon: Icons.logout,
-                label: 'Logout',
-                isDestructive: true,
-                onTap: () {
-                  setState(() => _showProfileMenu = false);
-                  _confirmLogout(context);
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildHeader(BuildContext context) {
     final topPadding = MediaQuery.paddingOf(context).top;
@@ -477,97 +351,8 @@ class DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
           ),
-          const SizedBox(width: 12),
-          GestureDetector(
-            onTap: () {
-              final shell = MainShell.of(context);
-              if (shell != null) {
-                shell.setTabIndex(2);
-              } else {
-                _go(const AppointmentsScreen());
-              }
-            },
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Icon(
-                  Icons.notifications_outlined,
-                  color: Colors.white,
-                  size: 24,
-                ),
-                if (_todayAppointmentsCount > 0)
-                  Positioned(
-                    top: -2,
-                    right: -2,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
-                      decoration: const BoxDecoration(
-                        color: _red500,
-                        shape: BoxShape.circle,
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        _todayAppointmentsCount > 9 ? '9+' : '$_todayAppointmentsCount',
-                        style: GoogleFonts.inter(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          GestureDetector(
-            onTap: () => setState(() => _showProfileMenu = !_showProfileMenu),
-            child: Container(
-              padding: const EdgeInsets.only(
-                left: 4,
-                right: 12,
-                top: 4,
-                bottom: 4,
-              ),
-              decoration: BoxDecoration(
-                color: Color.lerp(
-                  AppTheme.primaryColor,
-                  Colors.white,
-                  0.14,
-                ),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: Color.lerp(
-                        AppTheme.primaryColor,
-                        Colors.white,
-                        0.35,
-                      ),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.person,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    Icons.keyboard_arrow_down,
-                    color: Colors.white,
-                    size: 16,
-                  ),
-                ],
-              ),
-            ),
-          ),
+
+
         ],
       ),
     );
@@ -1095,18 +880,7 @@ class DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildProfileOverlay(BuildContext context) {
-    return Positioned(
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      child: GestureDetector(
-        onTap: () => setState(() => _showProfileMenu = false),
-        child: Container(color: Colors.transparent),
-      ),
-    );
-  }
+
 }
 
 /*
@@ -1174,37 +948,4 @@ class _StatCard extends StatelessWidget {
 }
 */
 
-class _ProfileMenuItem extends StatelessWidget {
-  const _ProfileMenuItem({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.isDestructive = false,
-  });
 
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final bool isDestructive;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = isDestructive ? const Color(0xFFDC2626) : _slate700;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              Icon(icon, size: 16, color: color),
-              const SizedBox(width: 8),
-              Text(label, style: GoogleFonts.inter(fontSize: 14, color: color)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}

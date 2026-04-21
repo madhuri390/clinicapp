@@ -9,9 +9,6 @@ import '../widgets/login_form_section.dart';
 import '../services/app_role_service.dart';
 import '../widgets/patient_portal_logo.dart';
 import '../widgets/role_aware_shell.dart';
-import 'patient_signup_screen.dart';
-import 'phone_otp_screen.dart';
-import 'splash_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -22,12 +19,10 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailOrPhoneController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   AppRole _selectedRole = AppRole.staff;
   bool _isLoading = false;
-  bool _googleLoading = false;
-  bool _appleLoading = false;
 
   @override
   void initState() {
@@ -51,7 +46,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    _emailOrPhoneController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -72,21 +67,13 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _onSignIn() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final input = _emailOrPhoneController.text.trim();
+    final email = _emailController.text.trim();
     final password = _passwordController.text;
 
     setState(() => _isLoading = true);
     
     try {
-      if (input.contains('@')) {
-        await AuthService.signInWithEmail(email: input, password: password);
-      } else {
-        String phoneStr = input.replaceAll(RegExp(r'\D'), ''); // Strip non digits
-        if (!phoneStr.startsWith('+')) {
-          phoneStr = '+91$phoneStr'; // default formatting
-        }
-        await AuthService.signInWithPhone(phone: phoneStr, password: password);
-      }
+      await AuthService.signInWithEmail(email: email, password: password);
       
       await AppRoleService.setRole(_selectedRole);
       if (!mounted) return;
@@ -102,87 +89,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _onGoogleSignIn() async {
-    setState(() => _googleLoading = true);
-    try {
-      final opened = await AuthService.signInWithGoogle();
-      if (!mounted) return;
-      if (!opened) {
-        _showError('Could not open Google sign-in. Check Supabase Google provider.');
-      }
-      // Navigation happens via authStateChanges when user returns from browser
-    } catch (e) {
-      if (!mounted) return;
-      _showError('Google sign-in failed.');
-    } finally {
-      if (mounted) setState(() => _googleLoading = false);
-    }
-  }
-
-  Future<void> _onAppleSignIn() async {
-    setState(() => _appleLoading = true);
-    try {
-      final opened = await AuthService.signInWithApple();
-      if (!mounted) return;
-      if (!opened) {
-        _showError('Could not open Apple sign-in. Check Supabase Apple provider.');
-      }
-      // Navigation happens via authStateChanges when user returns from browser
-    } catch (e) {
-      if (!mounted) return;
-      _showError('Apple sign-in failed.');
-    } finally {
-      if (mounted) setState(() => _appleLoading = false);
-    }
-  }
-
-  Future<void> _showPhoneOtp(String phone) async {
-    await AppRoleService.setRole(_selectedRole);
-    if (!mounted) return;
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => PhoneOtpScreen(initialPhone: phone),
-      ),
-    );
-  }
-
-  void _onForgotPassword() async {
-    final input = _emailOrPhoneController.text.trim();
-    if (input.isEmpty || !input.contains('@')) {
-      _showError('Enter your email address first to reset password');
-      return;
-    }
-    try {
-      await AuthService.resetPassword(input);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Password reset email sent to $input'),
-          backgroundColor: AppTheme.primaryColor,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } catch (e) {
-      _showError(e.toString());
-    }
-  }
-
-  void _onSignUp() {
-    if (_selectedRole == AppRole.staff) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Staff sign-up coming soon — contact admin to create account'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } else {
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => const PatientSignupScreen(),
-        ),
-      );
-    }
-  }
 
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -230,17 +136,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   LoginFormSection(
                     formKey: _formKey,
-                    emailOrPhoneController: _emailOrPhoneController,
+                    emailController: _emailController,
                     passwordController: _passwordController,
-                    onForgotPassword: _onForgotPassword,
                     onSignIn: _onSignIn,
-                    onSignUp: _onSignUp,
                     isLoading: _isLoading,
-                    onGoogleSignIn: _onGoogleSignIn,
-                    onAppleSignIn: _onAppleSignIn,
-                    onPhoneSignIn: () => _showPhoneOtp(''),
-                    googleLoading: _googleLoading,
-                    appleLoading: _appleLoading,
                     isPatientPortal: _selectedRole == AppRole.patient,
                   ),
                 ],

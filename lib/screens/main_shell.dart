@@ -5,6 +5,7 @@ import 'dashboard_screen.dart';
 // import 'inventory_screen.dart';
 // import 'messages_screen.dart';
 import 'patient_list_screen.dart';
+import 'profile_screen.dart';
 
 // Reference: PatientTrackingVersion4 bottom-nav.tsx colors
 const _blue600 = Color(0xFF0D8DC4);
@@ -31,10 +32,11 @@ class MainShellState extends State<MainShell> {
   final GlobalKey<AppointmentsScreenState> _appointmentsScreenKey =
       GlobalKey<AppointmentsScreenState>();
 
-  late final List<Widget> _screens = [
+  List<Widget> get _screens => [
     DashboardScreen(key: _dashboardScreenKey),
     const PatientListScreen(),
     AppointmentsScreen(key: _appointmentsScreenKey),
+    const ProfileScreen(),
   ];
 
   void _refreshDashboardTabIfNeeded(int index) {
@@ -45,11 +47,10 @@ class MainShellState extends State<MainShell> {
     });
   }
 
-  final List<GlobalKey<NavigatorState>> _navigatorKeys = [
-    GlobalKey<NavigatorState>(),
-    GlobalKey<NavigatorState>(),
-    GlobalKey<NavigatorState>(),
-  ];
+  late final List<GlobalKey<NavigatorState>> _navigatorKeys = List.generate(
+    4,
+    (_) => GlobalKey<NavigatorState>(),
+  );
 
   void setTabIndex(int index) {
     if (index < 0 || index >= _screens.length) return;
@@ -125,18 +126,11 @@ class _BottomNavBar extends StatelessWidget {
       activeIcon: Icons.calendar_today,
       label: 'Appointments',
     ),
-    /*
     (
-      icon: Icons.chat_bubble_outline,
-      activeIcon: Icons.chat_bubble,
-      label: 'Messages',
+      icon: Icons.person_outline,
+      activeIcon: Icons.person,
+      label: 'Profile',
     ),
-    (
-      icon: Icons.inventory_2_outlined,
-      activeIcon: Icons.inventory_2,
-      label: 'Inventory',
-    ),
-    */
   ];
 
   @override

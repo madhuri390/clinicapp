@@ -196,7 +196,7 @@ class AppointmentStore {
         timeSlot: '09:00',
         duration: 60,
         type: 'Root Canal - Follow-up',
-        doctorName: 'Dr. Amanda Foster',
+        doctorName: 'Doctor',
         status: AppointmentStatus.completed,
       ),
       Appointment(
@@ -208,7 +208,7 @@ class AppointmentStore {
         timeSlot: '10:30',
         duration: 30,
         type: 'Crown Placement',
-        doctorName: 'Dr. Amanda Foster',
+        doctorName: 'Doctor',
         status: AppointmentStatus.ongoing,
       ),
       Appointment(
@@ -220,7 +220,7 @@ class AppointmentStore {
         timeSlot: '11:30',
         duration: 60,
         type: 'Wisdom Tooth Extraction',
-        doctorName: 'Dr. Amanda Foster',
+        doctorName: 'Doctor',
         status: AppointmentStatus.scheduled,
       ),
       Appointment(
@@ -232,7 +232,7 @@ class AppointmentStore {
         timeSlot: '14:00',
         duration: 30,
         type: 'Teeth Cleaning',
-        doctorName: 'Dr. Amanda Foster',
+        doctorName: 'Doctor',
         status: AppointmentStatus.scheduled,
       ),
       Appointment(
@@ -244,7 +244,7 @@ class AppointmentStore {
         timeSlot: '15:00',
         duration: 60,
         type: 'Dental Checkup & Cleaning',
-        doctorName: 'Dr. Amanda Foster',
+        doctorName: 'Doctor',
         status: AppointmentStatus.scheduled,
       ),
     ]);
@@ -261,7 +261,7 @@ class AppointmentStore {
         timeSlot: '10:00',
         duration: 30,
         type: 'Root Canal - Final Check',
-        doctorName: 'Dr. Amanda Foster',
+        doctorName: 'Doctor',
         status: AppointmentStatus.scheduled,
       ),
       Appointment(
@@ -273,7 +273,7 @@ class AppointmentStore {
         timeSlot: '11:00',
         duration: 60,
         type: 'Cavity Filling',
-        doctorName: 'Dr. Amanda Foster',
+        doctorName: 'Doctor',
         status: AppointmentStatus.scheduled,
       ),
     ]);
@@ -290,7 +290,7 @@ class AppointmentStore {
         timeSlot: '09:30',
         duration: 30,
         type: 'X-Ray Consultation',
-        doctorName: 'Dr. Amanda Foster',
+        doctorName: 'Doctor',
         status: AppointmentStatus.completed,
       ),
       Appointment(
@@ -302,7 +302,7 @@ class AppointmentStore {
         timeSlot: '14:00',
         duration: 30,
         type: 'Teeth Whitening',
-        doctorName: 'Dr. Amanda Foster',
+        doctorName: 'Doctor',
         status: AppointmentStatus.cancelled,
         doctorMessage: 'Patient requested cancellation due to personal reasons.',
       ),
@@ -320,7 +320,7 @@ class AppointmentStore {
         timeSlot: '09:00',
         duration: 60,
         type: 'Crown Adjustment',
-        doctorName: 'Dr. Amanda Foster',
+        doctorName: 'Doctor',
         status: AppointmentStatus.scheduled,
         treatmentPlanId: 'seed_t1',
         notes: 'Auto-scheduled from treatment plan',
