@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../services/auth_service.dart';
 import '../services/app_role_service.dart';
 import 'login_screen.dart';
+import 'manage_staff_screen.dart';
 
 // ── Reference design colours ──────────────────────────────────────────────
 const _primary = Color(0xFF0D8DC4);
@@ -185,7 +186,11 @@ class ProfileScreen extends StatelessWidget {
             icon: Icons.people_outline,
             title: 'Manage Staff',
             subtitle: 'Add and manage staff members',
-            onTap: () => _toast(context, 'Manage Staff coming soon'),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ManageStaffScreen()),
+              );
+            },
           ),
           _divider(),
           _SettingsTile(

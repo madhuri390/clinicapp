@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../models/appointment_model.dart';
-import '../services/appointment_store.dart';
+import '../repositories/appointment_repository.dart';
 import '../services/notification_service.dart';
 
 // Colors
@@ -43,13 +43,29 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
   final _messageCtrl = TextEditingController();
   late DateTime _newDate;
   String? _newSlot;
-  final _store = AppointmentStore.instance;
+  final _repo = AppointmentRepository();
+  bool _loadingSlots = false;
+  List<Appointment> _doctorDayAppts = [];
+
+  DateTime _calendarDay(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  bool _isSlotStartInPast(DateTime day, String slot) {
+    final parts = slot.split(':');
+    final h = int.parse(parts[0]);
+    final m = int.parse(parts[1]);
+    final start = DateTime(day.year, day.month, day.day, h, m);
+    return start.isBefore(DateTime.now());
+  }
 
   @override
   void initState() {
     super.initState();
-    _newDate = widget.appointment.date;
+    final today = _calendarDay(DateTime.now());
+    var d = _calendarDay(widget.appointment.date);
+    if (d.isBefore(today)) d = today;
+    _newDate = d;
     _newSlot = null; // Force doctor to pick new slot
+    _loadBooked();
   }
 
   @override
@@ -58,14 +74,59 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
     super.dispose();
   }
 
-  List<String> get _bookedSlots => _store.getBookedSlotsForDate(_newDate);
+  List<String> get _bookedSlots {
+    final bookedSlots = <String>[];
+    for (final a in _doctorDayAppts) {
+      if (a.id == widget.appointment.id) continue;
+      if (a.status == AppointmentStatus.cancelled ||
+          a.status == AppointmentStatus.rescheduled) continue;
+      final parts = a.timeSlot.split(':');
+      var h = int.parse(parts[0]);
+      var m = int.parse(parts[1]);
+      var remaining = a.duration;
+      while (remaining > 0) {
+        bookedSlots.add('${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}');
+        m += 30;
+        if (m >= 60) {
+          h += 1;
+          m -= 60;
+        }
+        remaining -= 30;
+      }
+    }
+    return bookedSlots;
+  }
+
+  Future<void> _loadBooked() async {
+    final did = widget.appointment.doctorId;
+    if (did.isEmpty) return;
+    setState(() => _loadingSlots = true);
+    try {
+      final all = await _repo.getForDoctor(did);
+      final day = all.where((a) =>
+          a.date.year == _newDate.year &&
+          a.date.month == _newDate.month &&
+          a.date.day == _newDate.day).toList();
+      if (!mounted) return;
+      setState(() {
+        _doctorDayAppts = day;
+        _loadingSlots = false;
+        if (_newSlot != null && _bookedSlots.contains(_newSlot)) _newSlot = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingSlots = false);
+    }
+  }
 
   void _pickDate() async {
+    final today = _calendarDay(DateTime.now());
+    final safeInitial = _newDate.isBefore(today) ? today : _newDate;
     final picked = await showDatePicker(
       context: context,
-      initialDate: _newDate,
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
+      initialDate: safeInitial,
+      firstDate: today,
+      lastDate: today.add(const Duration(days: 365)),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
           colorScheme: Theme.of(context).colorScheme.copyWith(primary: _primaryColor),
@@ -76,17 +137,27 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
     if (picked != null) {
       setState(() {
         _newDate = picked;
-        if (_newSlot != null && _bookedSlots.contains(_newSlot)) {
+        if (_newSlot != null && _isSlotStartInPast(_newDate, _newSlot!)) {
           _newSlot = null;
         }
       });
+      await _loadBooked();
     }
   }
 
-  void _save() {
+  Future<void> _save() async {
     if (_newSlot == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a new time slot'), behavior: SnackBarBehavior.floating),
+      );
+      return;
+    }
+    if (_isSlotStartInPast(_newDate, _newSlot!)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('That time has already passed. Pick a future slot.'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
       return;
     }
@@ -100,15 +171,28 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
     final oldAppt = widget.appointment;
     final msg = _messageCtrl.text.trim();
 
-    _store.rescheduleAppointment(
-      id: oldAppt.id,
-      newDate: _newDate,
-      newTimeSlot: _newSlot!,
+    try {
+      await _repo.rescheduleAsDoctor(
+        appointment: oldAppt,
+        newDate: _newDate,
+        newTimeSlot: _newSlot!,
+        doctorMessage: msg,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), behavior: SnackBarBehavior.floating),
+      );
+      return;
+    }
+    if (!mounted) return;
+
+    final newAppt = oldAppt.copyWith(
+      date: _newDate,
+      timeSlot: _newSlot!,
+      status: AppointmentStatus.rescheduled,
       doctorMessage: msg,
     );
-
-    // Find the newly created appointment to pass to notification
-    final newAppt = _store.all.last;
     NotificationService.instance.onAppointmentRescheduled(
       oldAppt: oldAppt,
       newAppt: newAppt,
@@ -218,27 +302,34 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
                   // New time slot
                   Text('New Time Slot', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: _slate700)),
                   const SizedBox(height: 8),
+                  if (_loadingSlots)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 8),
+                      child: Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
+                    ),
                   Wrap(
                     spacing: 6,
                     runSpacing: 6,
                     children: _allTimeSlots.map((slot) {
                       final isBooked = booked.contains(slot);
+                      final isPast = _isSlotStartInPast(_newDate, slot);
+                      final blocked = isBooked || isPast;
                       final isSelected = _newSlot == slot;
                       return GestureDetector(
-                        onTap: isBooked ? null : () => setState(() => _newSlot = slot),
+                        onTap: blocked ? null : () => setState(() => _newSlot = slot),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 150),
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                           decoration: BoxDecoration(
-                            color: isBooked ? _slate50 : isSelected ? _primaryColor : Colors.white,
+                            color: blocked ? _slate50 : isSelected ? _primaryColor : Colors.white,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: isBooked ? _slate200 : isSelected ? _primaryColor : _slate300),
+                            border: Border.all(color: blocked ? _slate200 : isSelected ? _primaryColor : _slate300),
                           ),
                           child: Text(
                             Appointment.to12Hour(slot),
                             style: GoogleFonts.inter(
                               fontSize: 12, fontWeight: FontWeight.w500,
-                              color: isBooked ? _slate300 : isSelected ? Colors.white : _slate700,
+                              color: blocked ? _slate300 : isSelected ? Colors.white : _slate700,
                             ),
                           ),
                         ),

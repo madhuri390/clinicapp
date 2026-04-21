@@ -1,3 +1,5 @@
+import 'dart:math' show min;
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -8,6 +10,7 @@ import '../models/treatment_plan_model.dart';
 import '../models/treatment_template_model.dart';
 import '../models/visit_detail_model.dart';
 import '../repositories/visit_detail_repository.dart';
+import '../services/pdf_generator_service.dart';
 import '../widgets/patient_details_header.dart';
 import '../widgets/patient_details_profile_tab.dart';
 
@@ -35,6 +38,7 @@ class OngoingTab extends StatelessWidget {
   const OngoingTab({
     super.key,
     required this.patientId,
+    required this.patientName,
     required this.visitDetails,
     required this.isLoading,
     required this.onRefresh,
@@ -45,6 +49,7 @@ class OngoingTab extends StatelessWidget {
   });
 
   final String patientId;
+  final String patientName;
   final List<VisitDetail> visitDetails;
   final bool isLoading;
   final VoidCallback onRefresh;
@@ -68,6 +73,7 @@ class OngoingTab extends StatelessWidget {
       itemCount: visitDetails.length,
       itemBuilder: (_, i) => _VisitCard(
         detail: visitDetails[i],
+        patientName: patientName,
         isOngoing: true,
         onRefresh: onRefresh,
         onComplete: onComplete,
@@ -85,6 +91,7 @@ class HistoryTab extends StatelessWidget {
   const HistoryTab({
     super.key,
     required this.patientId,
+    required this.patientName,
     required this.visitDetails,
     required this.isLoading,
     required this.onRefresh,
@@ -92,6 +99,7 @@ class HistoryTab extends StatelessWidget {
   });
 
   final String patientId;
+  final String patientName;
   final List<VisitDetail> visitDetails;
   final bool isLoading;
   final VoidCallback onRefresh;
@@ -111,6 +119,7 @@ class HistoryTab extends StatelessWidget {
       itemCount: visitDetails.length,
       itemBuilder: (_, i) => _VisitCard(
         detail: visitDetails[i],
+        patientName: patientName,
         isOngoing: false,
         onRefresh: onRefresh,
         readOnly: readOnly,
@@ -126,6 +135,7 @@ class HistoryTab extends StatelessWidget {
 class _VisitCard extends StatelessWidget {
   const _VisitCard({
     required this.detail,
+    required this.patientName,
     required this.isOngoing,
     required this.onRefresh,
     this.onComplete,
@@ -133,6 +143,7 @@ class _VisitCard extends StatelessWidget {
   });
 
   final VisitDetail detail;
+  final String patientName;
   final bool isOngoing;
   final VoidCallback onRefresh;
   final VoidCallback? onComplete;
@@ -198,6 +209,7 @@ class _VisitCard extends StatelessWidget {
                 return _TreatmentSection(
                   treatment: t,
                   sittings: detail.sittingsForTreatment(t.id),
+                  prescriptions: detail.prescriptionsForTreatment(t.id),
                   visitId: detail.visit.id,
                   isPaid: treatmentPaid,
                   repo: repo,
@@ -205,16 +217,6 @@ class _VisitCard extends StatelessWidget {
                   readOnly: readOnly,
                 );
               },
-            ),
-          ],
-
-          // ── Prescriptions as chips ────────────────────────────────
-          if (detail.prescriptions.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Wrap(
-              children: detail.prescriptions
-                  .map((rx) => _PrescriptionChip(rx: rx))
-                  .toList(),
             ),
           ],
 
@@ -240,11 +242,6 @@ class _VisitCard extends StatelessWidget {
                   icon: Icons.medication_outlined,
                   label: 'Add Prescription',
                   onTap: () => _showAddPrescription(context, repo),
-                ),
-                _BtnOutlineSm(
-                  icon: Icons.payment_outlined,
-                  label: 'Add Payment',
-                  onTap: () => _showAddPayment(context, repo),
                 ),
               ],
             ),
@@ -362,6 +359,12 @@ class _VisitCard extends StatelessWidget {
   }
 
   void _showAddPrescription(BuildContext context, VisitDetailRepository repo) {
+    if (detail.treatments.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Add a treatment before adding a prescription.')),
+      );
+      return;
+    }
     showDialog(
       context: context,
       barrierColor: Colors.black54,
@@ -370,25 +373,7 @@ class _VisitCard extends StatelessWidget {
         icon: Icons.medication_outlined,
         child: _AddPrescriptionForm(
           visitId: detail.visit.id,
-          treatmentPlanId: detail.treatments.isNotEmpty
-              ? detail.treatments.first.id
-              : null,
-          repo: repo,
-          onSaved: onRefresh,
-        ),
-      ),
-    );
-  }
-
-  void _showAddPayment(BuildContext context, VisitDetailRepository repo) {
-    showDialog(
-      context: context,
-      barrierColor: Colors.black54,
-      builder: (_) => _ModalDialog(
-        title: 'Add Payment',
-        icon: Icons.payment_outlined,
-        child: _AddPaymentForm(
-          visitId: detail.visit.id,
+          treatments: detail.treatments,
           repo: repo,
           onSaved: onRefresh,
         ),
@@ -397,6 +382,42 @@ class _VisitCard extends StatelessWidget {
   }
 
   Future<void> _onComplete(BuildContext context, VisitDetailRepository repo) async {
+    final treatCost = detail.totalTreatmentCost;
+    final sitCost = detail.totalSittingsCost;
+    final rxCost = detail.prescriptions.fold(0.0, (s, rx) => s + (rx.price ?? 0));
+    final grandTotal = treatCost + sitCost + rxCost;
+    final paid = _effectivePaid();
+    final balance = grandTotal - paid;
+
+    if (balance > 0) {
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          barrierColor: Colors.black54,
+          builder: (ctx) => _ModalDialog(
+            title: 'Outstanding Balance',
+            icon: Icons.error_outline,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Cannot complete consultation. There is an outstanding balance of ₹${balance.toStringAsFixed(0)}. Please collect payment first.',
+                  style: GoogleFonts.lato(fontSize: 14, color: kRefMuted),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                _BtnPrimarySm(
+                  label: 'OK',
+                  onTap: () => Navigator.pop(ctx),
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
     final ok = await showDialog<bool>(
       context: context,
       barrierColor: Colors.black54,
@@ -458,7 +479,7 @@ class _VisitCard extends StatelessWidget {
     showDialog(
       context: context,
       barrierColor: Colors.black54,
-      builder: (_) => _BillDialog(detail: detail),
+      builder: (_) => _BillDialog(detail: detail, patientName: patientName),
     );
   }
 }
@@ -471,6 +492,7 @@ class _TreatmentSection extends StatelessWidget {
   const _TreatmentSection({
     required this.treatment,
     required this.sittings,
+    required this.prescriptions,
     required this.visitId,
     required this.isPaid,
     required this.repo,
@@ -479,6 +501,7 @@ class _TreatmentSection extends StatelessWidget {
   });
   final TreatmentPlan treatment;
   final List<Sitting> sittings;
+  final List<Prescription> prescriptions;
   final String visitId;
   final bool isPaid;
   final VisitDetailRepository repo;
@@ -501,7 +524,7 @@ class _TreatmentSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Treatment header row: name | status pill | payment toggle
+          // Treatment header row: name | status pill | payment dropdown
           Row(
             children: [
               Expanded(
@@ -515,25 +538,15 @@ class _TreatmentSection extends StatelessWidget {
                 ),
               ),
               _StatusPill(label: status),
-              if (!readOnly && hasCost) ...[
+              if (hasCost) ...[
                 const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: () => _togglePayment(context),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: isPaid ? _badgeCompBg : _badgePlanBg,
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: Text(
-                      isPaid ? 'Paid' : 'Pending',
-                      style: GoogleFonts.lato(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: isPaid ? _badgeCompFg : _badgePlanFg,
-                      ),
-                    ),
-                  ),
+                _StatusDropdown(
+                  value: isPaid ? 'Paid' : 'Pending',
+                  enabled: !readOnly && !isPaid,
+                  onChanged: (v) {
+                    if (v == null) return;
+                    if (v == 'Paid') _togglePayment(context);
+                  },
                 ),
               ],
             ],
@@ -558,6 +571,16 @@ class _TreatmentSection extends StatelessWidget {
               onRefresh: onRefresh,
               readOnly: readOnly,
             )),
+          ],
+
+          // Prescriptions for this treatment
+          if (prescriptions.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              children: prescriptions
+                  .map((rx) => _PrescriptionChip(rx: rx))
+                  .toList(),
+            ),
           ],
         ],
       ),
@@ -690,6 +713,7 @@ class _SittingItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final isPaid = sitting.status.toLowerCase() == 'completed' ||
         sitting.status.toLowerCase() == 'paid';
+    final current = isPaid ? 'Paid' : 'Pending';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
@@ -722,37 +746,28 @@ class _SittingItem extends StatelessWidget {
             ),
             const SizedBox(width: 12),
           ],
-          GestureDetector(
-            onTap: readOnly ? null : () => _toggleStatus(context, isPaid),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: isPaid ? _badgeCompBg : _badgePlanBg,
-                borderRadius: BorderRadius.circular(30),
-              ),
-              child: Text(
-                isPaid ? 'Paid' : 'Pending',
-                style: GoogleFonts.lato(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: isPaid ? _badgeCompFg : _badgePlanFg,
-                ),
-              ),
-            ),
+          _StatusDropdown(
+            value: current,
+            enabled: !readOnly && !isPaid,
+            onChanged: (v) {
+              if (v == null) return;
+              if (v == current) return;
+              _setStatus(context, v);
+            },
           ),
         ],
       ),
     );
   }
 
-  Future<void> _toggleStatus(BuildContext context, bool currentlyPaid) async {
-    final newStatus = currentlyPaid ? 'Scheduled' : 'Completed';
+  Future<void> _setStatus(BuildContext context, String newValue) async {
+    final newStatus = newValue == 'Paid' ? 'Completed' : 'Scheduled';
     try {
       // 1. Update sitting status
       await repo.updateSittingStatus(sitting.id, newStatus);
 
       // 2. When marking as Paid, auto-create a UPI payment for this sitting's cost
-      if (!currentlyPaid && (sitting.cost ?? 0) > 0) {
+      if (newValue == 'Paid' && (sitting.cost ?? 0) > 0) {
         final payment = Payment(
           id: '',
           visitId: visitId,
@@ -770,11 +785,11 @@ class _SittingItem extends StatelessWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              currentlyPaid
-                  ? 'Sitting marked as Pending'
-                  : 'Sitting paid via UPI (₹${(sitting.cost ?? 0).toStringAsFixed(0)})',
+              newValue == 'Paid'
+                  ? 'Sitting paid via UPI (₹${(sitting.cost ?? 0).toStringAsFixed(0)})'
+                  : 'Sitting marked as Pending',
             ),
-            backgroundColor: currentlyPaid ? _badgePlanFg : _badgeCompFg,
+            backgroundColor: newValue == 'Paid' ? _badgeCompFg : _badgePlanFg,
           ),
         );
       }
@@ -785,6 +800,53 @@ class _SittingItem extends StatelessWidget {
         );
       }
     }
+  }
+}
+
+class _StatusDropdown extends StatelessWidget {
+  const _StatusDropdown({
+    required this.value,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final String value;
+  final bool enabled;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final isPaid = value == 'Paid';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+      decoration: BoxDecoration(
+        color: isPaid ? _badgeCompBg : _badgePlanBg,
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          isDense: true,
+          icon: Icon(
+            Icons.keyboard_arrow_down_rounded,
+            size: 16,
+            color: isPaid ? _badgeCompFg : _badgePlanFg,
+          ),
+          style: GoogleFonts.lato(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            color: isPaid ? _badgeCompFg : _badgePlanFg,
+          ),
+          dropdownColor: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          items: const [
+            DropdownMenuItem(value: 'Pending', child: Text('Pending')),
+            DropdownMenuItem(value: 'Paid', child: Text('Paid')),
+          ],
+          onChanged: enabled ? onChanged : null,
+        ),
+      ),
+    );
   }
 }
 
@@ -1296,12 +1358,12 @@ class _AddSittingFormState extends State<_AddSittingForm> {
 class _AddPrescriptionForm extends StatefulWidget {
   const _AddPrescriptionForm({
     required this.visitId,
-    this.treatmentPlanId,
+    required this.treatments,
     required this.repo,
     required this.onSaved,
   });
   final String visitId;
-  final String? treatmentPlanId;
+  final List<TreatmentPlan> treatments;
   final VisitDetailRepository repo;
   final VoidCallback onSaved;
 
@@ -1313,10 +1375,17 @@ class _AddPrescriptionFormState extends State<_AddPrescriptionForm> {
   final _nameCtrl = TextEditingController();
   final _dosageCtrl = TextEditingController();
   final _instrCtrl = TextEditingController();
+  late String _selectedTreatmentId;
   bool _saving = false;
 
   @override
   void dispose() { _nameCtrl.dispose(); _dosageCtrl.dispose(); _instrCtrl.dispose(); super.dispose(); }
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedTreatmentId = widget.treatments.first.id;
+  }
 
   Future<void> _save() async {
     if (_nameCtrl.text.trim().isEmpty) return;
@@ -1325,7 +1394,7 @@ class _AddPrescriptionFormState extends State<_AddPrescriptionForm> {
       final rx = Prescription(
         id: '',
         visitId: widget.visitId,
-        treatmentPlanId: widget.treatmentPlanId,
+        treatmentPlanId: _selectedTreatmentId,
         medicineName: _nameCtrl.text.trim(),
         dosage: _dosageCtrl.text.trim().isEmpty ? null : _dosageCtrl.text.trim(),
         instructions: _instrCtrl.text.trim().isEmpty ? null : _instrCtrl.text.trim(),
@@ -1348,6 +1417,40 @@ class _AddPrescriptionFormState extends State<_AddPrescriptionForm> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (widget.treatments.length > 1) ...[
+          Text(
+            'Under treatment:',
+            style: GoogleFonts.lato(fontSize: 12, fontWeight: FontWeight.w600, color: kRefMuted),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: widget.treatments.map((t) {
+              final selected = t.id == _selectedTreatmentId;
+              return GestureDetector(
+                onTap: () => setState(() => _selectedTreatmentId = t.id),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: selected ? kRefPrimary : Colors.white,
+                    border: Border.all(color: selected ? kRefPrimary : _btnBorder),
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: Text(
+                    t.treatmentName ?? 'Treatment',
+                    style: GoogleFonts.lato(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: selected ? Colors.white : kRefDark,
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 14),
+        ],
         _ModalField(controller: _nameCtrl, placeholder: 'Medication name *'),
         _ModalField(controller: _dosageCtrl, placeholder: 'Dosage (e.g., 1-0-1)'),
         _ModalField(controller: _instrCtrl, placeholder: 'Instructions', maxLines: 2),
@@ -1482,29 +1585,38 @@ class _AddPaymentFormState extends State<_AddPaymentForm> {
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _BillDialog extends StatelessWidget {
-  const _BillDialog({required this.detail});
+  const _BillDialog({required this.detail, required this.patientName});
   final VisitDetail detail;
+  final String patientName;
 
   @override
   Widget build(BuildContext context) {
     final treatCost = detail.totalTreatmentCost;
     final sitCost = detail.totalSittingsCost;
-    final grandTotal = treatCost + sitCost;
+    final rxCost = detail.prescriptions.fold(0.0, (s, rx) => s + (rx.price ?? 0));
+    final grandTotal = treatCost + sitCost + rxCost;
     final paid = _effectivePaidAmount();
     final balance = grandTotal - paid;
+    final maxH = MediaQuery.sizeOf(context).height * 0.85;
+    final dialogHeight = min(600.0, maxH);
 
     return Dialog(
       backgroundColor: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxHeight: 600, maxWidth: 400),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+        constraints: const BoxConstraints(maxWidth: 400),
+        child: SizedBox(
+          height: dialogHeight,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                 // ── Clinic header ─────────────────────────────────────────
                 Container(
                   width: double.infinity,
@@ -1691,20 +1803,60 @@ class _BillDialog extends StatelessWidget {
                 ),
                 if (balance > 0.01)
                   _billRow('Balance Due', '₹${balance.toStringAsFixed(0)}', color: Colors.red),
-
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: Text(
-                      'Close',
-                      style: GoogleFonts.lato(color: kRefPrimary, fontWeight: FontWeight.w600),
-                    ),
+                    ],
                   ),
                 ),
-              ],
-            ),
+              ),
+              const Divider(height: 1),
+              Material(
+                color: Colors.white,
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _BtnOutlineSm(
+                        icon: Icons.picture_as_pdf_outlined,
+                        label: 'Generate PDF',
+                        onTap: () async {
+                          final lineItems = <Map<String, dynamic>>[];
+                          for (final t in detail.treatments) {
+                            if ((t.totalCost ?? 0) > 0) {
+                              lineItems.add({'name': t.treatmentName ?? 'Treatment', 'amount': t.totalCost!});
+                            }
+                          }
+                          for (final s in detail.sittings) {
+                            if ((s.cost ?? 0) > 0) {
+                              lineItems.add({'name': 'Sitting: ${s.notes ?? 'Follow-up'}', 'amount': s.cost!});
+                            }
+                          }
+                          for (final rx in detail.prescriptions) {
+                            if ((rx.price ?? 0) > 0) {
+                              lineItems.add({'name': 'Rx: ${rx.medicineName ?? 'Medicine'}', 'amount': rx.price!});
+                            }
+                          }
+
+                          await PdfGeneratorService.generateInvoicePdf(
+                            patientName: patientName,
+                            visitDate: detail.visit.visitDate,
+                            treatments: lineItems,
+                            totalAmount: grandTotal,
+                            paidAmount: paid,
+                            balance: balance,
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 16),
+                      _BtnPrimarySm(
+                        label: 'Close',
+                        onTap: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

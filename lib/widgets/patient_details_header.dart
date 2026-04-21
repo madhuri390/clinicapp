@@ -20,12 +20,14 @@ class PatientHeader extends StatelessWidget {
     required this.displayName,
     this.onNewConsultation,
     this.onEdit,
+    this.editTooltip = 'Edit Patient',
   });
 
   final Patient? patient;
   final String displayName;
   final VoidCallback? onNewConsultation;
   final VoidCallback? onEdit;
+  final String editTooltip;
 
   @override
   Widget build(BuildContext context) {
@@ -88,7 +90,7 @@ class PatientHeader extends StatelessWidget {
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                         color: kRefTabInactive,
-                        tooltip: 'Edit Patient',
+                        tooltip: editTooltip,
                       ),
                   ],
                 ),

@@ -6,6 +6,7 @@ import '../models/patient_model.dart';
 import '../models/visit_detail_model.dart';
 import '../repositories/patient_repository.dart';
 import '../repositories/visit_detail_repository.dart';
+import '../services/patient_session.dart';
 import '../widgets/patient_details_widgets.dart';
 import 'patient_form_screen.dart';
 
@@ -15,11 +16,16 @@ class PatientDetailsScreen extends StatefulWidget {
     required this.patientId,
     required this.patientName,
     this.patientPortalMode = false,
+    /// Patient shell: fires when Home requests Ongoing (1) or History (2).
+    this.careNavSignal,
+    this.careTargetTabResolver,
   });
 
   final String patientId;
   final String patientName;
   final bool patientPortalMode;
+  final ValueNotifier<int>? careNavSignal;
+  final int Function()? careTargetTabResolver;
 
   @override
   State<PatientDetailsScreen> createState() => _PatientDetailsScreenState();
@@ -48,12 +54,39 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
     _tabController = TabController(length: 3, vsync: this);
     _loadAll();
     _resolveDoctorId();
+    widget.careNavSignal?.addListener(_onCareNavSignal);
+    // First open of Patient tab after Home may have bumped the signal before we subscribed.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !widget.patientPortalMode) return;
+      final s = widget.careNavSignal;
+      if (s != null && s.value > 0) _onCareNavSignal();
+    });
   }
 
   @override
   void dispose() {
+    widget.careNavSignal?.removeListener(_onCareNavSignal);
     _tabController.dispose();
     super.dispose();
+  }
+
+  void _onCareNavSignal() {
+    if (!widget.patientPortalMode) return;
+    final resolve = widget.careTargetTabResolver;
+    if (resolve == null) return;
+    final idx = resolve().clamp(0, 2);
+    if (_tabController.index != idx) {
+      _tabController.animateTo(idx);
+    }
+  }
+
+  @override
+  void didUpdateWidget(PatientDetailsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.careNavSignal != oldWidget.careNavSignal) {
+      oldWidget.careNavSignal?.removeListener(_onCareNavSignal);
+      widget.careNavSignal?.addListener(_onCareNavSignal);
+    }
   }
 
   Future<void> _resolveDoctorId() async {
@@ -72,6 +105,14 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
     try {
       final p = await _patientRepo.getById(widget.patientId);
       if (!mounted) return;
+      if (widget.patientPortalMode && p != null) {
+        final name = p.fullName.trim().isNotEmpty ? p.fullName : p.firstName;
+        PatientSession.setPortal(
+          patientId: p.id,
+          displayName: name,
+          patient: p,
+        );
+      }
       setState(() {
         _patient = p;
         _loadingPatient = false;
@@ -79,6 +120,16 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
     } catch (_) {
       if (mounted) setState(() => _loadingPatient = false);
     }
+  }
+
+  String _headerDisplayName() {
+    final p = _patient;
+    if (p != null) {
+      final full = p.fullName.trim();
+      if (full.isNotEmpty) return full;
+      return p.firstName;
+    }
+    return widget.patientName;
   }
 
   Future<void> _loadOngoing() async {
@@ -152,12 +203,16 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
     if (_patient == null) return;
     final updated = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
-        builder: (_) => PatientFormScreen(initialPatient: _patient),
+        builder: (_) => PatientFormScreen(
+          initialPatient: _patient,
+          appBarTitle:
+              widget.patientPortalMode ? 'Update profile' : null,
+        ),
       ),
     );
-    if (updated == true && mounted) {
-      _loadPatient();
-    }
+    if (!mounted || updated != true) return;
+    await _loadPatient();
+    if (widget.patientPortalMode) await _loadAll();
   }
 
   void _showEditConsultationModal(VisitDetail detail) {
@@ -192,11 +247,14 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
                   )
                 : PatientHeader(
                     patient: _patient,
-                    displayName: widget.patientName,
+                    displayName: _headerDisplayName(),
                     onNewConsultation: widget.patientPortalMode
                         ? null
                         : _showNewConsultationModal,
-                    onEdit: widget.patientPortalMode ? null : _showEditPatient,
+                    onEdit: _patient == null ? null : _showEditPatient,
+                    editTooltip: widget.patientPortalMode
+                        ? 'Update profile'
+                        : 'Edit Patient',
                   ),
 
             Container(
@@ -268,6 +326,7 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
                     ProfileTab(patient: _patient, isLoading: _loadingPatient),
                     OngoingTab(
                       patientId: widget.patientId,
+                      patientName: widget.patientName,
                       visitDetails: _ongoingVisits,
                       isLoading: _loadingOngoing,
                       onRefresh: _loadOngoing,
@@ -283,6 +342,7 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
                     ),
                     HistoryTab(
                       patientId: widget.patientId,
+                      patientName: widget.patientName,
                       visitDetails: _historyVisits,
                       isLoading: _loadingHistory,
                       onRefresh: _loadHistory,

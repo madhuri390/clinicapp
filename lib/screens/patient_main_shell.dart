@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../repositories/patient_repository.dart';
-import '../services/appointment_store.dart';
+import '../services/auth_service.dart';
 import '../services/local_store.dart';
 import '../services/patient_session.dart';
 import '../theme/patient_portal_theme.dart';
@@ -23,17 +23,27 @@ class _PatientMainShellState extends State<PatientMainShell> {
   int _currentIndex = 0;
   bool _ready = false;
 
+  /// Incremented when Home requests a jump to Ongoing / History on the Patient tab.
+  final ValueNotifier<int> _patientCareNavSignal = ValueNotifier<int>(0);
+  int _patientCareTargetTab = 0;
+
   final _navigatorKeys = [
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
   ];
 
-  static const _screens = [
-    PatientHomeDashboardScreen(),
-    PatientPortalCareScreen(),
-    PatientPortalAppointmentsScreen(),
-  ];
+  void _navigateToCareTab(int tabIndex) {
+    _patientCareTargetTab = tabIndex.clamp(0, 2);
+    _patientCareNavSignal.value = _patientCareNavSignal.value + 1;
+    setState(() => _currentIndex = 1);
+  }
+
+  @override
+  void dispose() {
+    _patientCareNavSignal.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -43,36 +53,23 @@ class _PatientMainShellState extends State<PatientMainShell> {
 
   Future<void> _bootstrap() async {
     LocalStore.instance.seedIfNeeded();
-    AppointmentStore.instance.seedIfNeeded();
     final repo = PatientRepository();
     try {
-      final list = await repo.getAll();
-      if (list.isNotEmpty) {
-        final p = list.first;
-        final name = p.fullName.isNotEmpty ? p.fullName : p.firstName;
-        PatientSession.setPortal(
-          patientId: p.id,
-          displayName: name,
-          patient: p,
-        );
-        LocalStore.instance.seedOngoingForPatient(p.id);
-      } else {
-        const id = 'patient_portal_demo';
-        PatientSession.setPortal(
-          patientId: id,
-          displayName: 'Sarah Johnson',
-          patient: null,
-        );
-        LocalStore.instance.seedOngoingForPatient(id);
-      }
-    } catch (_) {
-      const id = 'patient_portal_demo';
+      final uid = AuthService.currentUser?.id;
+      if (uid == null) throw Exception('Not logged in');
+
+      final p = await repo.getForAuthUser(uid);
+      if (p == null) throw Exception('No patient profile linked to this login');
+
+      final name = p.fullName.isNotEmpty ? p.fullName : p.firstName;
       PatientSession.setPortal(
-        patientId: id,
-        displayName: 'Sarah Johnson',
-        patient: null,
+        patientId: p.id,
+        displayName: name,
+        patient: p,
       );
-      LocalStore.instance.seedOngoingForPatient(id);
+      LocalStore.instance.seedOngoingForPatient(p.id);
+    } catch (_) {
+      PatientSession.clear();
     }
     if (mounted) setState(() => _ready = true);
   }
@@ -113,6 +110,18 @@ class _PatientMainShellState extends State<PatientMainShell> {
       );
     }
 
+    final stackScreens = [
+      PatientHomeDashboardScreen(
+        onOpenOngoing: () => _navigateToCareTab(1),
+        onOpenHistory: () => _navigateToCareTab(2),
+      ),
+      PatientPortalCareScreen(
+        careNavSignal: _patientCareNavSignal,
+        careTargetTabResolver: () => _patientCareTargetTab,
+      ),
+      const PatientPortalAppointmentsScreen(),
+    ];
+
     return Theme(
       data: PatientPortalTheme.themeOverlay(context),
       child: PopScope(
@@ -130,11 +139,11 @@ class _PatientMainShellState extends State<PatientMainShell> {
           backgroundColor: PatientPortalTheme.surface,
           body: IndexedStack(
             index: _currentIndex,
-            children: List.generate(_screens.length, (i) {
+            children: List.generate(stackScreens.length, (i) {
               return Navigator(
                 key: _navigatorKeys[i],
                 onGenerateRoute: (settings) {
-                  return MaterialPageRoute<void>(builder: (_) => _screens[i]);
+                  return MaterialPageRoute<void>(builder: (_) => stackScreens[i]);
                 },
               );
             }),

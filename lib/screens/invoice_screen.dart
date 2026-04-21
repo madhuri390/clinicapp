@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/pdf_generator_service.dart';
 import '../theme/app_theme.dart';
 
 /// Mock treatment line item for invoice.
@@ -35,13 +36,19 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
     _TreatmentItem(name: 'X-Ray (Full Mouth)', amount: 95.00),
   ];
 
-  void _onGeneratePdf() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Generate PDF (coming soon)'),
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: AppTheme.primaryColor,
-      ),
+  Future<void> _onGeneratePdf() async {
+    final treatmentsMap = _treatments.map((t) => {
+      'name': t.name,
+      'amount': t.amount,
+    }).toList();
+
+    await PdfGeneratorService.generateInvoicePdf(
+      patientName: _patientName,
+      visitDate: _visitDate,
+      treatments: treatmentsMap,
+      totalAmount: _totalAmount,
+      paidAmount: _isPaid ? _totalAmount : _paidAmount,
+      balance: _isPaid ? 0.0 : _balance,
     );
   }
 
@@ -78,55 +85,76 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
         centerTitle: false,
         iconTheme: IconThemeData(color: Colors.grey.shade700),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _InvoiceHeaderCard(
-              patientName: _patientName,
-              visitDate: _visitDate,
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _InvoiceHeaderCard(
+                    patientName: _patientName,
+                    visitDate: _visitDate,
+                  ),
+                  const SizedBox(height: 16),
+                  _TreatmentSummaryCard(treatments: _treatments),
+                  const SizedBox(height: 16),
+                  _AmountsCard(
+                    totalAmount: _totalAmount,
+                    paidAmount: paidAmount,
+                    balance: balance,
+                    isPaid: _isPaid,
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
-            _TreatmentSummaryCard(treatments: _treatments),
-            const SizedBox(height: 16),
-            _AmountsCard(
-              totalAmount: _totalAmount,
-              paidAmount: paidAmount,
-              balance: balance,
-              isPaid: _isPaid,
-            ),
-            const SizedBox(height: 24),
-            OutlinedButton.icon(
-              onPressed: _onGeneratePdf,
-              icon: const Icon(Icons.picture_as_pdf_outlined, size: 22),
-              label: const Text('Generate PDF'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.primaryColor,
-                side: const BorderSide(color: AppTheme.primaryColor),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+          ),
+          Material(
+            elevation: 8,
+            color: Colors.grey.shade50,
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: _onGeneratePdf,
+                      icon: const Icon(Icons.picture_as_pdf_outlined, size: 22),
+                      label: const Text('Generate PDF'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.primaryColor,
+                        side: const BorderSide(color: AppTheme.primaryColor),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      onPressed: _isPaid ? null : _onMarkAsPaid,
+                      icon: Icon(
+                        _isPaid ? Icons.check_circle : Icons.check_circle_outline,
+                        size: 22,
+                      ),
+                      label: Text(_isPaid ? 'Paid' : 'Mark as Paid'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-            const SizedBox(height: 12),
-            ElevatedButton.icon(
-              onPressed: _isPaid ? null : _onMarkAsPaid,
-              icon: Icon(
-                _isPaid ? Icons.check_circle : Icons.check_circle_outline,
-                size: 22,
-              ),
-              label: Text(_isPaid ? 'Paid' : 'Mark as Paid'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

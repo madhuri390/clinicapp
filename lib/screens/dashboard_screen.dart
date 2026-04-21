@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-
+import '../models/staff_model.dart';
 import '../services/auth_service.dart';
+import '../services/staff_service.dart';
 import '../services/app_role_service.dart';
 import '../theme/app_theme.dart';
+import '../repositories/appointment_repository.dart';
+import '../repositories/visit_detail_repository.dart';
+import '../models/appointment_model.dart';
 import 'appointments_screen.dart';
 import 'login_screen.dart';
 import 'main_shell.dart';
@@ -49,20 +53,6 @@ class _MockInventoryItem {
 }
 */
 
-/// Mock reminder.
-class _MockReminder {
-  const _MockReminder({
-    required this.id,
-    required this.patient,
-    required this.message,
-    required this.date,
-  });
-  final int id;
-  final String patient;
-  final String message;
-  final String date;
-}
-
 /*
 /// Mock consultation for revenue/ongoing count.
 class _MockConsultation {
@@ -77,14 +67,18 @@ class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
+  State<DashboardScreen> createState() => DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class DashboardScreenState extends State<DashboardScreen> {
   bool _showProfileMenu = false;
 
-  /// Shown on the header notification icon (full stats UI is commented out).
-  static const _headerNotificationBadgeCount = 3;
+  final _apptRepo = AppointmentRepository();
+  final _visitRepo = VisitDetailRepository();
+  int _todayAppointmentsCount = 0;
+  List<Appointment> _todayVisits = [];
+  String _welcomeName = 'Doctor';
+  String _profileRole = '';
 
   /*
   final _repo = PatientRepository();
@@ -93,7 +87,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   static const _patientIncrease = 12;
   static const _revenueIncrease = 18;
-  static const _todayAppointments = 8;
+  // static const _todayAppointments = 8; // replaced by DB-backed count
 
   static const _mockConsultations = [
     _MockConsultation(status: 'ongoing', totalCost: 1500),
@@ -163,27 +157,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   ];
   */
 
-  static const _upcomingReminders = [
-    _MockReminder(
-      id: 1,
-      patient: 'Sarah Johnson',
-      message: 'Root canal follow-up appointment',
-      date: '2026-03-19',
-    ),
-    _MockReminder(
-      id: 2,
-      patient: 'Michael Chen',
-      message: 'Crown placement scheduled',
-      date: '2026-03-15',
-    ),
-    _MockReminder(
-      id: 3,
-      patient: 'Emma Williams',
-      message: 'Wisdom tooth extraction surgery',
-      date: '2026-03-20',
-    ),
-  ];
-
   /*
   int get _totalRevenue =>
       _mockConsultations.fold(0, (sum, c) => sum + c.totalCost);
@@ -220,6 +193,76 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _go(Widget screen) {
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => screen));
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDashboard();
+  }
+
+  /// Called when the bottom-nav Home tab is selected so data stays fresh
+  /// (this screen lives in an [IndexedStack] and does not rebuild on tab switch).
+  Future<void> refreshFromServer() => _loadDashboard();
+
+  Future<void> _loadDashboard() async {
+    try {
+      final uid = AuthService.currentUser?.id;
+      final staff = await StaffService.instance.getStaff();
+      Staff? me;
+      if (uid != null) {
+        for (final s in staff) {
+          if (s.authUserId == uid) {
+            me = s;
+            break;
+          }
+        }
+      }
+      if (me != null && mounted) {
+        final m = me;
+        final n = m.name.trim();
+        setState(() {
+          _welcomeName = n.toLowerCase().startsWith('dr.') ? n : 'Dr. $n';
+          _profileRole = m.role;
+        });
+      }
+
+      final doctorId = await _visitRepo.getDoctorIdForCurrentUser();
+      if (doctorId == null) {
+        if (mounted) {
+          setState(() {
+            _todayAppointmentsCount = 0;
+            _todayVisits = [];
+          });
+        }
+        return;
+      }
+
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final all = await _apptRepo.getForDoctor(doctorId);
+      final visits = all.where((a) {
+        final d = a.date;
+        final isToday = d.year == today.year && d.month == today.month && d.day == today.day;
+        final isActive =
+            a.status == AppointmentStatus.scheduled || a.status == AppointmentStatus.ongoing;
+        return isToday && isActive;
+      }).toList()
+        ..sort((a, b) => a.timeSlot.compareTo(b.timeSlot));
+
+      if (!mounted) return;
+      setState(() {
+        _todayAppointmentsCount = visits.length;
+        _todayVisits = visits;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _todayAppointmentsCount = 0;
+          _todayVisits = [];
+        });
+      }
+    }
   }
 
   Future<void> _confirmLogout(BuildContext context) async {
@@ -309,7 +352,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _buildUpcomingReminders(),
+                      _buildTodaySchedule(),
                       const SizedBox(height: 16),
                       _buildQuickActions(),
                     ],
@@ -348,7 +391,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Dr. Amanda Foster',
+                      _welcomeName,
                       style: GoogleFonts.inter(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -356,7 +399,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
                     Text(
-                      'Dental Surgeon',
+                      _profileRole.isEmpty ? 'Staff' : _profileRole,
                       style: GoogleFonts.inter(fontSize: 12, color: _slate500),
                     ),
                   ],
@@ -425,7 +468,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Welcome back, Dr. Foster',
+                  'Welcome back, $_welcomeName',
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     color: Colors.white.withValues(alpha: 0.88),
@@ -436,7 +479,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(width: 12),
           GestureDetector(
-            onTap: () {},
+            onTap: () {
+              final shell = MainShell.of(context);
+              if (shell != null) {
+                shell.setTabIndex(2);
+              } else {
+                _go(const AppointmentsScreen());
+              }
+            },
             child: Stack(
               clipBehavior: Clip.none,
               children: [
@@ -445,27 +495,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   color: Colors.white,
                   size: 24,
                 ),
-                Positioned(
-                  top: -2,
-                  right: -2,
-                  child: Container(
-                    width: 16,
-                    height: 16,
-                    decoration: const BoxDecoration(
-                      color: _red500,
-                      shape: BoxShape.circle,
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      '$_headerNotificationBadgeCount',
-                      style: GoogleFonts.inter(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
+                if (_todayAppointmentsCount > 0)
+                  Positioned(
+                    top: -2,
+                    right: -2,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                      decoration: const BoxDecoration(
+                        color: _red500,
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        _todayAppointmentsCount > 9 ? '9+' : '$_todayAppointmentsCount',
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
-                ),
               ],
             ),
           ),
@@ -643,7 +694,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         Icon(Icons.calendar_today, color: _purple600, size: 24),
                         const SizedBox(width: 12),
                         Text(
-                          '$_todayAppointments',
+                          '$_todayAppointmentsCount',
                           style: GoogleFonts.inter(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
@@ -814,7 +865,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
   */
 
-  Widget _buildUpcomingReminders() {
+  Widget _buildTodaySchedule() {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -830,10 +881,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               Row(
                 children: [
-                  Icon(Icons.chat_bubble_outline, color: _blue600, size: 20),
+                  Icon(Icons.calendar_today_outlined, color: _blue600, size: 20),
                   const SizedBox(width: 8),
                   Text(
-                    'Upcoming Reminders',
+                    "Today's schedule",
                     style: GoogleFonts.inter(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -846,7 +897,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 onTap: () {
                   final shell = MainShell.of(context);
                   if (shell != null) {
-                    shell.setTabIndex(2); // Switch to Appointments tab
+                    shell.setTabIndex(2);
                   } else {
                     _go(const AppointmentsScreen());
                   }
@@ -863,78 +914,72 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          ..._upcomingReminders.map(
-            (r) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: _slate50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      Icons.notifications_outlined,
-                      color: _orange600,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            r.patient,
-                            style: GoogleFonts.inter(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                              color: _slate900,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            r.message,
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              color: _slate600,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _formatDate(r.date),
-                            style: GoogleFonts.inter(
-                              fontSize: 12,
-                              color: _slate500,
-                            ),
-                          ),
-                        ],
+          if (_todayVisits.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'No visits scheduled for today.',
+                style: GoogleFonts.inter(fontSize: 14, color: _slate500, height: 1.35),
+              ),
+            )
+          else
+            ..._todayVisits.map(
+              (a) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: _slate50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.schedule,
+                        color: _orange600,
+                        size: 18,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              a.patientName,
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: _slate900,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              a.type,
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                color: _slate600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${a.timeRange} · ${a.statusLabel}',
+                              style: GoogleFonts.inter(
+                                fontSize: 12,
+                                color: _slate500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );
-  }
-
-  String _formatDate(String dateStr) {
-    try {
-      final parts = dateStr.split('-');
-      if (parts.length >= 3) {
-        final d = DateTime(
-          int.parse(parts[0]),
-          int.parse(parts[1]),
-          int.parse(parts[2]),
-        );
-        return '${d.month}/${d.day}/${d.year}';
-      }
-    } catch (_) {}
-    return dateStr;
   }
 
   Widget _buildQuickActions() {
@@ -1029,7 +1074,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              'New Appointment',
+                              'New Appointment ($_todayAppointmentsCount)',
                               style: GoogleFonts.inter(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,

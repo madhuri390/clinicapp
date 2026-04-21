@@ -1,10 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../models/appointment_model.dart';
-import '../services/appointment_store.dart';
+import '../models/patient_model.dart';
+import '../repositories/appointment_repository.dart';
+import '../repositories/patient_repository.dart';
 import '../services/notification_service.dart';
+import '../services/staff_service.dart';
+import '../models/staff_model.dart';
 
 // Colors
 const _blue600 = Color(0xFF0D8DC4);
@@ -13,7 +19,7 @@ const _slate50 = Color(0xFFF8FAFC);
 const _slate200 = Color(0xFFE2E8F0);
 const _slate300 = Color(0xFFCBD5E1);
 const _slate400 = Color(0xFF94A3B8);
-const _slate500 = Color(0xFF64748B);
+// const _slate500 = Color(0xFF64748B);
 const _slate600 = Color(0xFF475569);
 const _slate700 = Color(0xFF334155);
 const _slate900 = Color(0xFF0F172A);
@@ -62,6 +68,8 @@ class AddAppointmentSheet extends StatefulWidget {
     this.prefilledPatientId,
     this.prefilledPatientName,
     this.prefilledPatientPhone,
+    this.prefilledDoctorId,
+    this.prefilledDoctorName,
   });
 
   final DateTime selectedDate;
@@ -73,6 +81,10 @@ class AddAppointmentSheet extends StatefulWidget {
   final String? prefilledPatientName;
   final String? prefilledPatientPhone;
 
+  /// Doctor view: lock booking to this doctor.
+  final String? prefilledDoctorId;
+  final String? prefilledDoctorName;
+
   @override
   State<AddAppointmentSheet> createState() => _AddAppointmentSheetState();
 }
@@ -80,48 +92,197 @@ class AddAppointmentSheet extends StatefulWidget {
 class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
-  final _phoneCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
+  final _patientFocus = FocusNode();
 
   late DateTime _date;
   String? _selectedSlot;
   int _duration = 30;
   String _procedure = _procedureTypes.first;
-  bool _linkTreatmentPlan = false;
-  int _sittingCount = 3;
-  int _frequencyDays = 7;
+  // Previously supported local auto-scheduling from a treatment plan.
+  // DB-backed appointments: keep booking as a single explicit appointment.
 
-  final _store = AppointmentStore.instance;
+  final _repo = AppointmentRepository();
+  final _staffService = StaffService.instance;
+  final _patientRepo = PatientRepository();
+
+  Timer? _patientDebounce;
+  bool _loadingPatients = false;
+  List<Patient> _patientResults = const [];
+  String? _selectedPatientId;
+  String? _selectedPatientPhone;
+  String? _selectedPatientName;
+
+  List<Staff>? _doctors;
+  bool _loadingDoctors = false;
+  String? _selectedDoctorId;
+  String? _selectedDoctorName;
+  List<Appointment> _doctorDayAppts = [];
+  bool _loadingSlots = false;
+
+  DateTime _calendarDay(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  bool _isSlotStartInPast(DateTime day, String slot) {
+    final parts = slot.split(':');
+    final h = int.parse(parts[0]);
+    final m = int.parse(parts[1]);
+    final start = DateTime(day.year, day.month, day.day, h, m);
+    return start.isBefore(DateTime.now());
+  }
 
   @override
   void initState() {
     super.initState();
-    _date = widget.selectedDate;
+    final today = _calendarDay(DateTime.now());
+    final sel = _calendarDay(widget.selectedDate);
+    _date = sel.isBefore(today) ? today : sel;
     _selectedSlot = widget.prefilledTimeSlot;
-    if (widget.prefilledPatientName != null) {
-      _nameCtrl.text = widget.prefilledPatientName!;
+    if (_selectedSlot != null && _isSlotStartInPast(_date, _selectedSlot!)) {
+      _selectedSlot = null;
     }
-    if (widget.prefilledPatientPhone != null) {
-      _phoneCtrl.text = widget.prefilledPatientPhone!;
+    if (widget.prefilledPatientId != null) {
+      _selectedPatientId = widget.prefilledPatientId;
+      _selectedPatientName = widget.prefilledPatientName;
+      _selectedPatientPhone = widget.prefilledPatientPhone;
+      if (_selectedPatientName != null) _nameCtrl.text = _selectedPatientName!;
     }
+
+    _selectedDoctorId = widget.prefilledDoctorId;
+    _selectedDoctorName = widget.prefilledDoctorName;
+    _bootstrapDoctorsAndSlots();
   }
 
   @override
   void dispose() {
     _nameCtrl.dispose();
-    _phoneCtrl.dispose();
     _notesCtrl.dispose();
+    _patientDebounce?.cancel();
+    _patientFocus.dispose();
     super.dispose();
   }
 
-  List<String> get _bookedSlots => _store.getBookedSlotsForDate(_date);
+  void _onPatientQueryChanged(String q) {
+    if (widget.prefilledPatientId != null) return;
+    _selectedPatientId = null;
+    _selectedPatientPhone = null;
+    _selectedPatientName = null;
+    _patientDebounce?.cancel();
+    final query = q.trim();
+    if (query.isEmpty) {
+      setState(() {
+        _loadingPatients = false;
+        _patientResults = const [];
+      });
+      return;
+    }
+    _patientDebounce = Timer(const Duration(milliseconds: 220), () async {
+      if (!mounted) return;
+      setState(() => _loadingPatients = true);
+      try {
+        final results = await _patientRepo.search(query);
+        if (!mounted) return;
+        setState(() {
+          _patientResults = results;
+          _loadingPatients = false;
+        });
+      } catch (_) {
+        if (!mounted) return;
+        setState(() => _loadingPatients = false);
+      }
+    });
+  }
+
+  void _selectPatient(Patient p) {
+    setState(() {
+      _selectedPatientId = p.id;
+      _selectedPatientName = p.fullName.isNotEmpty ? p.fullName : p.firstName;
+      _selectedPatientPhone = p.phone;
+      _patientResults = const [];
+      _loadingPatients = false;
+    });
+    _nameCtrl.text = _selectedPatientName ?? '';
+    _patientFocus.unfocus();
+  }
+
+  Future<void> _bootstrapDoctorsAndSlots() async {
+    // If doctor is fixed, just load slots.
+    if (widget.prefilledDoctorId != null) {
+      await _loadBookedForDoctorDay();
+      return;
+    }
+    setState(() => _loadingDoctors = true);
+    try {
+      final docs = await _staffService.getStaff();
+      if (!mounted) return;
+      setState(() {
+        _doctors = docs;
+        _loadingDoctors = false;
+        if (_selectedDoctorId == null && docs.isNotEmpty) {
+          _selectedDoctorId = docs.first.id;
+          _selectedDoctorName = docs.first.name;
+        }
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingDoctors = false);
+    }
+    await _loadBookedForDoctorDay();
+  }
+
+  Future<void> _loadBookedForDoctorDay() async {
+    final did = _selectedDoctorId;
+    if (did == null || did.isEmpty) return;
+    setState(() => _loadingSlots = true);
+    try {
+      final all = await _repo.getForDoctor(did);
+      final day = all.where((a) =>
+          a.date.year == _date.year &&
+          a.date.month == _date.month &&
+          a.date.day == _date.day &&
+          a.status != AppointmentStatus.cancelled &&
+          a.status != AppointmentStatus.rescheduled).toList();
+      if (!mounted) return;
+      setState(() {
+        _doctorDayAppts = day;
+        _loadingSlots = false;
+        if (_selectedSlot != null && _bookedSlots.contains(_selectedSlot)) {
+          _selectedSlot = null;
+        }
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadingSlots = false);
+    }
+  }
+
+  List<String> get _bookedSlots {
+    final bookedSlots = <String>[];
+    for (final a in _doctorDayAppts) {
+      final parts = a.timeSlot.split(':');
+      var h = int.parse(parts[0]);
+      var m = int.parse(parts[1]);
+      var remaining = a.duration;
+      while (remaining > 0) {
+        bookedSlots.add('${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}');
+        m += 30;
+        if (m >= 60) {
+          h += 1;
+          m -= 60;
+        }
+        remaining -= 30;
+      }
+    }
+    return bookedSlots;
+  }
 
   void _pickDate() async {
+    final today = _calendarDay(DateTime.now());
+    final safeInitial = _date.isBefore(today) ? today : _date;
     final picked = await showDatePicker(
       context: context,
-      initialDate: _date,
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
+      initialDate: safeInitial,
+      firstDate: today,
+      lastDate: today.add(const Duration(days: 365)),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -134,15 +295,15 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
     if (picked != null) {
       setState(() {
         _date = picked;
-        // Reset slot if it's now booked
-        if (_selectedSlot != null && _bookedSlots.contains(_selectedSlot)) {
+        if (_selectedSlot != null && _isSlotStartInPast(_date, _selectedSlot!)) {
           _selectedSlot = null;
         }
       });
+      await _loadBookedForDoctorDay();
     }
   }
 
-  void _save() {
+  Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedSlot == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -150,69 +311,89 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
       );
       return;
     }
+    if (_isSlotStartInPast(_date, _selectedSlot!)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('That time has already passed. Pick a future slot.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    if (_selectedDoctorId == null || _selectedDoctorId!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a doctor'), behavior: SnackBarBehavior.floating),
+      );
+      return;
+    }
+    if (_selectedPatientId == null || _selectedPatientId!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a patient'), behavior: SnackBarBehavior.floating),
+      );
+      return;
+    }
+    if (_selectedPatientPhone == null || _selectedPatientPhone!.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not load patient phone'), behavior: SnackBarBehavior.floating),
+      );
+      return;
+    }
 
     final id = 'appt_${DateTime.now().millisecondsSinceEpoch}';
-    final phone = _phoneCtrl.text.trim();
     final appt = Appointment(
       id: id,
-      patientId: widget.prefilledPatientId ?? 'manual_$phone',
-      patientName: _nameCtrl.text.trim(),
-      patientPhone: phone,
+      patientId: _selectedPatientId!,
+      patientName: _selectedPatientName ?? _nameCtrl.text.trim(),
+      patientPhone: _selectedPatientPhone!,
+      doctorId: _selectedDoctorId!,
       date: _date,
       timeSlot: _selectedSlot!,
       duration: _duration,
       type: _procedure,
-      doctorName: 'Dr. Amanda Foster',
+      doctorName: _selectedDoctorName ?? widget.prefilledDoctorName ?? 'Doctor',
       notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
     );
 
-    _store.addAppointment(appt);
-    NotificationService.instance.onAppointmentCreated(appt);
+    try {
+      final created = await _repo.book(appt);
+      NotificationService.instance.onAppointmentCreated(created);
+      if (!mounted) return;
 
-    // Auto-generate from treatment plan if enabled
-    if (_linkTreatmentPlan && _sittingCount > 1) {
-      _store.generateAppointmentsFromTreatmentPlan(
-        treatmentPlanId: 'tp_$id',
-        patientId: appt.patientId,
-        patientName: appt.patientName,
-        patientPhone: appt.patientPhone,
-        treatmentType: _procedure,
-        doctorName: 'Dr. Amanda Foster',
-        sittingCount: _sittingCount - 1, // -1 because we already added the first
-        frequencyDays: _frequencyDays,
-        startDate: _date.add(Duration(days: _frequencyDays)),
-        preferredTimeSlot: _selectedSlot!,
-        duration: _duration,
+      widget.onSaved();
+      Navigator.of(context).pop();
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Appointment scheduled!'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$e'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     }
-
-    widget.onSaved();
-    Navigator.of(context).pop();
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(_linkTreatmentPlan
-            ? 'Appointment + $_sittingCount treatment sittings scheduled!'
-            : 'Appointment scheduled!'),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     final booked = _bookedSlots;
+    final sheetHeight = MediaQuery.sizeOf(context).height * 0.92;
 
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.92,
-      ),
+    return SizedBox(
+      height: sheetHeight,
+      child: Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           // Handle
           Center(
@@ -228,7 +409,28 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Schedule Appointment', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600, color: _slate900)),
+                Row(
+                  children: [
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: _blue100.withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.event_available_outlined, color: _blue600, size: 20),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Schedule Appointment',
+                      style: GoogleFonts.lato(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: _slate900,
+                      ),
+                    ),
+                  ],
+                ),
                 IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close, color: _slate400)),
               ],
             ),
@@ -243,26 +445,103 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Patient name
-                    _label('Patient Name'),
-                    TextFormField(
-                      controller: _nameCtrl,
-                      readOnly: widget.prefilledPatientId != null,
-                      decoration: _inputDecor('Enter patient name'),
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
-                    ),
+                    // Doctor (required)
+                    _label('Doctor'),
+                    if (widget.prefilledDoctorId != null) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: _slate200),
+                          borderRadius: BorderRadius.circular(8),
+                          color: _slate50,
+                        ),
+                        child: Text(
+                          _selectedDoctorName ?? widget.prefilledDoctorName ?? 'Doctor',
+                          style: GoogleFonts.inter(fontSize: 14, color: _slate700),
+                        ),
+                      ),
+                    ] else if (_loadingDoctors) ...[
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 10),
+                        child: Center(
+                          child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                        ),
+                      ),
+                    ] else ...[
+                      DropdownButtonFormField<String>(
+                        key: ValueKey(_selectedDoctorId),
+                        initialValue: _selectedDoctorId,
+                        decoration: _inputDecor('Select doctor'),
+                        items: (_doctors ?? [])
+                            .map(
+                              (d) => DropdownMenuItem(
+                                value: d.id,
+                                child: Text(d.name, style: GoogleFonts.inter(fontSize: 14)),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: (v) async {
+                          final docs = _doctors ?? const <Staff>[];
+                          final selected = docs.where((d) => d.id == v).toList();
+                          setState(() {
+                            _selectedDoctorId = v;
+                            _selectedDoctorName = selected.isNotEmpty ? selected.first.name : null;
+                          });
+                          await _loadBookedForDoctorDay();
+                        },
+                      ),
+                    ],
                     const SizedBox(height: 16),
 
-                    // Phone
-                    _label('Phone Number'),
+                    // Patient (searchable dropdown)
+                    _label('Patient'),
                     TextFormField(
-                      controller: _phoneCtrl,
+                      controller: _nameCtrl,
+                      focusNode: _patientFocus,
                       readOnly: widget.prefilledPatientId != null,
-                      decoration: _inputDecor('+91 XXXXXXXXXX'),
-                      keyboardType: TextInputType.phone,
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                      onChanged: _onPatientQueryChanged,
+                      decoration: _inputDecor('Search patient by name or phone'),
+                      validator: (v) => (_selectedPatientId == null || _selectedPatientId!.isEmpty)
+                          ? 'Please select a patient'
+                          : null,
                     ),
-                    const SizedBox(height: 16),
+                    if (widget.prefilledPatientId == null) ...[
+                      const SizedBox(height: 8),
+                      if (_loadingPatients)
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 8),
+                          child: LinearProgressIndicator(minHeight: 2),
+                        ),
+                      if (_patientResults.isNotEmpty)
+                        Container(
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            border: Border.all(color: _slate200),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _patientResults.take(6).length,
+                            separatorBuilder: (_, _) => const Divider(height: 1),
+                            itemBuilder: (_, i) {
+                              final p = _patientResults[i];
+                              final name = p.fullName.isNotEmpty ? p.fullName : p.firstName;
+                              return ListTile(
+                                dense: true,
+                                title: Text(name, style: GoogleFonts.lato(fontWeight: FontWeight.w700, fontSize: 13)),
+                                subtitle: Text(p.phone, style: GoogleFonts.lato(fontSize: 12, color: _slate600)),
+                                onTap: () => _selectPatient(p),
+                              );
+                            },
+                          ),
+                        ),
+                      const SizedBox(height: 8),
+                    ] else ...[
+                      const SizedBox(height: 8),
+                    ],
 
                     // Date
                     _label('Date'),
@@ -326,26 +605,35 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
                     // Time slot picker
                     _label('Time Slot'),
                     const SizedBox(height: 4),
+                    if (_loadingSlots)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 10),
+                        child: Center(
+                          child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)),
+                        ),
+                      ),
                     Wrap(
                       spacing: 6,
                       runSpacing: 6,
                       children: _allTimeSlots.map((slot) {
                         final isBooked = booked.contains(slot);
+                        final isPast = _isSlotStartInPast(_date, slot);
+                        final blocked = isBooked || isPast;
                         final isSelected = _selectedSlot == slot;
                         return GestureDetector(
-                          onTap: isBooked ? null : () => setState(() => _selectedSlot = slot),
+                          onTap: blocked ? null : () => setState(() => _selectedSlot = slot),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 150),
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                             decoration: BoxDecoration(
-                              color: isBooked
+                              color: blocked
                                   ? _slate50
                                   : isSelected
                                       ? _blue600
                                       : Colors.white,
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: isBooked
+                                color: blocked
                                     ? _slate200
                                     : isSelected
                                         ? _blue600
@@ -357,7 +645,7 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
                               style: GoogleFonts.inter(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
-                                color: isBooked
+                                color: blocked
                                     ? _slate300
                                     : isSelected
                                         ? Colors.white
@@ -379,86 +667,7 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Treatment plan toggle
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: _blue100.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: _blue100),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.auto_awesome, size: 18, color: _blue600),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'Auto-schedule from Treatment Plan',
-                                  style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500, color: _slate900),
-                                ),
-                              ),
-                              Switch.adaptive(
-                                value: _linkTreatmentPlan,
-                                activeTrackColor: _blue600,
-                                onChanged: (v) => setState(() => _linkTreatmentPlan = v),
-                              ),
-                            ],
-                          ),
-                          if (_linkTreatmentPlan) ...[
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text('Total Sittings', style: GoogleFonts.inter(fontSize: 12, color: _slate500)),
-                                      const SizedBox(height: 4),
-                                      DropdownButtonFormField<int>(
-                                        initialValue: _sittingCount,
-                                        decoration: _inputDecor(''),
-                                        isDense: true,
-                                        items: List.generate(10, (i) => i + 2)
-                                            .map((n) => DropdownMenuItem(value: n, child: Text('$n')))
-                                            .toList(),
-                                        onChanged: (v) => setState(() => _sittingCount = v!),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text('Every', style: GoogleFonts.inter(fontSize: 12, color: _slate500)),
-                                      const SizedBox(height: 4),
-                                      DropdownButtonFormField<int>(
-                                        initialValue: _frequencyDays,
-                                        decoration: _inputDecor(''),
-                                        isDense: true,
-                                        items: const [
-                                          DropdownMenuItem(value: 3, child: Text('3 days')),
-                                          DropdownMenuItem(value: 5, child: Text('5 days')),
-                                          DropdownMenuItem(value: 7, child: Text('Weekly')),
-                                          DropdownMenuItem(value: 14, child: Text('Biweekly')),
-                                          DropdownMenuItem(value: 30, child: Text('Monthly')),
-                                        ],
-                                        onChanged: (v) => setState(() => _frequencyDays = v!),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 8),
 
                     // Save button
                     SizedBox(
@@ -467,7 +676,7 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
                         onPressed: _save,
                         icon: const Icon(Icons.check),
                         label: Text(
-                          _linkTreatmentPlan ? 'Schedule All Sittings' : 'Schedule Appointment',
+                          'Schedule Appointment',
                           style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
                         ),
                         style: ElevatedButton.styleFrom(
@@ -486,26 +695,27 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
           ),
         ],
       ),
+      ),
     );
   }
 
   Widget _label(String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: Text(text, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: _slate700)),
+      child: Text(text, style: GoogleFonts.lato(fontSize: 13, fontWeight: FontWeight.w600, color: _slate700)),
     );
   }
 
   InputDecoration _inputDecor(String hint) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: GoogleFonts.inter(fontSize: 14, color: _slate400),
+      hintStyle: GoogleFonts.lato(fontSize: 14, color: _slate400),
       filled: true,
       fillColor: _slate50,
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: _slate200)),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: _slate200)),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: _blue600, width: 1.5)),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: _slate200)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: _slate200)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: _blue600, width: 1.5)),
     );
   }
 }

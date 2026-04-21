@@ -14,6 +14,7 @@ class Appointment {
     required this.patientId,
     required this.patientName,
     required this.patientPhone,
+    this.doctorId = '',
     required this.date,
     required this.timeSlot,
     this.duration = 30,
@@ -32,6 +33,7 @@ class Appointment {
   final String patientId;
   final String patientName;
   final String patientPhone;
+  final String doctorId;
   final DateTime date;
 
   /// Time slot in 24-hour format, e.g. "09:00", "14:30".
@@ -56,6 +58,36 @@ class Appointment {
   final String? notes;
   final DateTime createdAt;
   final DateTime updatedAt;
+
+  /// `YYYY-MM-DD` for Postgres `date` (avoids timezone shifting the calendar day).
+  static String sqlDateOnly(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  /// Parse API `date` / timestamp into a local calendar [DateTime] at midnight.
+  static DateTime parseDateOnly(dynamic value) {
+    if (value == null) return DateTime.now();
+    final s = value.toString();
+    final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})').firstMatch(s);
+    if (m != null) {
+      return DateTime(int.parse(m[1]!), int.parse(m[2]!), int.parse(m[3]!));
+    }
+    final dt = DateTime.parse(s);
+    return DateTime(dt.year, dt.month, dt.day);
+  }
+
+  /// Start instant in local time from [date] (calendar day) + [timeSlot].
+  DateTime get startDateTime {
+    final parts = timeSlot.split(':');
+    final h = int.tryParse(parts.first) ?? 0;
+    final m = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
+    return DateTime(date.year, date.month, date.day, h, m);
+  }
+
+  /// True when cancel/reschedule must be disabled (less than 1 hour until [startDateTime]).
+  bool get isCancelRescheduleLocked {
+    final diffHours = startDateTime.difference(DateTime.now()).inMinutes / 60.0;
+    return diffHours < 1;
+  }
 
   /// Time slot end derived from [timeSlot] + [duration].
   String get timeSlotEnd {
@@ -106,6 +138,7 @@ class Appointment {
     String? patientId,
     String? patientName,
     String? patientPhone,
+    String? doctorId,
     DateTime? date,
     String? timeSlot,
     int? duration,
@@ -123,6 +156,7 @@ class Appointment {
       patientId: patientId ?? this.patientId,
       patientName: patientName ?? this.patientName,
       patientPhone: patientPhone ?? this.patientPhone,
+      doctorId: doctorId ?? this.doctorId,
       date: date ?? this.date,
       timeSlot: timeSlot ?? this.timeSlot,
       duration: duration ?? this.duration,
@@ -142,7 +176,8 @@ class Appointment {
         'patient_id': patientId,
         'patient_name': patientName,
         'patient_phone': patientPhone,
-        'date': date.toIso8601String(),
+        'doctor_id': doctorId,
+        'date': sqlDateOnly(date),
         'time_slot': timeSlot,
         'duration': duration,
         'type': type,
@@ -161,7 +196,8 @@ class Appointment {
       patientId: json['patient_id'] as String,
       patientName: json['patient_name'] as String,
       patientPhone: json['patient_phone'] as String,
-      date: DateTime.parse(json['date'] as String),
+      doctorId: json['doctor_id'] as String? ?? '',
+      date: parseDateOnly(json['date']),
       timeSlot: json['time_slot'] as String,
       duration: json['duration'] as int? ?? 30,
       type: json['type'] as String,

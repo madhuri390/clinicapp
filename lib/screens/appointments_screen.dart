@@ -3,7 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../models/appointment_model.dart';
-import '../services/appointment_store.dart';
+import '../repositories/appointment_repository.dart';
+import '../repositories/visit_detail_repository.dart';
+import '../services/auth_service.dart';
+import '../services/staff_service.dart';
 
 import '../widgets/add_appointment_sheet.dart';
 import '../widgets/cancel_appointment_sheet.dart';
@@ -37,20 +40,42 @@ const _allTimeSlots = [
   '18:00', '18:30',
 ];
 
+bool _calendarDayIsPast(DateTime day) {
+  final now = DateTime.now();
+  final t = DateTime(now.year, now.month, now.day);
+  final d = DateTime(day.year, day.month, day.day);
+  return d.isBefore(t);
+}
+
+bool _slotStartIsPastForDay(DateTime day, String slot) {
+  final parts = slot.split(':');
+  final h = int.parse(parts[0]);
+  final m = int.parse(parts[1]);
+  final start = DateTime(day.year, day.month, day.day, h, m);
+  return start.isBefore(DateTime.now());
+}
+
 /// Appointments screen with horizontal date scroller and time-block grid.
 class AppointmentsScreen extends StatefulWidget {
   const AppointmentsScreen({super.key});
 
   @override
-  State<AppointmentsScreen> createState() => _AppointmentsScreenState();
+  State<AppointmentsScreen> createState() => AppointmentsScreenState();
 }
 
-class _AppointmentsScreenState extends State<AppointmentsScreen>
+class AppointmentsScreenState extends State<AppointmentsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   late DateTime _selectedDate;
   late ScrollController _dateScrollController;
-  final AppointmentStore _store = AppointmentStore.instance;
+  final _repo = AppointmentRepository();
+  final _visitRepo = VisitDetailRepository();
+  final _staffService = StaffService.instance;
+  String? _doctorId;
+  String? _doctorName;
+  bool _loading = true;
+  String? _loadError;
+  List<Appointment> _appointments = [];
 
   /// 14-day window: 7 before today through 6 after.
   late List<DateTime> _dateRange;
@@ -61,12 +86,55 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
     _tabController = TabController(length: 4, vsync: this);
     _selectedDate = DateTime.now();
     _dateScrollController = ScrollController();
-    _store.seedIfNeeded();
     _buildDateRange();
+    _bootstrap();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scrollToSelectedDate();
     });
+  }
+
+  Future<void> _bootstrap() async {
+    if (mounted) setState(() { _loading = true; _loadError = null; });
+
+    // 1. Resolve doctor ID (critical – stop if not available).
+    try {
+      _doctorId = await _visitRepo.getDoctorIdForCurrentUser();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { _loading = false; _loadError = 'Could not load doctor profile: $e'; });
+      return;
+    }
+
+    if (_doctorId == null) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      return;
+    }
+
+    // 2. Resolve doctor display name (best-effort, never blocks appointments).
+    try {
+      final uid = AuthService.currentUser?.id;
+      if (uid != null) {
+        final staff = await _staffService.getStaff();
+        final me = staff.where((s) => s.authUserId == uid).toList();
+        _doctorName = me.isNotEmpty ? 'Dr. ${me.first.name}' : null;
+      }
+    } catch (_) {
+      // Name resolution failure must not prevent appointments from loading.
+    }
+
+    // 3. Load appointments.
+    try {
+      _appointments = await _repo.getForDoctor(_doctorId!);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { _loading = false; _loadError = 'Failed to load appointments: $e'; });
+      return;
+    }
+
+    if (!mounted) return;
+    setState(() => _loading = false);
   }
 
   void _buildDateRange() {
@@ -95,7 +163,14 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
     }
   }
 
-  List<Appointment> get _dayAppointments => _store.getAppointmentsForDate(_selectedDate);
+  List<Appointment> get _dayAppointments {
+    final d = _selectedDate;
+    return _appointments.where((a) =>
+        a.date.year == d.year &&
+        a.date.month == d.month &&
+        a.date.day == d.day).toList()
+      ..sort((a, b) => a.timeSlot.compareTo(b.timeSlot));
+  }
 
   @override
   void dispose() {
@@ -104,7 +179,11 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
     super.dispose();
   }
 
-  void _refresh() => setState(() {});
+  Future<void> _refresh() async => _bootstrap();
+
+  /// Called when the bottom-nav Appointments tab is selected so data stays in sync
+  /// (this screen lives in an [IndexedStack] and does not rebuild on tab switch).
+  Future<void> refreshFromServer() => _bootstrap();
 
   void _onDateSelected(DateTime date) {
     setState(() => _selectedDate = date);
@@ -117,6 +196,17 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
   }
 
   void _showAddAppointment() {
+    final did = _doctorId;
+    if (did == null) return;
+    if (_calendarDayIsPast(_selectedDate)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Bookings are only for today or future dates.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -124,37 +214,56 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
       builder: (_) => AddAppointmentSheet(
         selectedDate: _selectedDate,
         onSaved: _refresh,
+        prefilledDoctorId: did,
+        prefilledDoctorName: _doctorName ?? 'Doctor',
       ),
     );
   }
 
   void _showReschedule(Appointment appt) {
+    if (appt.isCancelRescheduleLocked) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Reschedule is only available until 1 hour before the visit.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => RescheduleSheet(
         appointment: appt,
-        onSaved: _refresh,
+        onSaved: () => _refresh(),
       ),
     );
   }
 
   void _showCancel(Appointment appt) {
+    if (appt.isCancelRescheduleLocked) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cancellation is only available until 1 hour before the visit.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => CancelAppointmentSheet(
         appointment: appt,
-        onSaved: _refresh,
+        onSaved: () => _refresh(),
       ),
     );
   }
 
   void _startAppointment(Appointment appt) {
-    _store.startAppointment(appt.id);
-    _refresh();
+    _repo.markOngoing(appt.id).then((_) => _refresh());
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('${appt.patientName}\'s appointment started'),
@@ -164,8 +273,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
   }
 
   void _completeAppointment(Appointment appt) {
-    _store.completeAppointment(appt.id);
-    _refresh();
+    _repo.markCompleted(appt.id).then((_) => _refresh());
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('${appt.patientName}\'s appointment completed'),
@@ -176,6 +284,92 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // Show a recoverable error screen with a retry button.
+    if (_loadError != null) {
+      return Scaffold(
+        backgroundColor: _slate50,
+        appBar: AppBar(
+          title: Text('Schedule', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+          backgroundColor: _blue600,
+          foregroundColor: Colors.white,
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.cloud_off_outlined, size: 64, color: _slate300),
+                const SizedBox(height: 16),
+                Text(
+                  'Could not load appointments',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(fontSize: 17, fontWeight: FontWeight.w600, color: _slate900),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _loadError!,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(fontSize: 13, color: _slate500, height: 1.4),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  onPressed: _refresh,
+                  icon: const Icon(Icons.refresh),
+                  label: Text('Retry', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _blue600,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_doctorId == null) {
+      return Scaffold(
+        backgroundColor: _slate50,
+        appBar: AppBar(
+          title: Text('Schedule', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+          backgroundColor: _blue600,
+          foregroundColor: Colors.white,
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.medical_information_outlined, size: 64, color: _slate300),
+                const SizedBox(height: 16),
+                Text(
+                  'No doctor profile linked',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(fontSize: 17, fontWeight: FontWeight.w600, color: _slate900),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Your account needs a linked doctor record to load and manage appointments. Contact an administrator if this is unexpected.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(fontSize: 14, color: _slate500, height: 1.4),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     final all = _dayAppointments;
     final upcoming = all.where((a) => a.status == AppointmentStatus.scheduled).toList();
     final completed = all.where((a) => a.status == AppointmentStatus.completed).toList();
@@ -195,12 +389,23 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
           controller: _tabController,
           children: [
             _TimeBlockView(
+              selectedDate: _selectedDate,
               appointments: all.where((a) => a.status != AppointmentStatus.rescheduled).toList(),
               onReschedule: _showReschedule,
               onCancel: _showCancel,
               onStart: _startAppointment,
               onComplete: _completeAppointment,
+              onRefresh: _refresh,
               onAddAtSlot: (slot) {
+                if (_calendarDayIsPast(_selectedDate) || _slotStartIsPastForDay(_selectedDate, slot)) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('You can only book future time slots.'),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                  return;
+                }
                 showModalBottomSheet<void>(
                   context: context,
                   isScrollControlled: true,
@@ -221,6 +426,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
               onCancel: _showCancel,
               onStart: _startAppointment,
               onComplete: _completeAppointment,
+              onRefresh: _refresh,
             ),
             _AppointmentListView(
               appointments: completed,
@@ -230,6 +436,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
               onCancel: _showCancel,
               onStart: _startAppointment,
               onComplete: _completeAppointment,
+              onRefresh: _refresh,
             ),
             _AppointmentListView(
               appointments: cancelled,
@@ -239,6 +446,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
               onCancel: _showCancel,
               onStart: _startAppointment,
               onComplete: _completeAppointment,
+              onRefresh: _refresh,
             ),
           ],
         ),
@@ -246,7 +454,7 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 80),
         child: FloatingActionButton(
-          onPressed: _showAddAppointment,
+          onPressed: _calendarDayIsPast(_selectedDate) ? null : _showAddAppointment,
           backgroundColor: _blue600,
           child: const Icon(Icons.add, color: Colors.white, size: 24),
         ),
@@ -328,8 +536,11 @@ class _AppointmentsScreenState extends State<AppointmentsScreen>
         scrollController: _dateScrollController,
         appointmentCounts: {
           for (final d in _dateRange)
-            d: _store.getAppointmentsForDate(d)
+            d: _appointments
                 .where((a) =>
+                    a.date.year == d.year &&
+                    a.date.month == d.month &&
+                    a.date.day == d.day &&
                     a.status != AppointmentStatus.cancelled &&
                     a.status != AppointmentStatus.rescheduled)
                 .length,
@@ -530,93 +741,124 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
 
 class _TimeBlockView extends StatelessWidget {
   const _TimeBlockView({
+    required this.selectedDate,
     required this.appointments,
     required this.onReschedule,
     required this.onCancel,
     required this.onStart,
     required this.onComplete,
     required this.onAddAtSlot,
+    required this.onRefresh,
   });
 
+  final DateTime selectedDate;
   final List<Appointment> appointments;
   final void Function(Appointment) onReschedule;
   final void Function(Appointment) onCancel;
   final void Function(Appointment) onStart;
   final void Function(Appointment) onComplete;
   final void Function(String slot) onAddAtSlot;
+  final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context) {
     if (appointments.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+      final past = _calendarDayIsPast(selectedDate);
+      return RefreshIndicator(
+        onRefresh: onRefresh,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           children: [
-            Icon(Icons.event_busy, size: 56, color: _slate300),
-            const SizedBox(height: 12),
-            Text(
-              'No appointments for this day',
-              style: GoogleFonts.inter(fontSize: 15, color: _slate500),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Tap + to schedule one',
-              style: GoogleFonts.inter(fontSize: 13, color: _slate400),
+            SizedBox(
+              height: MediaQuery.of(context).size.height * 0.55,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.event_busy, size: 56, color: _slate300),
+                      const SizedBox(height: 12),
+                      Text(
+                        'No appointments for this day',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.inter(fontSize: 15, color: _slate500),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        past
+                            ? 'Past days are read-only. Choose today or a future date to add visits.'
+                            : 'Tap + to schedule one, or tap an empty time row.',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.inter(fontSize: 13, color: _slate400, height: 1.35),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ],
         ),
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(0, 0, 0, 120),
-      itemCount: _allTimeSlots.length,
-      itemBuilder: (context, i) {
-        final slot = _allTimeSlots[i];
-        final apptAtSlot = appointments.where((a) => a.timeSlot == slot).toList();
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      color: _blue600,
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(0, 0, 0, 120),
+        itemCount: _allTimeSlots.length,
+        itemBuilder: (context, i) {
+          final slot = _allTimeSlots[i];
+          final apptAtSlot = appointments.where((a) => a.timeSlot == slot).toList();
+          final dayPast = _calendarDayIsPast(selectedDate);
+          final slotPast = _slotStartIsPastForDay(selectedDate, slot);
+          final cannotAdd = dayPast || slotPast;
 
-        return Container(
-          decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: _slate100)),
-          ),
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Time label
-                SizedBox(
-                  width: 64,
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 8, left: 8),
-                    child: Text(
-                      Appointment.to12Hour(slot),
-                      style: GoogleFonts.inter(fontSize: 12, color: _slate400, fontWeight: FontWeight.w500),
+          return Container(
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: _slate100)),
+            ),
+            child: IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Time label
+                  SizedBox(
+                    width: 64,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 8, left: 8),
+                      child: Text(
+                        Appointment.to12Hour(slot),
+                        style: GoogleFonts.inter(fontSize: 12, color: _slate400, fontWeight: FontWeight.w500),
+                      ),
                     ),
                   ),
-                ),
-                // Vertical divider
-                Container(width: 1, color: _slate200),
-                // Appointment or empty slot
-                Expanded(
-                  child: apptAtSlot.isNotEmpty
-                      ? Column(
-                          children: apptAtSlot
-                              .map((a) => _AppointmentCard(
-                                    appointment: a,
-                                    onReschedule: onReschedule,
-                                    onCancel: onCancel,
-                                    onStart: onStart,
-                                    onComplete: onComplete,
-                                  ))
-                              .toList(),
-                        )
-                      : _EmptySlot(onTap: () => onAddAtSlot(slot)),
-                ),
-              ],
+                  // Vertical divider
+                  Container(width: 1, color: _slate200),
+                  // Appointment or empty slot
+                  Expanded(
+                    child: apptAtSlot.isNotEmpty
+                        ? Column(
+                            children: apptAtSlot
+                                .map((a) => _AppointmentCard(
+                                      appointment: a,
+                                      onReschedule: onReschedule,
+                                      onCancel: onCancel,
+                                      onStart: onStart,
+                                      onComplete: onComplete,
+                                    ))
+                                .toList(),
+                          )
+                        : _EmptySlot(onTap: cannotAdd ? null : () => onAddAtSlot(slot)),
+                  ),
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
@@ -624,20 +866,22 @@ class _TimeBlockView extends StatelessWidget {
 // ─── Empty slot ─────────────────────────────────────────────────────────────
 
 class _EmptySlot extends StatelessWidget {
-  const _EmptySlot({required this.onTap});
-  final VoidCallback onTap;
+  const _EmptySlot({this.onTap});
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
+    final child = Container(
+      height: 48,
+      alignment: Alignment.center,
+      child: Icon(Icons.add, size: 18, color: onTap != null ? _slate300 : _slate200),
+    );
+    if (onTap == null) return child;
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        child: Container(
-          height: 48,
-          alignment: Alignment.center,
-          child: Icon(Icons.add, size: 18, color: _slate300),
-        ),
+        child: child,
       ),
     );
   }
@@ -693,6 +937,7 @@ class _AppointmentCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final a = appointment;
+    final lockCancelReschedule = a.isCancelRescheduleLocked;
 
     return Container(
       margin: const EdgeInsets.fromLTRB(8, 4, 12, 4),
@@ -791,38 +1036,76 @@ class _AppointmentCard extends StatelessWidget {
             Row(
               children: [
                 if (a.status == AppointmentStatus.scheduled) ...[
-                  _ActionButton(
-                    label: 'Start',
-                    color: _green600,
-                    icon: Icons.play_arrow,
-                    onTap: () => onStart(a),
+                  Expanded(
+                    child: _ActionButton(
+                      label: 'Start',
+                      color: _green600,
+                      icon: Icons.play_arrow,
+                      onTap: () => onStart(a),
+                    ),
                   ),
                   const SizedBox(width: 8),
                 ],
                 if (a.status == AppointmentStatus.ongoing)
-                  _ActionButton(
-                    label: 'Complete',
-                    color: _green600,
-                    icon: Icons.check,
-                    onTap: () => onComplete(a),
+                  Expanded(
+                    child: _ActionButton(
+                      label: 'Complete',
+                      color: _green600,
+                      icon: Icons.check,
+                      onTap: () => onComplete(a),
+                    ),
                   ),
                 if (a.status == AppointmentStatus.ongoing)
                   const SizedBox(width: 8),
-                _ActionButton(
-                  label: 'Reschedule',
-                  color: _slate600,
-                  icon: Icons.schedule,
-                  onTap: () => onReschedule(a),
-                  outlined: true,
-                ),
+                if (lockCancelReschedule)
+                  Expanded(
+                    child: Tooltip(
+                      message: 'Available until 1 hour before the visit',
+                      child: _ActionButton(
+                        label: 'Reschedule',
+                        color: _slate600,
+                        icon: Icons.schedule,
+                        onTap: () => onReschedule(a),
+                        outlined: true,
+                        enabled: false,
+                      ),
+                    ),
+                  )
+                else
+                  Expanded(
+                    child: _ActionButton(
+                      label: 'Reschedule',
+                      color: _slate600,
+                      icon: Icons.schedule,
+                      onTap: () => onReschedule(a),
+                      outlined: true,
+                    ),
+                  ),
                 const SizedBox(width: 8),
-                _ActionButton(
-                  label: 'Cancel',
-                  color: _red500,
-                  icon: Icons.close,
-                  onTap: () => onCancel(a),
-                  outlined: true,
-                ),
+                if (lockCancelReschedule)
+                  Expanded(
+                    child: Tooltip(
+                      message: 'Available until 1 hour before the visit',
+                      child: _ActionButton(
+                        label: 'Cancel',
+                        color: _red500,
+                        icon: Icons.close,
+                        onTap: () => onCancel(a),
+                        outlined: true,
+                        enabled: false,
+                      ),
+                    ),
+                  )
+                else
+                  Expanded(
+                    child: _ActionButton(
+                      label: 'Cancel',
+                      color: _red500,
+                      icon: Icons.close,
+                      onTap: () => onCancel(a),
+                      outlined: true,
+                    ),
+                  ),
               ],
             ),
           ],
@@ -841,6 +1124,7 @@ class _ActionButton extends StatelessWidget {
     required this.icon,
     required this.onTap,
     this.outlined = false,
+    this.enabled = true,
   });
 
   final String label;
@@ -848,18 +1132,21 @@ class _ActionButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
   final bool outlined;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
+    return Opacity(
+      opacity: enabled ? 1 : 0.45,
       child: Material(
         color: outlined ? Colors.transparent : color,
         borderRadius: BorderRadius.circular(6),
         child: InkWell(
-          onTap: onTap,
+          onTap: enabled ? onTap : null,
           borderRadius: BorderRadius.circular(6),
           child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 6),
+            height: 30,
+            alignment: Alignment.center,
             decoration: outlined
                 ? BoxDecoration(
                     borderRadius: BorderRadius.circular(6),
@@ -869,16 +1156,23 @@ class _ActionButton extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                const SizedBox(width: 4),
                 Icon(icon, size: 14, color: outlined ? color : Colors.white),
                 const SizedBox(width: 4),
-                Text(
-                  label,
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: outlined ? color : Colors.white,
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      label,
+                      style: GoogleFonts.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: outlined ? color : Colors.white,
+                      ),
+                    ),
                   ),
                 ),
+                const SizedBox(width: 4),
               ],
             ),
           ),
@@ -899,6 +1193,7 @@ class _AppointmentListView extends StatelessWidget {
     required this.onCancel,
     required this.onStart,
     required this.onComplete,
+    required this.onRefresh,
   });
 
   final List<Appointment> appointments;
@@ -908,34 +1203,61 @@ class _AppointmentListView extends StatelessWidget {
   final void Function(Appointment) onCancel;
   final void Function(Appointment) onStart;
   final void Function(Appointment) onComplete;
+  final Future<void> Function() onRefresh;
 
   @override
   Widget build(BuildContext context) {
     if (appointments.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+      return RefreshIndicator(
+        onRefresh: onRefresh,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           children: [
-            Icon(emptyIcon, size: 56, color: _slate300),
-            const SizedBox(height: 12),
-            Text(
-              emptyMessage,
-              style: GoogleFonts.inter(fontSize: 15, color: _slate500),
+            SizedBox(
+              height: MediaQuery.of(context).size.height * 0.55,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(emptyIcon, size: 56, color: _slate300),
+                      const SizedBox(height: 12),
+                      Text(
+                        emptyMessage,
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.inter(fontSize: 15, color: _slate500),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Try another tab or pick a different day in the calendar.',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.inter(fontSize: 13, color: _slate400, height: 1.35),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ],
         ),
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(8, 8, 8, 120),
-      itemCount: appointments.length,
-      itemBuilder: (_, i) => _AppointmentCard(
-        appointment: appointments[i],
-        onReschedule: onReschedule,
-        onCancel: onCancel,
-        onStart: onStart,
-        onComplete: onComplete,
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      color: _blue600,
+      child: ListView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 120),
+        itemCount: appointments.length,
+        itemBuilder: (_, i) => _AppointmentCard(
+          appointment: appointments[i],
+          onReschedule: onReschedule,
+          onCancel: onCancel,
+          onStart: onStart,
+          onComplete: onComplete,
+        ),
       ),
     );
   }

@@ -6,9 +6,12 @@ import '../theme/app_theme.dart';
 
 /// Form screen to add a new patient with validation and scrollable layout.
 class PatientFormScreen extends StatefulWidget {
-  const PatientFormScreen({super.key, this.initialPatient});
+  const PatientFormScreen({super.key, this.initialPatient, this.appBarTitle});
 
   final Patient? initialPatient;
+
+  /// When set (e.g. patient portal), overrides the default "Edit Patient" title.
+  final String? appBarTitle;
 
   @override
   State<PatientFormScreen> createState() => _PatientFormScreenState();
@@ -122,7 +125,7 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
 
     try {
       final patient = Patient(
-        id: '',
+        id: _isEditing ? widget.initialPatient!.id : '',
         firstName: _firstNameController.text.trim(),
         lastName: _lastNameController.text.trim().isEmpty
             ? null
@@ -143,6 +146,8 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
         dentalHistory: _dentalHistoryController.text.trim().isEmpty
             ? null
             : _dentalHistoryController.text.trim(),
+        createdAt: _isEditing ? widget.initialPatient!.createdAt : null,
+        authUserId: _isEditing ? widget.initialPatient!.authUserId : null,
       );
       if (_isEditing) {
         await _repo.update(widget.initialPatient!.id, patient.toUpdateJson());
@@ -181,7 +186,8 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
         title: Text(
-          _isEditing ? 'Edit Patient' : 'Add Patient',
+          widget.appBarTitle ??
+              (_isEditing ? 'Edit Patient' : 'Add Patient'),
           style: const TextStyle(
             color: Colors.black87,
             fontWeight: FontWeight.w600,

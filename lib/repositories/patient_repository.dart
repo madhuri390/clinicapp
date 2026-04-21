@@ -19,6 +19,19 @@ class PatientRepository {
     return Patient.fromJson(data);
   }
 
+  /// Resolve the patient profile for the logged-in auth user.
+  /// Supports both schemas:
+  /// - `patients.auth_user_id == authUserId`
+  /// - `patients.id == authUserId` (legacy/demo)
+  Future<Patient?> getForAuthUser(String authUserId) async {
+    final data = await _db
+        .select()
+        .or('auth_user_id.eq.$authUserId,id.eq.$authUserId')
+        .maybeSingle();
+    if (data == null) return null;
+    return Patient.fromJson(data);
+  }
+
   Future<List<Patient>> search(String query) async {
     final q = query.trim().toLowerCase();
     if (q.isEmpty) return getAll();

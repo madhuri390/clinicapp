@@ -115,6 +115,7 @@ class _PatientListScreenState extends State<PatientListScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: null,
         onPressed: _onAddPatient,
         backgroundColor: AppTheme.primaryColor,
         icon: const Icon(Icons.person_add_outlined, color: Colors.white),
