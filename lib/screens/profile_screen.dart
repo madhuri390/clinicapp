@@ -66,8 +66,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 _buildContactCard(),
                 const SizedBox(height: 16),
                 _buildSettingsCard(context),
-                const SizedBox(height: 16),
-                _buildAccountCard(context),
                 const SizedBox(height: 24),
                 _buildAppInfo(),
               ]),
@@ -106,15 +104,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          IconButton(
-            onPressed: () => Navigator.of(context).pop(),
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            style: IconButton.styleFrom(
-              padding: EdgeInsets.zero,
-              minimumSize: const Size(40, 40),
-            ),
-          ),
-          const SizedBox(height: 12),
           Row(
             children: [
               // Gradient avatar circle
@@ -223,13 +212,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _SectionTitle(icon: Icons.settings_outlined, label: 'Settings'),
           const SizedBox(height: 8),
           _SettingsTile(
-            icon: Icons.tune_outlined,
-            title: 'General Settings',
-            subtitle: 'App preferences and configurations',
-            onTap: () => _toast(context, 'General Settings coming soon'),
-          ),
-          _divider(),
-          _SettingsTile(
             icon: Icons.people_outline,
             title: 'Manage Staff',
             subtitle: 'Add and manage staff members',
@@ -238,40 +220,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 MaterialPageRoute(builder: (_) => const ManageStaffScreen()),
               );
             },
-          ),
-          _divider(),
-          _SettingsTile(
-            icon: Icons.shield_outlined,
-            title: 'Roles & Permissions',
-            subtitle: 'Manage user roles and access',
-            onTap: () => _toast(context, 'Roles & Permissions coming soon'),
-          ),
-          _divider(),
-          _SettingsTile(
-            icon: Icons.notifications_outlined,
-            title: 'Notifications',
-            subtitle: 'Configure notification preferences',
-            onTap: () => _toast(context, 'Notifications coming soon'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Account card ────────────────────────────────────────────────────────
-
-  Widget _buildAccountCard(BuildContext context) {
-    return _InfoCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SectionTitle(icon: Icons.person_outline, label: 'Account'),
-          const SizedBox(height: 8),
-          _SettingsTile(
-            icon: Icons.manage_accounts_outlined,
-            title: 'Account Settings',
-            subtitle: 'Update profile and password',
-            onTap: () => _toast(context, 'Account Settings coming soon'),
           ),
           _divider(),
           _SettingsTile(
@@ -353,12 +301,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   static Widget _divider() =>
       Divider(height: 1, color: const Color(0xFFEFF3F8));
-
-  static void _toast(BuildContext context, String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating),
-    );
-  }
 }
 
 // ── Shared components ────────────────────────────────────────────────────
