@@ -132,49 +132,64 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
         centerTitle: false,
         iconTheme: IconThemeData(color: Colors.grey.shade700),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _SectionHeader(title: 'Medicines'),
-            const SizedBox(height: 12),
-            if (_medicines.isEmpty)
-              _EmptyMedicinesCard()
-            else
-              ..._medicines.map(
-                (m) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _MedicineCard(medicine: m),
-                ),
-              ),
-            const SizedBox(height: 24),
-            _SectionHeader(title: 'Add Medicine'),
-            const SizedBox(height: 12),
-            _AddMedicineFormCard(
-              formKey: _formKey,
-              nameController: _nameController,
-              dosageController: _dosageController,
-              durationController: _durationController,
-              instructionsController: _instructionsController,
-              onAdd: _onAddMedicine,
-            ),
-            const SizedBox(height: 24),
-            OutlinedButton.icon(
-              onPressed: _onGeneratePdf,
-              icon: const Icon(Icons.picture_as_pdf_outlined, size: 22),
-              label: const Text('Generate PDF'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.primaryColor,
-                side: const BorderSide(color: AppTheme.primaryColor),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _SectionHeader(title: 'Medicines'),
+                  const SizedBox(height: 12),
+                  if (_medicines.isEmpty)
+                    _EmptyMedicinesCard()
+                  else
+                    ..._medicines.map(
+                      (m) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _MedicineCard(medicine: m),
+                      ),
+                    ),
+                  const SizedBox(height: 24),
+                  _SectionHeader(title: 'Add Medicine'),
+                  const SizedBox(height: 12),
+                  _AddMedicineFormCard(
+                    formKey: _formKey,
+                    nameController: _nameController,
+                    dosageController: _dosageController,
+                    durationController: _durationController,
+                    instructionsController: _instructionsController,
+                    onAdd: _onAddMedicine,
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+          Material(
+            elevation: 8,
+            color: Colors.grey.shade50,
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: OutlinedButton.icon(
+                  onPressed: _onGeneratePdf,
+                  icon: const Icon(Icons.picture_as_pdf_outlined, size: 22),
+                  label: const Text('Generate PDF'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.primaryColor,
+                    side: const BorderSide(color: AppTheme.primaryColor),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../models/appointment_model.dart';
-import '../services/appointment_store.dart';
+import '../repositories/appointment_repository.dart';
 import '../services/notification_service.dart';
 
 // Colors
@@ -37,7 +37,7 @@ class CancelAppointmentSheet extends StatefulWidget {
 
 class _CancelAppointmentSheetState extends State<CancelAppointmentSheet> {
   final _messageCtrl = TextEditingController();
-  final _store = AppointmentStore.instance;
+  final _repo = AppointmentRepository();
 
   @override
   void dispose() {
@@ -45,7 +45,7 @@ class _CancelAppointmentSheetState extends State<CancelAppointmentSheet> {
     super.dispose();
   }
 
-  void _cancel() {
+  Future<void> _cancel() async {
     if (_messageCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -59,7 +59,16 @@ class _CancelAppointmentSheetState extends State<CancelAppointmentSheet> {
     final msg = _messageCtrl.text.trim();
     final appt = widget.appointment;
 
-    _store.cancelAppointment(id: appt.id, doctorMessage: msg);
+    try {
+      await _repo.cancelAsDoctor(appointment: appt, doctorMessage: msg);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), behavior: SnackBarBehavior.floating),
+      );
+      return;
+    }
+    if (!mounted) return;
 
     NotificationService.instance.onAppointmentCancelled(
       appt: appt,

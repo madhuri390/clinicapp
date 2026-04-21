@@ -26,11 +26,32 @@ class MainShell extends StatefulWidget {
 class MainShellState extends State<MainShell> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = const [
-    DashboardScreen(),
-    PatientListScreen(),
-    AppointmentsScreen(),
+  final GlobalKey<DashboardScreenState> _dashboardScreenKey =
+      GlobalKey<DashboardScreenState>();
+  final GlobalKey<AppointmentsScreenState> _appointmentsScreenKey =
+      GlobalKey<AppointmentsScreenState>();
+
+  late final List<Widget> _screens = [
+    DashboardScreen(key: _dashboardScreenKey),
+    const PatientListScreen(),
+    AppointmentsScreen(key: _appointmentsScreenKey),
   ];
+
+  void _refreshDashboardTabIfNeeded(int index) {
+    if (index != 0) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _dashboardScreenKey.currentState?.refreshFromServer();
+    });
+  }
+
+  void _refreshAppointmentsTabIfNeeded(int index) {
+    if (index != 2) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _appointmentsScreenKey.currentState?.refreshFromServer();
+    });
+  }
 
   final List<GlobalKey<NavigatorState>> _navigatorKeys = [
     GlobalKey<NavigatorState>(),
@@ -41,6 +62,8 @@ class MainShellState extends State<MainShell> {
   void setTabIndex(int index) {
     if (index < 0 || index >= _screens.length) return;
     setState(() => _currentIndex = index);
+    _refreshDashboardTabIfNeeded(index);
+    _refreshAppointmentsTabIfNeeded(index);
   }
 
   NavigatorState? getNavigatorForTab(int index) {
@@ -85,6 +108,8 @@ class MainShellState extends State<MainShell> {
               _navigatorKeys[i].currentState?.popUntil((r) => r.isFirst);
             } else {
               setState(() => _currentIndex = i);
+              _refreshDashboardTabIfNeeded(i);
+              _refreshAppointmentsTabIfNeeded(i);
             }
           },
         ),

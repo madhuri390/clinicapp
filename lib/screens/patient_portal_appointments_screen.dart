@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../models/appointment_model.dart';
-import '../services/appointment_store.dart';
+import '../repositories/appointment_repository.dart';
 import '../services/patient_session.dart';
 import '../theme/patient_portal_theme.dart';
 import '../widgets/add_appointment_sheet.dart';
@@ -20,19 +20,61 @@ class PatientPortalAppointmentsScreen extends StatefulWidget {
 
 class _PatientPortalAppointmentsScreenState
     extends State<PatientPortalAppointmentsScreen> {
-  final _store = AppointmentStore.instance;
+  final _repo = AppointmentRepository();
+  bool _loading = true;
+  List<Appointment> _mine = [];
+  String? _loadError;
 
-  void _refresh() => setState(() {});
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final pid = PatientSession.portalPatientId;
+    if (pid == null) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _loadError = null;
+    });
+    try {
+      final list = await _repo.getForPatient(pid);
+      if (!mounted) return;
+      setState(() {
+        _mine = list;
+        _loading = false;
+        _loadError = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadError = 'Could not load appointments. Pull to refresh or try again later.';
+      });
+    }
+  }
 
   void _book() {
     final pid = PatientSession.portalPatientId;
     final linked = PatientSession.linked;
     final name =
         PatientSession.portalPatientName ?? linked?.fullName ?? 'Patient';
-    final rawPhone = linked?.phone.trim() ?? '';
-    final safePhone = rawPhone.isNotEmpty ? rawPhone : '9999999999';
+    final phone = (linked?.phone ?? '').trim();
 
     if (pid == null) return;
+    if (phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Your profile is missing a phone number. Please update it first.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
 
     showModalBottomSheet<void>(
       context: context,
@@ -40,10 +82,10 @@ class _PatientPortalAppointmentsScreenState
       backgroundColor: Colors.transparent,
       builder: (_) => AddAppointmentSheet(
         selectedDate: DateTime.now(),
-        onSaved: _refresh,
+        onSaved: _load,
         prefilledPatientId: pid,
         prefilledPatientName: name,
-        prefilledPatientPhone: safePhone,
+        prefilledPatientPhone: phone,
       ),
     );
   }
@@ -156,7 +198,7 @@ class _PatientPortalAppointmentsScreenState
       );
     }
 
-    final mine = _store.getAppointmentsForPatient(pid);
+    final mine = _mine;
     final active = mine
         .where(
           (a) =>
@@ -179,10 +221,136 @@ class _PatientPortalAppointmentsScreenState
         .toList()
       ..sort((a, b) => b.date.compareTo(a.date));
 
-    final topInset = MediaQuery.paddingOf(context).top;
-
     return Scaffold(
       backgroundColor: PatientPortalTheme.surface,
+      body: RefreshIndicator(
+        onRefresh: _load,
+        color: PatientPortalTheme.skyBlue,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  MediaQuery.paddingOf(context).top + 16,
+                  20,
+                  8,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const PatientPortalLogo(height: 44),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Appointments',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 26,
+                              fontWeight: FontWeight.w800,
+                              color: PatientPortalTheme.textPrimary,
+                              letterSpacing: -0.6,
+                            ),
+                          ),
+                          Text(
+                            'Book and review your visits',
+                            style: PatientPortalTheme.body(context),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            if (_loadError != null)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                  child: Material(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(16),
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.error_outline_rounded, color: Colors.red.shade700, size: 22),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _loadError!,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.red.shade900,
+                                height: 1.35,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  Text('Upcoming', style: PatientPortalTheme.titleMedium(context)),
+                  const SizedBox(height: 12),
+                  if (_loading)
+                    const Padding(
+                      padding: EdgeInsets.only(bottom: 12),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (active.isEmpty)
+                    _AppointmentEmptyCard(
+                      icon: Icons.event_available_rounded,
+                      title: 'No upcoming visits',
+                      subtitle: 'Tap Book visit to choose a doctor and time.',
+                    )
+                  else
+                    ...active.map(
+                      (a) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _AppointmentCard(
+                          appointment: a,
+                          onTap: () => _showDetails(a),
+                        ),
+                      ),
+                    ),
+                  if (!_loading) ...[
+                    const SizedBox(height: 28),
+                    Text('Past & other', style: PatientPortalTheme.titleMedium(context)),
+                    const SizedBox(height: 12),
+                    if (past.isEmpty)
+                      _AppointmentEmptyCard(
+                        icon: Icons.history_rounded,
+                        title: 'No past appointments yet',
+                        subtitle: 'Completed and cancelled visits will show up here.',
+                      )
+                    else
+                      ...past.map(
+                        (a) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _AppointmentCard(
+                            appointment: a,
+                            onTap: () => _showDetails(a),
+                          ),
+                        ),
+                      ),
+                  ],
+                ]),
+              ),
+            ),
+          ],
+        ),
+      ),
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: Material(
@@ -224,93 +392,65 @@ class _PatientPortalAppointmentsScreenState
           ),
         ),
       ),
-      body: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(20, topInset + 16, 20, 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const PatientPortalLogo(height: 44),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Appointments',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w800,
-                            color: PatientPortalTheme.textPrimary,
-                            letterSpacing: -0.6,
-                          ),
-                        ),
-                        Text(
-                          'Book and review your visits',
-                          style: PatientPortalTheme.body(context),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                Text('Upcoming', style: PatientPortalTheme.titleMedium(context)),
-                const SizedBox(height: 12),
-                if (active.isEmpty)
-                  const _EmptyLine('No upcoming appointments.')
-                else
-                  ...active.map(
-                    (a) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _AppointmentCard(
-                        appointment: a,
-                        onTap: () => _showDetails(a),
-                      ),
-                    ),
-                  ),
-                const SizedBox(height: 28),
-                Text('Past & other', style: PatientPortalTheme.titleMedium(context)),
-                const SizedBox(height: 12),
-                if (past.isEmpty)
-                  const _EmptyLine('No history yet.')
-                else
-                  ...past.map(
-                    (a) => Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _AppointmentCard(
-                        appointment: a,
-                        onTap: () => _showDetails(a),
-                      ),
-                    ),
-                  ),
-              ]),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
 
-class _EmptyLine extends StatelessWidget {
-  const _EmptyLine(this.text);
+class _AppointmentEmptyCard extends StatelessWidget {
+  const _AppointmentEmptyCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
 
-  final String text;
+  final IconData icon;
+  final String title;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(text, style: PatientPortalTheme.body(context)),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: PatientPortalTheme.skyBlue.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: PatientPortalTheme.skyBlue.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: PatientPortalTheme.skyBlue, size: 26),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                    color: PatientPortalTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  subtitle,
+                  style: PatientPortalTheme.body(context),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

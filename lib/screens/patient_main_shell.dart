@@ -7,6 +7,7 @@ import '../services/local_store.dart';
 import '../services/patient_session.dart';
 import '../theme/patient_portal_theme.dart';
 import '../widgets/patient_portal_logo.dart';
+import '../services/auth_service.dart';
 import 'patient_home_dashboard_screen.dart';
 import 'patient_portal_appointments_screen.dart';
 import 'patient_portal_care_screen.dart';
@@ -46,33 +47,21 @@ class _PatientMainShellState extends State<PatientMainShell> {
     AppointmentStore.instance.seedIfNeeded();
     final repo = PatientRepository();
     try {
-      final list = await repo.getAll();
-      if (list.isNotEmpty) {
-        final p = list.first;
-        final name = p.fullName.isNotEmpty ? p.fullName : p.firstName;
-        PatientSession.setPortal(
-          patientId: p.id,
-          displayName: name,
-          patient: p,
-        );
-        LocalStore.instance.seedOngoingForPatient(p.id);
-      } else {
-        const id = 'patient_portal_demo';
-        PatientSession.setPortal(
-          patientId: id,
-          displayName: 'Sarah Johnson',
-          patient: null,
-        );
-        LocalStore.instance.seedOngoingForPatient(id);
-      }
-    } catch (_) {
-      const id = 'patient_portal_demo';
+      final uid = AuthService.currentUser?.id;
+      if (uid == null) throw Exception('Not logged in');
+
+      final p = await repo.getForAuthUser(uid);
+      if (p == null) throw Exception('No patient profile linked to this login');
+
+      final name = p.fullName.isNotEmpty ? p.fullName : p.firstName;
       PatientSession.setPortal(
-        patientId: id,
-        displayName: 'Sarah Johnson',
-        patient: null,
+        patientId: p.id,
+        displayName: name,
+        patient: p,
       );
-      LocalStore.instance.seedOngoingForPatient(id);
+      LocalStore.instance.seedOngoingForPatient(p.id);
+    } catch (_) {
+      PatientSession.clear();
     }
     if (mounted) setState(() => _ready = true);
   }
