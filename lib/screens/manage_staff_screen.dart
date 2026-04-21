@@ -123,6 +123,7 @@ class _ManageStaffScreenState extends State<ManageStaffScreen> {
               ? _buildEmptyState()
               : _buildList(),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: null,
         onPressed: () => _showStaffForm(),
         backgroundColor: const Color(0xFF0D8DC4),
         icon: const Icon(Icons.add, color: Colors.white),

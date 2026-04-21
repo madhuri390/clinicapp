@@ -454,6 +454,7 @@ class AppointmentsScreenState extends State<AppointmentsScreen>
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 80),
         child: FloatingActionButton(
+          heroTag: null,
           onPressed: _calendarDayIsPast(_selectedDate) ? null : _showAddAppointment,
           backgroundColor: _blue600,
           child: const Icon(Icons.add, color: Colors.white, size: 24),

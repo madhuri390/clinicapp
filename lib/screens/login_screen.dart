@@ -19,7 +19,7 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailOrPhoneController = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   AppRole _selectedRole = AppRole.staff;
   bool _isLoading = false;
@@ -46,7 +46,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    _emailOrPhoneController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -67,21 +67,13 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _onSignIn() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final input = _emailOrPhoneController.text.trim();
+    final email = _emailController.text.trim();
     final password = _passwordController.text;
 
     setState(() => _isLoading = true);
     
     try {
-      if (input.contains('@')) {
-        await AuthService.signInWithEmail(email: input, password: password);
-      } else {
-        String phoneStr = input.replaceAll(RegExp(r'\D'), ''); // Strip non digits
-        if (!phoneStr.startsWith('+')) {
-          phoneStr = '+91$phoneStr'; // default formatting
-        }
-        await AuthService.signInWithPhone(phone: phoneStr, password: password);
-      }
+      await AuthService.signInWithEmail(email: email, password: password);
       
       await AppRoleService.setRole(_selectedRole);
       if (!mounted) return;
@@ -144,7 +136,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   LoginFormSection(
                     formKey: _formKey,
-                    emailOrPhoneController: _emailOrPhoneController,
+                    emailController: _emailController,
                     passwordController: _passwordController,
                     onSignIn: _onSignIn,
                     isLoading: _isLoading,

@@ -7,7 +7,7 @@ class LoginFormSection extends StatelessWidget {
   const LoginFormSection({
     super.key,
     required this.formKey,
-    required this.emailOrPhoneController,
+    required this.emailController,
     required this.passwordController,
     required this.onSignIn,
     required this.isLoading,
@@ -15,7 +15,7 @@ class LoginFormSection extends StatelessWidget {
   });
 
   final GlobalKey<FormState> formKey;
-  final TextEditingController emailOrPhoneController;
+  final TextEditingController emailController;
   final TextEditingController passwordController;
   final VoidCallback onSignIn;
   final bool isLoading;
@@ -50,7 +50,7 @@ class LoginFormSection extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _EmailOrPhoneField(controller: emailOrPhoneController),
+                _EmailField(controller: emailController),
                 const SizedBox(height: 14),
                 _PasswordField(controller: passwordController),
                 const SizedBox(height: 24),
@@ -66,8 +66,8 @@ class LoginFormSection extends StatelessWidget {
 
 // ── Fields ────────────────────────────────────────────────────────────────────
 
-class _EmailOrPhoneField extends StatelessWidget {
-  const _EmailOrPhoneField({required this.controller});
+class _EmailField extends StatelessWidget {
+  const _EmailField({required this.controller});
   final TextEditingController controller;
 
   @override
@@ -78,10 +78,10 @@ class _EmailOrPhoneField extends StatelessWidget {
       textInputAction: TextInputAction.next,
       style: GoogleFonts.poppins(fontSize: 15, color: const Color(0xFF263238)),
       decoration: InputDecoration(
-        hintText: 'Email or phone number',
+        hintText: 'Email address',
         hintStyle:
             GoogleFonts.poppins(fontSize: 14, color: Colors.grey.shade500),
-        prefixIcon: const Icon(Icons.person_outline),
+        prefixIcon: const Icon(Icons.email_outlined),
         filled: true,
         fillColor: Colors.grey.shade50,
         border: OutlineInputBorder(
@@ -101,19 +101,9 @@ class _EmailOrPhoneField extends StatelessWidget {
       ),
       validator: (v) {
         final s = v?.trim() ?? '';
-        if (s.isEmpty) return 'Enter email or phone number';
-        final hasLetters = RegExp(r'[a-zA-Z]').hasMatch(s);
-        if (hasLetters) {
-          // Treat as email attempt
-          final re = RegExp(
-              r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
-          if (!re.hasMatch(s)) return 'Enter a valid email address';
-        } else {
-          // Treat as phone attempt
-          if (s.replaceAll(RegExp(r'\D'), '').length < 10) {
-            return 'Enter a valid phone number';
-          }
-        }
+        if (s.isEmpty) return 'Enter your email address';
+        final re = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+        if (!re.hasMatch(s)) return 'Enter a valid email address';
         return null;
       },
     );

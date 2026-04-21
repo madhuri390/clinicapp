@@ -339,6 +339,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 80),
         child: FloatingActionButton(
+          heroTag: null,
           onPressed: () => setState(() => _showAddModal = true),
           backgroundColor: _blue600,
           child: const Icon(Icons.add, color: Colors.white, size: 24),

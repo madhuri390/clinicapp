@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/patient_model.dart';
 import '../repositories/patient_repository.dart';
+import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 
 /// Form screen to add a new patient with validation and scrollable layout.
@@ -26,6 +27,9 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
   final _medicalHistoryController = TextEditingController();
   final _dentalHistoryController = TextEditingController();
   final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+
+  bool _obscurePassword = true;
 
   List<String> _medicalConditions = [];
   final _conditionInputController = TextEditingController();
@@ -93,6 +97,7 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
     _medicalHistoryController.dispose();
     _dentalHistoryController.dispose();
     _emailController.dispose();
+    _passwordController.dispose();
     _conditionInputController.dispose();
     super.dispose();
   }
@@ -124,16 +129,51 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
     setState(() => _saving = true);
 
     try {
+      String patientId = _isEditing ? widget.initialPatient!.id : '';
+      String? authUserId = _isEditing ? widget.initialPatient!.authUserId : null;
+
+      final email = _emailController.text.trim();
+      final phone = _phoneController.text.trim();
+      final password = _passwordController.text;
+
+      // ── Step 1: Handle Auth (Create or Update) ───────────────────────────
+      // We do this BEFORE the SQL update so that if email is taken, 
+      // we don't save inconsistent data to our patients table.
+      
+      if (!_isEditing || authUserId == null) {
+        // CASE A: NEW PATIENT OR UPGRADING EXISTING PATIENT TO PORTAL
+        // Create the auth user first
+        final newAuthId = await AuthService.adminCreateUser(
+          email: email,
+          phone: phone,
+          password: password,
+        );
+        authUserId = newAuthId;
+        // If it was a new patient, the SQL ID will also be this.
+        // If it was an edit of an existing patient who lacked an ID, 
+        // we keep the patientId as is but update the authUserId field.
+        if (!_isEditing) {
+          patientId = newAuthId;
+        }
+      } else {
+        // CASE B: UPDATING EXISTING PATIENT WHO ALREADY HAS AUTH
+        await AuthService.adminUpdateUser(
+          userId: authUserId,
+          email: email,
+          phone: phone,
+          password: password.isEmpty ? null : password,
+        );
+      }
+
+      // ── Step 2: Build and Save SQL Record ─────────────────────────────────
       final patient = Patient(
-        id: _isEditing ? widget.initialPatient!.id : '',
+        id: patientId,
         firstName: _firstNameController.text.trim(),
         lastName: _lastNameController.text.trim().isEmpty
             ? null
             : _lastNameController.text.trim(),
-        phone: _phoneController.text.trim(),
-        email: _emailController.text.trim().isEmpty
-            ? null
-            : _emailController.text.trim(),
+        phone: phone,
+        email: email,
         gender: _gender,
         dateOfBirth: _dateOfBirth,
         bloodGroup: _bloodGroup,
@@ -147,12 +187,14 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
             ? null
             : _dentalHistoryController.text.trim(),
         createdAt: _isEditing ? widget.initialPatient!.createdAt : null,
-        authUserId: _isEditing ? widget.initialPatient!.authUserId : null,
+        authUserId: authUserId,
       );
+
       if (_isEditing) {
         await _repo.update(widget.initialPatient!.id, patient.toUpdateJson());
       } else {
-        await _repo.create(patient);
+        // Use upsert for new patients so ID matches Auth
+        await _repo.upsert(patient);
       }
 
       if (!mounted) return;
@@ -168,9 +210,13 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
+      String errorMsg = e.toString();
+      if (errorMsg.startsWith('Exception: ')) {
+        errorMsg = errorMsg.replaceFirst('Exception: ', '');
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to save: $e'),
+          content: Text('Failed to save: $errorMsg'),
           backgroundColor: Colors.red.shade600,
           behavior: SnackBarBehavior.floating,
         ),
@@ -249,17 +295,14 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
               },
               validator: (v) {
                 final phone = v?.trim() ?? '';
-                final email = _emailController.text.trim();
                 
-                if (phone.isEmpty && email.isEmpty) {
-                  return 'Phone or Email is required';
+                if (phone.isEmpty) {
+                  return 'Phone number is required';
                 }
                 
-                if (phone.isNotEmpty) {
-                  final phoneRegex = RegExp(r'^\+?[0-9]{7,15}$');
-                  if (!phoneRegex.hasMatch(phone)) {
-                    return 'Enter a valid phone number';
-                  }
+                final phoneRegex = RegExp(r'^\+?[0-9]{7,15}$');
+                if (!phoneRegex.hasMatch(phone)) {
+                  return 'Enter a valid phone number';
                 }
                 return null;
               },
@@ -274,25 +317,22 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
                 _formKey.currentState?.validate();
               },
               decoration: const InputDecoration(
-                labelText: 'Email Address',
+                labelText: 'Email Address *',
                 hintText: 'Enter email address',
                 prefixIcon: Icon(Icons.email_outlined),
               ),
               validator: (v) {
                 final email = v?.trim() ?? '';
-                final phone = _phoneController.text.trim();
 
-                if (email.isEmpty && phone.isEmpty) {
-                  return 'Phone or Email is required';
+                if (email.isEmpty) {
+                  return 'Email address is required';
                 }
 
-                if (email.isNotEmpty) {
-                  final emailRegex = RegExp(
-                    r'^[a-zA-Z0-9.]+@[a-zA-Z0-9]+\.[a-zA-Z]+',
-                  );
-                  if (!emailRegex.hasMatch(email)) {
-                    return 'Enter a valid email address';
-                  }
+                final emailRegex = RegExp(
+                  r'^[a-zA-Z0-9.]+@[a-zA-Z0-9]+\.[a-zA-Z]+',
+                );
+                if (!emailRegex.hasMatch(email)) {
+                  return 'Enter a valid email address';
                 }
                 return null;
               },
@@ -372,11 +412,57 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
                 alignLabelWithHint: true,
               ),
             ),
+            const SizedBox(height: 24),
+            _SectionHeader(
+              title: _isEditing ? 'Portal Access' : 'Portal Access *',
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _isEditing
+                  ? 'Leave blank to keep the current password.'
+                  : 'Set a password so this patient can log in to the portal.',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _passwordController,
+              obscureText: _obscurePassword,
+              decoration: InputDecoration(
+                labelText: _isEditing ? 'New Password' : 'Password *',
+                hintText: _isEditing ? 'Enter new password to change' : 'Min. 6 characters',
+                prefixIcon: const Icon(Icons.lock_outline),
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscurePassword
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                    color: Colors.grey.shade600,
+                  ),
+                  onPressed: () =>
+                      setState(() => _obscurePassword = !_obscurePassword),
+                ),
+              ),
+              validator: (v) {
+                final val = v?.trim() ?? '';
+                final currentAuthId = widget.initialPatient?.authUserId;
+                
+                // Password is required if this is a new patient OR 
+                // if it's an existing patient who doesn't have an Auth record yet.
+                if (currentAuthId == null && val.isEmpty) {
+                  return 'Password is required to create portal access';
+                }
+                if (val.isNotEmpty && val.length < 6) {
+                  return 'Password must be at least 6 characters';
+                }
+                return null;
+              },
+            ),
             const SizedBox(height: 32),
           ],
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: null,
         onPressed: _saving ? null : _onSave,
         backgroundColor: AppTheme.primaryColor,
         foregroundColor: Colors.white,

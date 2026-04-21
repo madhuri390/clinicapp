@@ -1,9 +1,19 @@
+import 'dart:convert';
+
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Single source of truth for all authentication operations.
-/// Google and Apple use Supabase OAuth (browser flow); no native packages required.
 class AuthService {
   static final _client = Supabase.instance.client;
+
+  /// Lazily resolved service role key from .env (admin operations only).
+  static String get _serviceRoleKey =>
+      dotenv.env['SUPABASE_SERVICE_ROLE_KEY'] ?? '';
+
+  static String get _supabaseUrl =>
+      dotenv.env['SUPABASE_URL'] ?? '';
 
   // ── Getters ──────────────────────────────────────────────────────────────
 
@@ -91,6 +101,97 @@ class AuthService {
   // ── Sign Out ──────────────────────────────────────────────────────────────
 
   static Future<void> signOut() => _client.auth.signOut();
+
+  // ── Admin: Create User (no email confirmation) ────────────────────────────
+
+  /// Creates a new auth user via the Admin API (bypasses email confirmation).
+  /// Requires SUPABASE_SERVICE_ROLE_KEY in .env.
+  /// Returns the new user's UUID.
+  static Future<String> adminCreateUser({
+    String? email,
+    String? phone,
+    required String password,
+  }) async {
+    assert(email != null || phone != null, 'email or phone required');
+    final url = '$_supabaseUrl/auth/v1/admin/users';
+    final body = <String, dynamic>{
+      'password': password,
+      'email_confirm': true,  // skip confirmation
+      'phone_confirm': true,
+    };
+    if (email != null && email.isNotEmpty) body['email'] = email;
+    if (phone != null && phone.isNotEmpty) body['phone'] = phone;
+
+    print('[AuthService] adminCreateUser: Sending POST request to $url');
+    print('[AuthService] adminCreateUser: Body: ${jsonEncode(body)}');
+    // Ensure service key is set properly
+    final keyPreview = _serviceRoleKey.length > 10 ? '${_serviceRoleKey.substring(0, 10)}...' : _serviceRoleKey;
+    print('[AuthService] adminCreateUser: Using Service Key: $keyPreview (length: ${_serviceRoleKey.length})');
+
+    final response = await http.post(
+      Uri.parse(url),
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': _serviceRoleKey,
+        'Authorization': 'Bearer $_serviceRoleKey',
+      },
+      body: jsonEncode(body),
+    );
+
+    print('[AuthService] adminCreateUser: Response Status: ${response.statusCode}');
+    print('[AuthService] adminCreateUser: Response Body: ${response.body}');
+
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      final decoded = jsonDecode(response.body) as Map<String, dynamic>?;
+      final msg = decoded?['msg'] ?? decoded?['message'] ?? response.body;
+      print('[AuthService] Error in adminCreateUser: $msg');
+      throw Exception('Failed to create auth user: $msg');
+    }
+
+    final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+    return decoded['id'] as String;
+  }
+
+  // ── Admin: Update User ───────────────────────────────────────────────────
+
+  /// Updates the email, phone, or password for any auth user by their UUID.
+  /// Requires SUPABASE_SERVICE_ROLE_KEY in .env.
+  static Future<void> adminUpdateUser({
+    required String userId,
+    String? email,
+    String? phone,
+    String? password,
+  }) async {
+    final url = '$_supabaseUrl/auth/v1/admin/users/$userId';
+    print('[AuthService] adminUpdateUser: PUT request to $url');
+    
+    final body = <String, dynamic>{};
+    if (email != null && email.isNotEmpty) body['email'] = email;
+    if (phone != null && phone.isNotEmpty) body['phone'] = phone;
+    if (password != null && password.isNotEmpty) body['password'] = password;
+
+    if (body.isEmpty) return; // Nothing to update
+
+    final response = await http.put(
+      Uri.parse(url),
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': _serviceRoleKey,
+        'Authorization': 'Bearer $_serviceRoleKey',
+      },
+      body: jsonEncode(body),
+    );
+
+    print('[AuthService] adminUpdateUser: Response Status: ${response.statusCode}');
+    print('[AuthService] adminUpdateUser: Response Body: ${response.body}');
+
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      final decoded = jsonDecode(response.body) as Map<String, dynamic>?;
+      final msg = decoded?['msg'] ?? decoded?['message'] ?? response.body;
+      print('[AuthService] Error in adminUpdateUser: $msg');
+      throw Exception('Failed to update auth user: $msg');
+    }
+  }
 
   // ── Test helper ──────────────────────────────────────────────────────────
 
