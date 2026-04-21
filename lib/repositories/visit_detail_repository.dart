@@ -20,7 +20,7 @@ class VisitDetailRepository {
     diagnosis, notes, next_visit_date, status, created_at,
     doctors ( id, first_name, last_name ),
     treatment_plans (
-      id, visit_id, treatment_name, description, total_cost, status, created_at,
+      id, visit_id, treatment_name, description, teeth, total_cost, status, created_at,
       sittings (
         id, visit_id, treatment_plan_id, sitting_date,
         duration_str, notes, cost, status, created_at

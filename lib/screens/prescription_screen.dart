@@ -22,7 +22,10 @@ class _Medicine {
 
 /// Prescription management screen: list of medicines, add form, Generate PDF (UI only).
 class PrescriptionScreen extends StatefulWidget {
-  const PrescriptionScreen({super.key});
+  const PrescriptionScreen({super.key, this.visitId});
+
+  /// When provided, Generate PDF will pull all data from Supabase for this visit.
+  final String? visitId;
 
   @override
   State<PrescriptionScreen> createState() => _PrescriptionScreenState();
@@ -99,15 +102,24 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
   }
 
   Future<void> _onGeneratePdf() async {
-    final medicinesMap = _medicines.map((m) => {
-      'name': m.name,
-      'dosage': m.dosage,
-      'duration': m.duration,
-      'instructions': m.instructions,
-    }).toList();
+    final vid = widget.visitId;
+    if (vid != null && vid.isNotEmpty) {
+      await PdfGeneratorService.generatePrescriptionPdfForVisit(visitId: vid);
+      return;
+    }
+
+    // Fallback (legacy demo screen mode).
+    final medicinesMap = _medicines
+        .map((m) => {
+              'name': m.name,
+              'dosage': m.dosage,
+              'duration': m.duration,
+              'instructions': m.instructions,
+            })
+        .toList();
 
     await PdfGeneratorService.generatePrescriptionPdf(
-      patientName: 'John Doe', // Currently mocked in screen, but you can pass dynamic patient names
+      patientName: 'Patient',
       visitDate: DateTime.now(),
       medicines: medicinesMap,
     );

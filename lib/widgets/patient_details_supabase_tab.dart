@@ -512,6 +512,7 @@ class _TreatmentSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final status = treatment.status ?? 'planned';
     final hasCost = (treatment.totalCost ?? 0) > 0;
+    final teeth = (treatment.teeth ?? '').trim();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -561,6 +562,14 @@ class _TreatmentSection extends StatelessWidget {
               style: GoogleFonts.lato(fontSize: 11, color: kRefMuted),
             ),
           ),
+          if (teeth.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                'Teeth: $teeth',
+                style: GoogleFonts.lato(fontSize: 11, color: kRefMuted),
+              ),
+            ),
           // Sittings grouped under this treatment
           if (sittings.isNotEmpty) ...[
             const SizedBox(height: 8),
@@ -1076,6 +1085,7 @@ class _AddTreatmentForm extends StatefulWidget {
 class _AddTreatmentFormState extends State<_AddTreatmentForm> {
   final _nameCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
+  final _teethCtrl = TextEditingController();
   final _costCtrl = TextEditingController();
   List<TreatmentTemplate>? _templates;
   TreatmentTemplate? _selected;
@@ -1101,6 +1111,7 @@ class _AddTreatmentFormState extends State<_AddTreatmentForm> {
   void dispose() {
     _nameCtrl.dispose();
     _descCtrl.dispose();
+    _teethCtrl.dispose();
     _costCtrl.dispose();
     super.dispose();
   }
@@ -1110,6 +1121,7 @@ class _AddTreatmentFormState extends State<_AddTreatmentForm> {
       _selected = t;
       _nameCtrl.text = t.name;
       _descCtrl.text = t.description ?? '';
+      // Teeth are visit-specific; keep blank on template selection.
       _costCtrl.text = t.defaultCost > 0 ? t.defaultCost.toStringAsFixed(0) : '';
     });
   }
@@ -1124,6 +1136,7 @@ class _AddTreatmentFormState extends State<_AddTreatmentForm> {
         visitId: widget.visitId,
         treatmentName: name,
         description: _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
+        teeth: _teethCtrl.text.trim().isEmpty ? null : _teethCtrl.text.trim(),
         totalCost: double.tryParse(_costCtrl.text.trim()) ?? 0,
         status: 'planned',
       );
@@ -1186,6 +1199,7 @@ class _AddTreatmentFormState extends State<_AddTreatmentForm> {
           const SizedBox(height: 8),
         ],
         _ModalField(controller: _nameCtrl, placeholder: 'Treatment name *'),
+        _ModalField(controller: _teethCtrl, placeholder: 'Teeth (e.g., 16, 18)', keyboardType: TextInputType.text),
         _ModalField(controller: _descCtrl, placeholder: 'Description (optional)'),
         _ModalField(controller: _costCtrl, placeholder: 'Cost (₹)', keyboardType: TextInputType.number),
         const SizedBox(height: 4),
@@ -1374,12 +1388,19 @@ class _AddPrescriptionForm extends StatefulWidget {
 class _AddPrescriptionFormState extends State<_AddPrescriptionForm> {
   final _nameCtrl = TextEditingController();
   final _dosageCtrl = TextEditingController();
+  final _durationCtrl = TextEditingController();
   final _instrCtrl = TextEditingController();
   late String _selectedTreatmentId;
   bool _saving = false;
 
   @override
-  void dispose() { _nameCtrl.dispose(); _dosageCtrl.dispose(); _instrCtrl.dispose(); super.dispose(); }
+  void dispose() {
+    _nameCtrl.dispose();
+    _dosageCtrl.dispose();
+    _durationCtrl.dispose();
+    _instrCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -1397,6 +1418,7 @@ class _AddPrescriptionFormState extends State<_AddPrescriptionForm> {
         treatmentPlanId: _selectedTreatmentId,
         medicineName: _nameCtrl.text.trim(),
         dosage: _dosageCtrl.text.trim().isEmpty ? null : _dosageCtrl.text.trim(),
+        duration: _durationCtrl.text.trim().isEmpty ? null : _durationCtrl.text.trim(),
         instructions: _instrCtrl.text.trim().isEmpty ? null : _instrCtrl.text.trim(),
       );
       await widget.repo.addPrescription(rx);
@@ -1453,6 +1475,7 @@ class _AddPrescriptionFormState extends State<_AddPrescriptionForm> {
         ],
         _ModalField(controller: _nameCtrl, placeholder: 'Medication name *'),
         _ModalField(controller: _dosageCtrl, placeholder: 'Dosage (e.g., 1-0-1)'),
+        _ModalField(controller: _durationCtrl, placeholder: 'Duration (e.g., 3 Days)'),
         _ModalField(controller: _instrCtrl, placeholder: 'Instructions', maxLines: 2),
         const SizedBox(height: 4),
         Row(
@@ -1818,7 +1841,7 @@ class _BillDialog extends StatelessWidget {
                     children: [
                       _BtnOutlineSm(
                         icon: Icons.picture_as_pdf_outlined,
-                        label: 'Generate PDF',
+                        label: 'Bill PDF',
                         onTap: () async {
                           final lineItems = <Map<String, dynamic>>[];
                           for (final t in detail.treatments) {
@@ -1844,6 +1867,16 @@ class _BillDialog extends StatelessWidget {
                             totalAmount: grandTotal,
                             paidAmount: paid,
                             balance: balance,
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 16),
+                      _BtnOutlineSm(
+                        icon: Icons.medication_outlined,
+                        label: 'Rx PDF',
+                        onTap: () async {
+                          await PdfGeneratorService.generatePrescriptionPdfForVisit(
+                            visitId: detail.visit.id,
                           );
                         },
                       ),
