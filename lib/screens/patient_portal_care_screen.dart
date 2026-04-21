@@ -5,7 +5,14 @@ import 'patient_details_screen.dart';
 
 /// Patient tab: same as doctor patient view without new consultation (handled in [PatientDetailsScreen]).
 class PatientPortalCareScreen extends StatelessWidget {
-  const PatientPortalCareScreen({super.key});
+  const PatientPortalCareScreen({
+    super.key,
+    required this.careNavSignal,
+    required this.careTargetTabResolver,
+  });
+
+  final ValueNotifier<int> careNavSignal;
+  final int Function() careTargetTabResolver;
 
   @override
   Widget build(BuildContext context) {
@@ -20,6 +27,8 @@ class PatientPortalCareScreen extends StatelessWidget {
       patientId: id,
       patientName: name,
       patientPortalMode: true,
+      careNavSignal: careNavSignal,
+      careTargetTabResolver: careTargetTabResolver,
     );
   }
 }

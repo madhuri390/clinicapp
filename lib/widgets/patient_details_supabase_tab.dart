@@ -243,11 +243,6 @@ class _VisitCard extends StatelessWidget {
                   label: 'Add Prescription',
                   onTap: () => _showAddPrescription(context, repo),
                 ),
-                _BtnOutlineSm(
-                  icon: Icons.payment_outlined,
-                  label: 'Add Payment',
-                  onTap: () => _showAddPayment(context, repo),
-                ),
               ],
             ),
           ],
@@ -379,22 +374,6 @@ class _VisitCard extends StatelessWidget {
         child: _AddPrescriptionForm(
           visitId: detail.visit.id,
           treatments: detail.treatments,
-          repo: repo,
-          onSaved: onRefresh,
-        ),
-      ),
-    );
-  }
-
-  void _showAddPayment(BuildContext context, VisitDetailRepository repo) {
-    showDialog(
-      context: context,
-      barrierColor: Colors.black54,
-      builder: (_) => _ModalDialog(
-        title: 'Add Payment',
-        icon: Icons.payment_outlined,
-        child: _AddPaymentForm(
-          visitId: detail.visit.id,
           repo: repo,
           onSaved: onRefresh,
         ),

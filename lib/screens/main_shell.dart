@@ -45,14 +45,6 @@ class MainShellState extends State<MainShell> {
     });
   }
 
-  void _refreshAppointmentsTabIfNeeded(int index) {
-    if (index != 2) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _appointmentsScreenKey.currentState?.refreshFromServer();
-    });
-  }
-
   final List<GlobalKey<NavigatorState>> _navigatorKeys = [
     GlobalKey<NavigatorState>(),
     GlobalKey<NavigatorState>(),
@@ -63,7 +55,6 @@ class MainShellState extends State<MainShell> {
     if (index < 0 || index >= _screens.length) return;
     setState(() => _currentIndex = index);
     _refreshDashboardTabIfNeeded(index);
-    _refreshAppointmentsTabIfNeeded(index);
   }
 
   NavigatorState? getNavigatorForTab(int index) {
@@ -109,7 +100,7 @@ class MainShellState extends State<MainShell> {
             } else {
               setState(() => _currentIndex = i);
               _refreshDashboardTabIfNeeded(i);
-              _refreshAppointmentsTabIfNeeded(i);
+              // Do not auto-refresh Appointments on every tab switch.
             }
           },
         ),
