@@ -14,10 +14,10 @@ class _Medicine {
   });
 
   final String id;
-  final String name;
-  final String dosage;
-  final String duration;
-  final String instructions;
+  String name;
+  String dosage;
+  String duration;
+  String instructions;
 }
 
 /// Prescription management screen: list of medicines, add form, Generate PDF (UI only).
@@ -71,6 +71,70 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
     _durationController.dispose();
     _instructionsController.dispose();
     super.dispose();
+  }
+
+  void _onEditMedicine(_Medicine medicine) {
+    final nameCtrl = TextEditingController(text: medicine.name);
+    final dosageCtrl = TextEditingController(text: medicine.dosage);
+    final durationCtrl = TextEditingController(text: medicine.duration);
+    final instructionsCtrl = TextEditingController(text: medicine.instructions);
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.viewInsetsOf(ctx).bottom),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text('Edit Medicine', style: Theme.of(ctx).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 16),
+              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Medicine name *', prefixIcon: Icon(Icons.medication_outlined))),
+              const SizedBox(height: 12),
+              TextField(controller: dosageCtrl, decoration: const InputDecoration(labelText: 'Dosage *', prefixIcon: Icon(Icons.science_outlined))),
+              const SizedBox(height: 12),
+              TextField(controller: durationCtrl, decoration: const InputDecoration(labelText: 'Duration *', prefixIcon: Icon(Icons.schedule_outlined))),
+              const SizedBox(height: 12),
+              TextField(controller: instructionsCtrl, maxLines: 2, decoration: const InputDecoration(labelText: 'Instructions *', alignLabelWithHint: true)),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () {
+                  if (nameCtrl.text.trim().isEmpty) return;
+                  setState(() {
+                    medicine.name = nameCtrl.text.trim();
+                    medicine.dosage = dosageCtrl.text.trim();
+                    medicine.duration = durationCtrl.text.trim();
+                    medicine.instructions = instructionsCtrl.text.trim();
+                  });
+                  Navigator.of(ctx).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('Medicine updated'),
+                      behavior: SnackBarBehavior.floating,
+                      backgroundColor: AppTheme.primaryColor,
+                    ),
+                  );
+                },
+                child: const Text('Save Changes'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _onAddMedicine() {
@@ -160,7 +224,10 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
                     ..._medicines.map(
                       (m) => Padding(
                         padding: const EdgeInsets.only(bottom: 10),
-                        child: _MedicineCard(medicine: m),
+                        child: _MedicineCard(
+                          medicine: m,
+                          onEdit: () => _onEditMedicine(m),
+                        ),
                       ),
                     ),
                   const SizedBox(height: 24),
@@ -253,9 +320,10 @@ class _EmptyMedicinesCard extends StatelessWidget {
 }
 
 class _MedicineCard extends StatelessWidget {
-  const _MedicineCard({required this.medicine});
+  const _MedicineCard({required this.medicine, required this.onEdit});
 
   final _Medicine medicine;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -295,12 +363,25 @@ class _MedicineCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      medicine.name,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Colors.black87,
-                            fontWeight: FontWeight.w600,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            medicine.name,
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: Colors.black87,
+                                  fontWeight: FontWeight.w600,
+                                ),
                           ),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.edit_outlined, size: 18, color: Colors.grey.shade500),
+                          onPressed: onEdit,
+                          constraints: const BoxConstraints(),
+                          padding: EdgeInsets.zero,
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 8),
                     _DetailRow(label: 'Dosage', value: medicine.dosage),

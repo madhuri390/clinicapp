@@ -18,6 +18,7 @@ class PatientHeader extends StatelessWidget {
     super.key,
     this.patient,
     required this.displayName,
+    this.onBack,
     this.onNewConsultation,
     this.onEdit,
     this.editTooltip = 'Edit Patient',
@@ -25,6 +26,7 @@ class PatientHeader extends StatelessWidget {
 
   final Patient? patient;
   final String displayName;
+  final VoidCallback? onBack;
   final VoidCallback? onNewConsultation;
   final VoidCallback? onEdit;
   final String editTooltip;
@@ -44,6 +46,16 @@ class PatientHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
+          if (onBack != null) ...[
+            IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new, size: 18),
+              onPressed: onBack,
+              color: kRefMuted,
+              constraints: const BoxConstraints(),
+              padding: const EdgeInsets.only(right: 8),
+              visualDensity: VisualDensity.compact,
+            ),
+          ],
           // Gradient avatar (48×48, borderRadius 28)
           Container(
             width: 48,
@@ -73,13 +85,16 @@ class PatientHeader extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(
-                      name,
-                      style: GoogleFonts.lato(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        color: kRefDark,
-                        height: 1.2,
+                    Flexible(
+                      child: Text(
+                        name,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.lato(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: kRefDark,
+                          height: 1.2,
+                        ),
                       ),
                     ),
                     if (onEdit != null)
@@ -127,7 +142,7 @@ class PatientHeader extends StatelessWidget {
                     const Icon(Icons.add_circle_outline, size: 16, color: Colors.white),
                     const SizedBox(width: 6),
                     Text(
-                      'New',
+                      'New Visit',
                       style: GoogleFonts.lato(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,

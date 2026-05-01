@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -175,12 +174,11 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
   Future<void> _showNewConsultationModal() async {
     debugPrint('[PatientDetails] Opening new consultation modal');
 
-    // onSave only does the DB insert; the dialog closes itself with result=true.
-    // We await the dialog here, so tab animation + refresh happen AFTER the
-    // dialog is fully dismissed — avoiding any navigator confusion.
-    final saved = await showDialog<bool>(
+    final saved = await showModalBottomSheet<bool>(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.45),
+      isScrollControlled: true,
+      useRootNavigator: true,
+      backgroundColor: Colors.transparent,
       builder: (_) => NewConsultationSheet(
         patientId: widget.patientId,
         doctorId: _doctorId,
@@ -216,18 +214,17 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
   }
 
   void _showEditConsultationModal(VisitDetail detail) {
-    showDialog(
+    showModalBottomSheet<bool>(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.45),
+      isScrollControlled: true,
+      useRootNavigator: true,
+      backgroundColor: Colors.transparent,
       builder: (_) => NewConsultationSheet(
         patientId: widget.patientId,
         existingVisit: detail.visit,
         onSave: (v) async {
           await _visitRepo.updateVisit(v.id, v.toUpdateJson());
-          if (mounted) {
-            Navigator.pop(context);
-            _loadOngoing();
-          }
+          if (mounted) _loadOngoing();
         },
       ),
     );
@@ -248,6 +245,9 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
                 : PatientHeader(
                     patient: _patient,
                     displayName: _headerDisplayName(),
+                    onBack: Navigator.of(context).canPop()
+                        ? () => Navigator.of(context).pop()
+                        : null,
                     onNewConsultation: widget.patientPortalMode
                         ? null
                         : _showNewConsultationModal,
@@ -331,6 +331,9 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
                       isLoading: _loadingOngoing,
                       onRefresh: _loadOngoing,
                       onRefreshAll: _loadAll,
+                      onEditVisit: widget.patientPortalMode
+                          ? null
+                          : _showEditConsultationModal,
                       onComplete: widget.patientPortalMode
                           ? null
                           : () {
@@ -346,6 +349,9 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
                       visitDetails: _historyVisits,
                       isLoading: _loadingHistory,
                       onRefresh: _loadHistory,
+                      onEditVisit: widget.patientPortalMode
+                          ? null
+                          : _showEditConsultationModal,
                       readOnly: widget.patientPortalMode,
                     ),
                   ],

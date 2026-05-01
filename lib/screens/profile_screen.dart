@@ -6,6 +6,7 @@ import '../services/staff_service.dart';
 import '../services/auth_service.dart';
 import '../services/app_role_service.dart';
 import 'login_screen.dart';
+import 'main_shell.dart';
 import 'manage_staff_screen.dart';
 
 // ── Reference design colours ──────────────────────────────────────────────
@@ -106,6 +107,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           Row(
             children: [
+              GestureDetector(
+                onTap: () {
+                  if (Navigator.of(context).canPop()) {
+                    Navigator.of(context).pop();
+                  } else {
+                    MainShell.of(context)?.setTabIndex(0);
+                  }
+                },
+                child: const Padding(
+                  padding: EdgeInsets.only(right: 10),
+                  child: Icon(Icons.arrow_back_ios_new, size: 18, color: Colors.white),
+                ),
+              ),
               // Gradient avatar circle
               Container(
                 width: 56,

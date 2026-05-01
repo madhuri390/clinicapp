@@ -8,6 +8,7 @@ import '../repositories/visit_detail_repository.dart';
 import '../services/auth_service.dart';
 import '../services/staff_service.dart';
 
+import 'main_shell.dart';
 import '../widgets/add_appointment_sheet.dart';
 import '../widgets/cancel_appointment_sheet.dart';
 import '../widgets/reschedule_sheet.dart';
@@ -485,21 +486,38 @@ class AppointmentsScreenState extends State<AppointmentsScreen>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  Row(
                     children: [
-                      Text(
-                        'Schedule',
-                        style: GoogleFonts.inter(
-                          fontSize: 20, fontWeight: FontWeight.w600,
-                          color: Colors.white,
+                      GestureDetector(
+                        onTap: () {
+                          if (Navigator.of(context).canPop()) {
+                            Navigator.of(context).pop();
+                          } else {
+                            MainShell.of(context)?.setTabIndex(0);
+                          }
+                        },
+                        child: const Padding(
+                          padding: EdgeInsets.only(right: 10),
+                          child: Icon(Icons.arrow_back_ios_new, size: 18, color: Colors.white),
                         ),
                       ),
-                      Text(
-                        DateFormat('EEEE, dd MMM yyyy').format(_selectedDate),
-                        style: GoogleFonts.inter(
-                          fontSize: 13, color: _blue100,
-                        ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Schedule',
+                            style: GoogleFonts.inter(
+                              fontSize: 20, fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                          Text(
+                            DateFormat('EEEE, dd MMM yyyy').format(_selectedDate),
+                            style: GoogleFonts.inter(
+                              fontSize: 13, color: _blue100,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),

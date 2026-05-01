@@ -8,7 +8,7 @@ enum TreatmentStatus { pending, inProgress, completed }
 
 /// Mock treatment item.
 class _Treatment {
-  const _Treatment({
+  _Treatment({
     required this.id,
     required this.name,
     required this.totalCost,
@@ -16,9 +16,9 @@ class _Treatment {
   });
 
   final String id;
-  final String name;
-  final double totalCost;
-  final TreatmentStatus status;
+  String name;
+  double totalCost;
+  TreatmentStatus status;
 }
 
 /// Screen to manage treatment plans for a visit. Lists treatments and summary.
@@ -30,26 +30,26 @@ class TreatmentScreen extends StatefulWidget {
 }
 
 class _TreatmentScreenState extends State<TreatmentScreen> {
-  static final List<_Treatment> _mockTreatments = [
-    const _Treatment(
+  final List<_Treatment> _mockTreatments = [
+    _Treatment(
       id: '1',
       name: 'Root Canal - Molar',
       totalCost: 450.00,
       status: TreatmentStatus.completed,
     ),
-    const _Treatment(
+    _Treatment(
       id: '2',
       name: 'Dental Crown',
       totalCost: 850.00,
       status: TreatmentStatus.inProgress,
     ),
-    const _Treatment(
+    _Treatment(
       id: '3',
       name: 'Teeth Cleaning',
       totalCost: 120.00,
       status: TreatmentStatus.completed,
     ),
-    const _Treatment(
+    _Treatment(
       id: '4',
       name: 'X-Ray (Full Mouth)',
       totalCost: 95.00,
@@ -74,6 +74,85 @@ class _TreatmentScreenState extends State<TreatmentScreen> {
   }
 
   double get _balance => _totalCost - _totalPaid;
+
+  void _onEditTreatment(_Treatment treatment) {
+    final nameCtrl = TextEditingController(text: treatment.name);
+    final costCtrl = TextEditingController(text: treatment.totalCost.toStringAsFixed(2));
+    TreatmentStatus status = treatment.status;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.viewInsetsOf(ctx).bottom),
+        child: StatefulBuilder(
+          builder: (ctx, setLocal) => Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text('Edit Treatment', style: Theme.of(ctx).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(labelText: 'Treatment Name *'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: costCtrl,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'Total Cost', prefixIcon: Icon(Icons.currency_rupee)),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<TreatmentStatus>(
+                initialValue: status,
+                decoration: const InputDecoration(labelText: 'Status'),
+                items: TreatmentStatus.values.map((s) {
+                  final label = switch (s) {
+                    TreatmentStatus.pending => 'Pending',
+                    TreatmentStatus.inProgress => 'In Progress',
+                    TreatmentStatus.completed => 'Completed',
+                  };
+                  return DropdownMenuItem(value: s, child: Text(label));
+                }).toList(),
+                onChanged: (v) => setLocal(() => status = v ?? status),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: () {
+                  if (nameCtrl.text.trim().isEmpty) return;
+                  setState(() {
+                    treatment.name = nameCtrl.text.trim();
+                    treatment.totalCost = double.tryParse(costCtrl.text.trim()) ?? treatment.totalCost;
+                    treatment.status = status;
+                  });
+                  Navigator.of(ctx).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('Treatment updated'),
+                      behavior: SnackBarBehavior.floating,
+                      backgroundColor: AppTheme.primaryColor,
+                    ),
+                  );
+                },
+                child: const Text('Save Changes'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -114,7 +193,11 @@ class _TreatmentScreenState extends State<TreatmentScreen> {
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
               itemCount: _mockTreatments.length,
               itemBuilder: (context, index) {
-                return _TreatmentCard(treatment: _mockTreatments[index]);
+                final t = _mockTreatments[index];
+                return _TreatmentCard(
+                  treatment: t,
+                  onEdit: () => _onEditTreatment(t),
+                );
               },
             ),
           ),
@@ -146,9 +229,10 @@ class _TreatmentScreenState extends State<TreatmentScreen> {
 }
 
 class _TreatmentCard extends StatelessWidget {
-  const _TreatmentCard({required this.treatment});
+  const _TreatmentCard({required this.treatment, required this.onEdit});
 
   final _Treatment treatment;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -184,6 +268,14 @@ class _TreatmentCard extends StatelessWidget {
               ),
             ),
             _StatusChip(status: treatment.status),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: Icon(Icons.edit_outlined, size: 18, color: Colors.grey.shade500),
+              onPressed: onEdit,
+              constraints: const BoxConstraints(),
+              padding: EdgeInsets.zero,
+              visualDensity: VisualDensity.compact,
+            ),
           ],
         ),
       ),

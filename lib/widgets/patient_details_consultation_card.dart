@@ -469,7 +469,7 @@ class _TreatmentAccordion extends StatelessWidget {
                               Icons.medication_outlined,
                               size: 20,
                             ),
-                            label: const Text('Add Prescription'),
+                            label: const Text('Add Medication'),
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               side: BorderSide(color: Colors.grey.shade300),
@@ -1013,7 +1013,7 @@ class _AddPrescriptionSheetState extends State<_AddPrescriptionSheet> {
   @override
   Widget build(BuildContext context) {
     return _BottomSheetWrapper(
-      title: 'Add Prescription',
+      title: 'Add Medication',
       child: Column(
         children: [
           _SheetField(controller: _nameCtrl, label: 'Medicine Name *'),
@@ -1034,7 +1034,7 @@ class _AddPrescriptionSheetState extends State<_AddPrescriptionSheet> {
           const SizedBox(height: 20),
           _SaveButton(
             isSaving: _saving,
-            label: 'Save Prescription',
+            label: 'Save Medication',
             onPressed: () {
               if (_nameCtrl.text.trim().isEmpty) return;
               setState(() => _saving = true);

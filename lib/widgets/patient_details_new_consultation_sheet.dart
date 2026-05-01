@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -102,21 +101,34 @@ class _NewConsultationSheetState extends State<NewConsultationSheet> {
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.existingVisit != null;
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
-    return Dialog(
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-          20, 24, 20,
-          20 + MediaQuery.viewInsetsOf(context).bottom,
-        ),
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      padding: EdgeInsets.fromLTRB(20, 16, 20, bottomInset + 20),
+      child: SafeArea(
+        top: false,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Drag handle
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFCBD5E1),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+
               // Header
               Row(
                 children: [

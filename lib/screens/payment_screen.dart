@@ -5,7 +5,7 @@ import 'invoice_screen.dart';
 
 /// Mock payment record.
 class _PaymentRecord {
-  const _PaymentRecord({
+  _PaymentRecord({
     required this.id,
     required this.amount,
     required this.mode,
@@ -14,10 +14,10 @@ class _PaymentRecord {
   });
 
   final String id;
-  final double amount;
-  final String mode;
-  final DateTime date;
-  final String? notes;
+  double amount;
+  String mode;
+  DateTime date;
+  String? notes;
 }
 
 /// Payment screen for a treatment plan: summary, form, and payment history.
@@ -42,7 +42,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
   static const double _totalPaid = 945.00;
   static const double _balance = _totalCost - _totalPaid;
 
-  static final List<_PaymentRecord> _previousPayments = [
+  final List<_PaymentRecord> _previousPayments = [
     _PaymentRecord(
       id: '1',
       amount: 450.00,
@@ -70,6 +70,86 @@ class _PaymentScreenState extends State<PaymentScreen> {
     _amountController.dispose();
     _notesController.dispose();
     super.dispose();
+  }
+
+  void _onEditPayment(_PaymentRecord record) {
+    final amountCtrl = TextEditingController(text: record.amount.toStringAsFixed(2));
+    final notesCtrl = TextEditingController(text: record.notes ?? '');
+    String? mode = record.mode;
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.viewInsetsOf(ctx).bottom),
+          child: StatefulBuilder(
+            builder: (ctx, setLocal) => Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40, height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text('Edit Payment',
+                    style: Theme.of(ctx).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: amountCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'Amount', prefixIcon: Icon(Icons.currency_rupee)),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: mode,
+                  decoration: const InputDecoration(labelText: 'Payment Mode'),
+                  items: _paymentModes.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+                  onChanged: (v) => setLocal(() => mode = v),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: notesCtrl,
+                  maxLines: 2,
+                  decoration: const InputDecoration(labelText: 'Notes', alignLabelWithHint: true),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: () {
+                    final amount = double.tryParse(amountCtrl.text.trim());
+                    if (amount == null || amount <= 0 || mode == null) return;
+                    setState(() {
+                      record.amount = amount;
+                      record.mode = mode!;
+                      record.notes = notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim();
+                    });
+                    Navigator.of(ctx).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: const Text('Payment updated'),
+                        behavior: SnackBarBehavior.floating,
+                        backgroundColor: AppTheme.primaryColor,
+                      ),
+                    );
+                  },
+                  child: const Text('Save Changes'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _onRecordPayment() {
@@ -159,7 +239,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
             ..._previousPayments.map(
               (p) => Padding(
                 padding: const EdgeInsets.only(bottom: 10),
-                child: _PaymentListTile(record: p),
+                child: _PaymentListTile(
+                  record: p,
+                  onEdit: () => _onEditPayment(p),
+                ),
               ),
             ),
           ],
@@ -363,9 +446,10 @@ class _PaymentFormCard extends StatelessWidget {
 }
 
 class _PaymentListTile extends StatelessWidget {
-  const _PaymentListTile({required this.record});
+  const _PaymentListTile({required this.record, required this.onEdit});
 
   final _PaymentRecord record;
+  final VoidCallback onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -434,6 +518,13 @@ class _PaymentListTile extends StatelessWidget {
                 ],
               ],
             ),
+          ),
+          IconButton(
+            icon: Icon(Icons.edit_outlined, size: 18, color: Colors.grey.shade500),
+            onPressed: onEdit,
+            constraints: const BoxConstraints(),
+            padding: const EdgeInsets.only(left: 8),
+            visualDensity: VisualDensity.compact,
           ),
         ],
       ),

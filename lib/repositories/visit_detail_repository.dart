@@ -133,6 +133,9 @@ class VisitDetailRepository {
   Future<void> updateTreatmentStatus(String id, String status) =>
       _client.from('treatment_plans').update({'status': status}).eq('id', id);
 
+  Future<void> updateTreatment(String id, Map<String, dynamic> changes) =>
+      _client.from('treatment_plans').update(changes).eq('id', id);
+
   // ── Sitting mutations ─────────────────────────────────────────────────
 
   Future<Sitting> addSitting(Sitting sitting) async {
@@ -147,6 +150,9 @@ class VisitDetailRepository {
   Future<void> updateSittingStatus(String id, String status) =>
       _client.from('sittings').update({'status': status}).eq('id', id);
 
+  Future<void> updateSitting(String id, Map<String, dynamic> changes) =>
+      _client.from('sittings').update(changes).eq('id', id);
+
   // ── Prescription mutations ────────────────────────────────────────────
 
   Future<Prescription> addPrescription(Prescription prescription) async {
@@ -157,6 +163,9 @@ class VisitDetailRepository {
         .single();
     return Prescription.fromJson(result);
   }
+
+  Future<void> updatePrescription(String id, Map<String, dynamic> changes) =>
+      _client.from('prescriptions').update(changes).eq('id', id);
 
   Future<void> deletePrescription(String id) =>
       _client.from('prescriptions').delete().eq('id', id);

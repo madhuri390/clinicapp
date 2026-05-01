@@ -78,6 +78,7 @@ class OngoingTab extends StatelessWidget {
         onRefresh: onRefresh,
         onComplete: onComplete,
         readOnly: readOnly,
+        onEditVisit: onEditVisit != null ? () => onEditVisit!(visitDetails[i]) : null,
       ),
     );
   }
@@ -95,6 +96,7 @@ class HistoryTab extends StatelessWidget {
     required this.visitDetails,
     required this.isLoading,
     required this.onRefresh,
+    this.onEditVisit,
     this.readOnly = false,
   });
 
@@ -103,6 +105,7 @@ class HistoryTab extends StatelessWidget {
   final List<VisitDetail> visitDetails;
   final bool isLoading;
   final VoidCallback onRefresh;
+  final void Function(VisitDetail)? onEditVisit;
   final bool readOnly;
 
   @override
@@ -123,6 +126,7 @@ class HistoryTab extends StatelessWidget {
         isOngoing: false,
         onRefresh: onRefresh,
         readOnly: readOnly,
+        onEditVisit: onEditVisit != null ? () => onEditVisit!(visitDetails[i]) : null,
       ),
     );
   }
@@ -139,6 +143,7 @@ class _VisitCard extends StatelessWidget {
     required this.isOngoing,
     required this.onRefresh,
     this.onComplete,
+    this.onEditVisit,
     this.readOnly = false,
   });
 
@@ -147,6 +152,7 @@ class _VisitCard extends StatelessWidget {
   final bool isOngoing;
   final VoidCallback onRefresh;
   final VoidCallback? onComplete;
+  final VoidCallback? onEditVisit;
   final bool readOnly;
 
   @override
@@ -165,14 +171,26 @@ class _VisitCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Row 1: badge + date ──────────────────────────────────
+          // ── Row 1: badge + date + edit ───────────────────────────
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _Badge(isOngoing: isOngoing),
-              Text(
-                'Started: ${ProfileTab.formatDate(detail.visit.visitDate)}',
-                style: GoogleFonts.lato(fontSize: 12, color: kRefMuted),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Started: ${ProfileTab.formatDate(detail.visit.visitDate)}',
+                    style: GoogleFonts.lato(fontSize: 12, color: kRefMuted),
+                  ),
+                  if (!readOnly && onEditVisit != null) ...[
+                    const SizedBox(width: 6),
+                    GestureDetector(
+                      onTap: onEditVisit,
+                      child: const Icon(Icons.edit_outlined, size: 14, color: kRefMuted),
+                    ),
+                  ],
+                ],
               ),
             ],
           ),
@@ -240,7 +258,7 @@ class _VisitCard extends StatelessWidget {
                   ),
                 _BtnOutlineSm(
                   icon: Icons.medication_outlined,
-                  label: 'Add Prescription',
+                  label: 'Add Medication',
                   onTap: () => _showAddPrescription(context, repo),
                 ),
               ],
@@ -369,7 +387,7 @@ class _VisitCard extends StatelessWidget {
       context: context,
       barrierColor: Colors.black54,
       builder: (_) => _ModalDialog(
-        title: 'Add Prescription',
+        title: 'Add Medication',
         icon: Icons.medication_outlined,
         child: _AddPrescriptionForm(
           visitId: detail.visit.id,
@@ -525,7 +543,7 @@ class _TreatmentSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Treatment header row: name | status pill | payment dropdown
+          // Treatment header row: name | edit | status pill | payment dropdown
           Row(
             children: [
               Expanded(
@@ -538,6 +556,15 @@ class _TreatmentSection extends StatelessWidget {
                   ),
                 ),
               ),
+              if (!readOnly) ...[
+                GestureDetector(
+                  onTap: () => _showEditTreatment(context),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6),
+                    child: Icon(Icons.edit_outlined, size: 14, color: kRefMuted),
+                  ),
+                ),
+              ],
               _StatusPill(label: status),
               if (hasCost) ...[
                 const SizedBox(width: 8),
@@ -587,7 +614,12 @@ class _TreatmentSection extends StatelessWidget {
             const SizedBox(height: 10),
             Wrap(
               children: prescriptions
-                  .map((rx) => _PrescriptionChip(rx: rx))
+                  .map((rx) => _PrescriptionChip(
+                        rx: rx,
+                        repo: repo,
+                        onRefresh: onRefresh,
+                        readOnly: readOnly,
+                      ))
                   .toList(),
             ),
           ],
@@ -624,9 +656,7 @@ class _TreatmentSection extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              'Payment of ₹${treatment.totalCost!.toStringAsFixed(0)} recorded via UPI',
-            ),
+            content: const Text('Paid'),
             backgroundColor: _badgeCompFg,
           ),
         );
@@ -638,6 +668,22 @@ class _TreatmentSection extends StatelessWidget {
         );
       }
     }
+  }
+
+  void _showEditTreatment(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (_) => _ModalDialog(
+        title: 'Edit Treatment',
+        icon: Icons.edit_outlined,
+        child: _EditTreatmentForm(
+          treatment: treatment,
+          repo: repo,
+          onSaved: onRefresh,
+        ),
+      ),
+    );
   }
 }
 
@@ -748,6 +794,15 @@ class _SittingItem extends StatelessWidget {
               ],
             ),
           ),
+          if (!readOnly) ...[
+            GestureDetector(
+              onTap: () => _showEditSitting(context),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 6),
+                child: Icon(Icons.edit_outlined, size: 14, color: kRefMuted),
+              ),
+            ),
+          ],
           if ((sitting.cost ?? 0) > 0) ...[
             Text(
               '₹${sitting.cost!.toStringAsFixed(0)}',
@@ -793,11 +848,7 @@ class _SittingItem extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              newValue == 'Paid'
-                  ? 'Sitting paid via UPI (₹${(sitting.cost ?? 0).toStringAsFixed(0)})'
-                  : 'Sitting marked as Pending',
-            ),
+            content: Text(newValue == 'Paid' ? 'Paid' : 'Sitting marked as Pending'),
             backgroundColor: newValue == 'Paid' ? _badgeCompFg : _badgePlanFg,
           ),
         );
@@ -809,6 +860,22 @@ class _SittingItem extends StatelessWidget {
         );
       }
     }
+  }
+
+  void _showEditSitting(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (_) => _ModalDialog(
+        title: 'Edit Sitting',
+        icon: Icons.edit_outlined,
+        child: _EditSittingForm(
+          sitting: sitting,
+          repo: repo,
+          onSaved: onRefresh,
+        ),
+      ),
+    );
   }
 }
 
@@ -864,8 +931,16 @@ class _StatusDropdown extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════════════════════
 
 class _PrescriptionChip extends StatelessWidget {
-  const _PrescriptionChip({required this.rx});
+  const _PrescriptionChip({
+    required this.rx,
+    this.repo,
+    this.onRefresh,
+    this.readOnly = false,
+  });
   final Prescription rx;
+  final VisitDetailRepository? repo;
+  final VoidCallback? onRefresh;
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) {
@@ -890,7 +965,30 @@ class _PrescriptionChip extends StatelessWidget {
             display,
             style: GoogleFonts.lato(fontSize: 11, fontWeight: FontWeight.w500, color: kRefDark),
           ),
+          if (!readOnly && repo != null && onRefresh != null) ...[
+            const SizedBox(width: 6),
+            GestureDetector(
+              onTap: () => _showEditPrescription(context),
+              child: const Icon(Icons.edit_outlined, size: 11, color: kRefMuted),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+
+  void _showEditPrescription(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black54,
+      builder: (_) => _ModalDialog(
+        title: 'Edit Medication',
+        icon: Icons.medication_outlined,
+        child: _EditPrescriptionForm(
+          prescription: rx,
+          repo: repo!,
+          onSaved: onRefresh!,
+        ),
       ),
     );
   }
@@ -1485,7 +1583,7 @@ class _AddPrescriptionFormState extends State<_AddPrescriptionForm> {
             const SizedBox(width: 12),
             _saving
                 ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
-                : _BtnPrimarySm(label: 'Add Prescription', onTap: _save),
+                : _BtnPrimarySm(label: 'Add Medication', onTap: _save),
           ],
         ),
       ],
@@ -1836,8 +1934,10 @@ class _BillDialog extends StatelessWidget {
                 borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  child: Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 12,
+                    runSpacing: 8,
                     children: [
                       _BtnOutlineSm(
                         icon: Icons.picture_as_pdf_outlined,
@@ -1870,7 +1970,6 @@ class _BillDialog extends StatelessWidget {
                           );
                         },
                       ),
-                      const SizedBox(width: 16),
                       _BtnOutlineSm(
                         icon: Icons.medication_outlined,
                         label: 'Rx PDF',
@@ -1880,7 +1979,6 @@ class _BillDialog extends StatelessWidget {
                           );
                         },
                       ),
-                      const SizedBox(width: 16),
                       _BtnPrimarySm(
                         label: 'Close',
                         onTap: () => Navigator.pop(context),
@@ -1964,6 +2062,7 @@ class _BillDialog extends StatelessWidget {
       ),
     );
   }
+
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -2005,3 +2104,306 @@ class _EmptyState extends StatelessWidget {
     );
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EDIT TREATMENT FORM
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _EditTreatmentForm extends StatefulWidget {
+  const _EditTreatmentForm({
+    required this.treatment,
+    required this.repo,
+    required this.onSaved,
+  });
+  final TreatmentPlan treatment;
+  final VisitDetailRepository repo;
+  final VoidCallback onSaved;
+
+  @override
+  State<_EditTreatmentForm> createState() => _EditTreatmentFormState();
+}
+
+class _EditTreatmentFormState extends State<_EditTreatmentForm> {
+  late final TextEditingController _nameCtrl;
+  late final TextEditingController _teethCtrl;
+  late final TextEditingController _descCtrl;
+  late final TextEditingController _costCtrl;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final t = widget.treatment;
+    _nameCtrl = TextEditingController(text: t.treatmentName ?? '');
+    _teethCtrl = TextEditingController(text: t.teeth ?? '');
+    _descCtrl = TextEditingController(text: t.description ?? '');
+    _costCtrl = TextEditingController(
+      text: (t.totalCost ?? 0) > 0 ? t.totalCost!.toStringAsFixed(0) : '',
+    );
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _teethCtrl.dispose();
+    _descCtrl.dispose();
+    _costCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) return;
+    setState(() => _saving = true);
+    try {
+      await widget.repo.updateTreatment(widget.treatment.id, {
+        'treatment_name': name,
+        'teeth': _teethCtrl.text.trim().isEmpty ? null : _teethCtrl.text.trim(),
+        'description': _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
+        'total_cost': double.tryParse(_costCtrl.text.trim()) ?? 0,
+      });
+      if (mounted) Navigator.pop(context);
+      widget.onSaved();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _ModalField(controller: _nameCtrl, placeholder: 'Treatment name *'),
+        _ModalField(controller: _teethCtrl, placeholder: 'Teeth (e.g., 16, 18)'),
+        _ModalField(controller: _descCtrl, placeholder: 'Description (optional)'),
+        _ModalField(controller: _costCtrl, placeholder: 'Cost (₹)', keyboardType: TextInputType.number),
+        const SizedBox(height: 4),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            _BtnOutlineSm(label: 'Cancel', onTap: () => Navigator.pop(context)),
+            const SizedBox(width: 12),
+            _saving
+                ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                : _BtnPrimarySm(label: 'Save', onTap: _save),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EDIT SITTING FORM
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _EditSittingForm extends StatefulWidget {
+  const _EditSittingForm({
+    required this.sitting,
+    required this.repo,
+    required this.onSaved,
+  });
+  final Sitting sitting;
+  final VisitDetailRepository repo;
+  final VoidCallback onSaved;
+
+  @override
+  State<_EditSittingForm> createState() => _EditSittingFormState();
+}
+
+class _EditSittingFormState extends State<_EditSittingForm> {
+  late final TextEditingController _nameCtrl;
+  late final TextEditingController _costCtrl;
+  late DateTime _date;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl = TextEditingController(text: widget.sitting.notes ?? '');
+    _costCtrl = TextEditingController(
+      text: (widget.sitting.cost ?? 0) > 0
+          ? widget.sitting.cost!.toStringAsFixed(0)
+          : '',
+    );
+    _date = widget.sitting.sittingDate;
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _costCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    try {
+      await widget.repo.updateSitting(widget.sitting.id, {
+        'notes': _nameCtrl.text.trim().isEmpty ? null : _nameCtrl.text.trim(),
+        'cost': double.tryParse(_costCtrl.text.trim()),
+        'sitting_date': _date.toIso8601String(),
+      });
+      if (mounted) Navigator.pop(context);
+      widget.onSaved();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _ModalField(controller: _nameCtrl, placeholder: 'Sitting name'),
+        _ModalField(controller: _costCtrl, placeholder: 'Cost (₹)', keyboardType: TextInputType.number),
+        GestureDetector(
+          onTap: () async {
+            final d = await showDatePicker(
+              context: context,
+              initialDate: _date,
+              firstDate: DateTime(2000),
+              lastDate: DateTime.now().add(const Duration(days: 365)),
+            );
+            if (d != null) setState(() => _date = d);
+          },
+          child: Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFDDDDDD)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.calendar_today_outlined, size: 14, color: kRefPrimary),
+                const SizedBox(width: 8),
+                Text(
+                  '${_date.day}/${_date.month}/${_date.year}',
+                  style: GoogleFonts.lato(fontSize: 14, color: kRefDark),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            _BtnOutlineSm(label: 'Cancel', onTap: () => Navigator.pop(context)),
+            const SizedBox(width: 12),
+            _saving
+                ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                : _BtnPrimarySm(label: 'Save', onTap: _save),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EDIT PRESCRIPTION FORM
+// ═══════════════════════════════════════════════════════════════════════════
+
+class _EditPrescriptionForm extends StatefulWidget {
+  const _EditPrescriptionForm({
+    required this.prescription,
+    required this.repo,
+    required this.onSaved,
+  });
+  final Prescription prescription;
+  final VisitDetailRepository repo;
+  final VoidCallback onSaved;
+
+  @override
+  State<_EditPrescriptionForm> createState() => _EditPrescriptionFormState();
+}
+
+class _EditPrescriptionFormState extends State<_EditPrescriptionForm> {
+  late final TextEditingController _nameCtrl;
+  late final TextEditingController _dosageCtrl;
+  late final TextEditingController _durationCtrl;
+  late final TextEditingController _instrCtrl;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final rx = widget.prescription;
+    _nameCtrl = TextEditingController(text: rx.medicineName ?? '');
+    _dosageCtrl = TextEditingController(text: rx.dosage ?? '');
+    _durationCtrl = TextEditingController(text: rx.duration ?? '');
+    _instrCtrl = TextEditingController(text: rx.instructions ?? '');
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _dosageCtrl.dispose();
+    _durationCtrl.dispose();
+    _instrCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) return;
+    setState(() => _saving = true);
+    try {
+      await widget.repo.updatePrescription(widget.prescription.id, {
+        'medicine_name': name,
+        'dosage': _dosageCtrl.text.trim().isEmpty ? null : _dosageCtrl.text.trim(),
+        'duration': _durationCtrl.text.trim().isEmpty ? null : _durationCtrl.text.trim(),
+        'instructions': _instrCtrl.text.trim().isEmpty ? null : _instrCtrl.text.trim(),
+      });
+      if (mounted) Navigator.pop(context);
+      widget.onSaved();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _ModalField(controller: _nameCtrl, placeholder: 'Medication name *'),
+        _ModalField(controller: _dosageCtrl, placeholder: 'Dosage (e.g., 1-0-1)'),
+        _ModalField(controller: _durationCtrl, placeholder: 'Duration (e.g., 3 Days)'),
+        _ModalField(controller: _instrCtrl, placeholder: 'Instructions', maxLines: 2),
+        const SizedBox(height: 4),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            _BtnOutlineSm(label: 'Cancel', onTap: () => Navigator.pop(context)),
+            const SizedBox(width: 12),
+            _saving
+                ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                : _BtnPrimarySm(label: 'Save', onTap: _save),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
