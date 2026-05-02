@@ -19,6 +19,7 @@ class PatientSignupScreen extends StatefulWidget {
 
 class _PatientSignupScreenState extends State<PatientSignupScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _usernameCtrl = TextEditingController();
   final _firstNameCtrl = TextEditingController();
   final _lastNameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
@@ -30,6 +31,7 @@ class _PatientSignupScreenState extends State<PatientSignupScreen> {
 
   @override
   void dispose() {
+    _usernameCtrl.dispose();
     _firstNameCtrl.dispose();
     _lastNameCtrl.dispose();
     _phoneCtrl.dispose();
@@ -52,11 +54,12 @@ class _PatientSignupScreenState extends State<PatientSignupScreen> {
   Future<void> _onSignUp() async {
     if (!_formKey.currentState!.validate()) return;
 
+    final username = _usernameCtrl.text.trim();
     final email = _emailCtrl.text.trim();
     final phone = _phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
 
-    if (email.isEmpty && phone.isEmpty) {
-      _showError('Please provide either an email or phone number');
+    if (username.isEmpty) {
+      _showError('Please provide a username');
       return;
     }
     
@@ -66,18 +69,12 @@ class _PatientSignupScreenState extends State<PatientSignupScreen> {
       final password = _passwordCtrl.text;
       late final AuthResponse authResponse;
 
-      if (email.isNotEmpty) {
-        authResponse = await AuthService.signUpWithEmail(
-          email: email,
-          password: password,
-        );
-      } else {
-        final phoneFormatted = phone.startsWith('+') ? phone : '+91$phone';
-        authResponse = await Supabase.instance.client.auth.signUp(
-          phone: phoneFormatted,
-          password: password,
-        );
-      }
+      final authEmail = email.isNotEmpty ? email : '$username@prodontics.local';
+
+      authResponse = await AuthService.signUpWithEmail(
+        email: authEmail,
+        password: password,
+      );
 
       final user = authResponse.user;
       if (user == null) {
@@ -88,15 +85,7 @@ class _PatientSignupScreenState extends State<PatientSignupScreen> {
       // the insert runs as `anon` and fails. Sign in immediately when possible.
       if (authResponse.session == null) {
         try {
-          if (email.isNotEmpty) {
-            await AuthService.signInWithEmail(email: email, password: password);
-          } else {
-            final phoneFormatted = phone.startsWith('+') ? phone : '+91$phone';
-            await AuthService.signInWithPhone(
-              phone: phoneFormatted,
-              password: password,
-            );
-          }
+          await AuthService.signInWithEmail(email: authEmail, password: password);
         } on AuthException catch (e) {
           if (!mounted) return;
           _showError(
@@ -123,6 +112,7 @@ class _PatientSignupScreenState extends State<PatientSignupScreen> {
         email: email.isNotEmpty ? email : null,
         createdAt: DateTime.now(),
         authUserId: user.id,
+        username: username,
       );
 
       // Save into Supabase Patients Table (upsert so retries after partial failure work)
@@ -207,12 +197,22 @@ class _PatientSignupScreenState extends State<PatientSignupScreen> {
                 ),
                 const SizedBox(height: 32),
                 
+                _buildTextField(
+                  controller: _usernameCtrl,
+                  label: 'Username *',
+                  prefixIcon: Icons.account_circle_outlined,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9._-]')),
+                  ],
+                  validator: (v) => (v?.trim().isEmpty ?? true) ? 'Required' : null,
+                ),
+                const SizedBox(height: 16),
                 Row(
                   children: [
                     Expanded(
                       child: _buildTextField(
                         controller: _firstNameCtrl,
-                        label: 'First Name',
+                        label: 'First Name *',
                         prefixIcon: Icons.person_outline,
                         validator: (v) => (v?.trim().isEmpty ?? true) ? 'Required' : null,
                       ),
@@ -230,7 +230,7 @@ class _PatientSignupScreenState extends State<PatientSignupScreen> {
                 const SizedBox(height: 16),
                 _buildTextField(
                   controller: _phoneCtrl,
-                  label: 'Phone Number',
+                  label: 'Phone Number (Optional)',
                   prefixIcon: Icons.phone_outlined,
                   keyboardType: TextInputType.phone,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -243,7 +243,7 @@ class _PatientSignupScreenState extends State<PatientSignupScreen> {
                 const SizedBox(height: 16),
                 _buildTextField(
                   controller: _emailCtrl,
-                  label: 'Email',
+                  label: 'Email (Optional)',
                   prefixIcon: Icons.email_outlined,
                   keyboardType: TextInputType.emailAddress,
                   validator: (v) {

@@ -7,6 +7,7 @@ class Staff {
   final String? workStartTime;
   final String? workEndTime;
   final String? authUserId;
+  final String? username;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -19,6 +20,7 @@ class Staff {
     this.workStartTime,
     this.workEndTime,
     this.authUserId,
+    this.username,
     this.createdAt,
     this.updatedAt,
   });
@@ -37,6 +39,7 @@ class Staff {
       workStartTime: json['work_start_time'] as String?,
       workEndTime: json['work_end_time'] as String?,
       authUserId: json['auth_user_id'] as String?,
+      username: json['username'] as String?,
       createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at']) : null,
       updatedAt: json['updated_at'] != null ? DateTime.tryParse(json['updated_at']) : null,
     );
@@ -56,6 +59,8 @@ class Staff {
       'email': email,
       'work_start_time': workStartTime,
       'work_end_time': workEndTime,
+      if (username != null && username!.isNotEmpty) 'username': username,
+      if (authUserId != null) 'auth_user_id': authUserId,
     };
   }
 
@@ -67,6 +72,8 @@ class Staff {
     String? email,
     String? workStartTime,
     String? workEndTime,
+    String? authUserId,
+    String? username,
   }) {
     return Staff(
       id: id ?? this.id,
@@ -77,6 +84,7 @@ class Staff {
       workStartTime: workStartTime ?? this.workStartTime,
       workEndTime: workEndTime ?? this.workEndTime,
       authUserId: authUserId ?? this.authUserId,
+      username: username ?? this.username,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );

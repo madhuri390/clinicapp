@@ -264,15 +264,18 @@ class DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  void _onAddPatient() {
+  Future<void> _onAddPatient() async {
     final shell = MainShell.of(context);
     if (shell != null) {
       shell.setTabIndex(1); // Switch to Patients tab
-      shell.getNavigatorForTab(1)?.push(
+      await shell.getNavigatorForTab(1)?.push(
+            MaterialPageRoute<void>(builder: (_) => const PatientFormScreen()),
+          );
+      shell.refreshPatientTab();
+    } else {
+      await Navigator.of(context).push(
         MaterialPageRoute<void>(builder: (_) => const PatientFormScreen()),
       );
-    } else {
-      _go(const PatientFormScreen());
     }
   }
 
@@ -362,15 +365,15 @@ class DashboardScreenState extends State<DashboardScreen> {
   Widget _buildLowStockAlert() {
     return Material(
       color: _orange50,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: _onInventoryTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             border: Border.all(color: _orange200, width: 2),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -461,15 +464,15 @@ class DashboardScreenState extends State<DashboardScreen> {
         Expanded(
           child: Material(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(12),
             child: InkWell(
               onTap: () => _go(const AppointmentsScreen()),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   border: Border.all(color: _slate200),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -503,15 +506,15 @@ class DashboardScreenState extends State<DashboardScreen> {
         Expanded(
           child: Material(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(12),
             child: InkWell(
               onTap: () => _go(const PatientListScreen()),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(12),
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   border: Border.all(color: _slate200),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -555,7 +558,7 @@ class DashboardScreenState extends State<DashboardScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: _slate200),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -656,7 +659,7 @@ class DashboardScreenState extends State<DashboardScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: _slate200),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -715,7 +718,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: _slate50,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -773,7 +776,7 @@ class DashboardScreenState extends State<DashboardScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: _slate200),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -792,10 +795,10 @@ class DashboardScreenState extends State<DashboardScreen> {
               Expanded(
                 child: Material(
                   color: _blue100,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
                   child: InkWell(
                     onTap: _onAddPatient,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         vertical: 12,
@@ -829,7 +832,7 @@ class DashboardScreenState extends State<DashboardScreen> {
               Expanded(
                 child: Material(
                   color: _purple50,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
                   child: InkWell(
                     onTap: () {
                       final shell = MainShell.of(context);
@@ -839,7 +842,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                         _go(const AppointmentsScreen());
                       }
                     },
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(12),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         vertical: 12,
@@ -906,7 +909,7 @@ class _StatCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: _slate200),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

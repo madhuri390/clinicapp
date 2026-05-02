@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/app_theme.dart';
@@ -74,16 +75,17 @@ class _EmailField extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextFormField(
       controller: controller,
-      keyboardType: TextInputType.emailAddress,
+      keyboardType: TextInputType.text,
       textInputAction: TextInputAction.next,
       style: GoogleFonts.poppins(fontSize: 15, color: const Color(0xFF263238)),
       decoration: InputDecoration(
-        hintText: 'Email address',
+        hintText: 'Username',
         hintStyle:
             GoogleFonts.poppins(fontSize: 14, color: Colors.grey.shade500),
-        prefixIcon: const Icon(Icons.email_outlined),
+        prefixIcon: const Icon(Icons.account_circle_outlined),
         filled: true,
         fillColor: Colors.grey.shade50,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide(color: Colors.grey.shade300),
@@ -96,14 +98,13 @@ class _EmailField extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
         ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
+      inputFormatters: [
+        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9._-]')),
+      ],
       validator: (v) {
         final s = v?.trim() ?? '';
-        if (s.isEmpty) return 'Enter your email address';
-        final re = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
-        if (!re.hasMatch(s)) return 'Enter a valid email address';
+        if (s.isEmpty) return 'Enter your username';
         return null;
       },
     );

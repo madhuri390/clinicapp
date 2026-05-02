@@ -138,41 +138,6 @@ class _PatientHomeDashboardScreenState extends State<PatientHomeDashboardScreen>
               child: PatientPortalShellHeader(
                 title: 'Home',
                 subtitle: 'Welcome back, $displayName',
-                trailing: Container(
-                  padding: const EdgeInsets.only(left: 4, right: 10, top: 4, bottom: 4),
-                  decoration: BoxDecoration(
-                    color: Color.lerp(AppTheme.primaryColor, Colors.white, 0.14),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 32,
-                        height: 32,
-                        alignment: Alignment.center,
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Text(
-                          displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
-                          style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: AppTheme.primaryColor,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        color: Colors.white.withValues(alpha: 0.95),
-                        size: 20,
-                      ),
-                    ],
-                  ),
-                ),
               ),
             ),
             if (_loadError != null)

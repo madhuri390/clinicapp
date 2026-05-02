@@ -453,7 +453,7 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                         decoration: BoxDecoration(
                           border: Border.all(color: _slate200),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(12),
                           color: _slate50,
                         ),
                         child: Text(
@@ -551,7 +551,7 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                         decoration: BoxDecoration(
                           border: Border.all(color: _slate200),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(12),
                           color: _slate50,
                         ),
                         child: Row(
@@ -631,7 +631,7 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
                                   : isSelected
                                       ? _blue600
                                       : Colors.white,
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(12),
                               border: Border.all(
                                 color: blocked
                                     ? _slate200
@@ -683,7 +683,7 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
                           backgroundColor: _blue600,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                       ),
                     ),

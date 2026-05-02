@@ -213,6 +213,70 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
     if (widget.patientPortalMode) await _loadAll();
   }
 
+  Future<void> _deletePatient() async {
+    final patient = _patient;
+    if (patient == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Delete Patient',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          'Are you sure you want to delete ${patient.fullName}? This action will permanently remove their records.',
+          style: GoogleFonts.poppins(fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.poppins(color: Colors.grey.shade600, fontWeight: FontWeight.w500),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: Text(
+              'Delete',
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await _patientRepo.delete(patient.id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${patient.fullName} deleted'),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+          debugPrint('[PatientDetails] Deletion successful, popping with true');
+          Navigator.of(context).pop(true); // Go back to PatientListScreen
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to delete: $e'),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: Colors.red.shade700,
+            ),
+          );
+        }
+      }
+    }
+  }
+
   void _showEditConsultationModal(VisitDetail detail) {
     showModalBottomSheet<bool>(
       context: context,
@@ -323,7 +387,11 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    ProfileTab(patient: _patient, isLoading: _loadingPatient),
+                    ProfileTab(
+                      patient: _patient,
+                      isLoading: _loadingPatient,
+                      onDelete: widget.patientPortalMode ? null : _deletePatient,
+                    ),
                     OngoingTab(
                       patientId: widget.patientId,
                       patientName: widget.patientName,

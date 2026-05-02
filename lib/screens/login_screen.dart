@@ -67,13 +67,14 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _onSignIn() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final email = _emailController.text.trim();
+    final input = _emailController.text.trim();
     final password = _passwordController.text;
 
     setState(() => _isLoading = true);
     
     try {
-      await AuthService.signInWithEmail(email: email, password: password);
+      final dummyEmail = '$input@prodontics.local';
+      await AuthService.signInWithEmail(email: dummyEmail, password: password);
       
       await AppRoleService.setRole(_selectedRole);
       if (!mounted) return;

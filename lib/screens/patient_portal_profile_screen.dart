@@ -248,11 +248,6 @@ class _SettingsTile extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: isDestructive ? Colors.red.shade300 : PatientPortalTheme.textSecondary,
-              size: 20,
-            ),
           ],
         ),
       ),

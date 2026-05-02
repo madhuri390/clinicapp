@@ -9,10 +9,11 @@ import 'patient_details_header.dart';
 // ═══════════════════════════════════════════════════════════════════════════
 
 class ProfileTab extends StatelessWidget {
-  const ProfileTab({this.patient, required this.isLoading, super.key});
+  const ProfileTab({this.patient, required this.isLoading, this.onDelete, super.key});
 
   final Patient? patient;
   final bool isLoading;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -136,6 +137,11 @@ class ProfileTab extends StatelessWidget {
                 ),
             ],
           ),
+          if (onDelete != null) ...[
+            const SizedBox(height: 32),
+            _DeleteButton(onPressed: onDelete!),
+            const SizedBox(height: 24),
+          ],
         ],
       ),
     );
@@ -294,6 +300,38 @@ class _ConditionTag extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+class _DeleteButton extends StatelessWidget {
+  const _DeleteButton({required this.onPressed});
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: onPressed,
+          icon: const Icon(Icons.delete_outline, color: Colors.red),
+          label: Text(
+            'Delete Patient',
+            style: GoogleFonts.lato(
+              color: Colors.red,
+              fontWeight: FontWeight.w700,
+              fontSize: 15,
+            ),
+          ),
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            side: BorderSide(color: Colors.red.withValues(alpha: 0.3)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            backgroundColor: Colors.red.withValues(alpha: 0.05),
+          ),
+        ),
       ),
     );
   }

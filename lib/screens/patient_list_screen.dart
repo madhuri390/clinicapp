@@ -11,10 +11,10 @@ class PatientListScreen extends StatefulWidget {
   const PatientListScreen({super.key});
 
   @override
-  State<PatientListScreen> createState() => _PatientListScreenState();
+  State<PatientListScreen> createState() => PatientListScreenState();
 }
 
-class _PatientListScreenState extends State<PatientListScreen> {
+class PatientListScreenState extends State<PatientListScreen> {
   final _repo = PatientRepository();
   final _searchCtrl = TextEditingController();
 
@@ -59,19 +59,33 @@ class _PatientListScreenState extends State<PatientListScreen> {
     }
   }
 
+  Future<void> refresh() => _loadPatients(query: _searchCtrl.text.trim());
+
   void _onSearchChanged() {
     _loadPatients(query: _searchCtrl.text.trim());
   }
 
-  void _openDetails(Patient patient) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
+  Future<void> _openDetails(Patient patient) async {
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
         builder: (_) => PatientDetailsScreen(
           patientId: patient.id,
           patientName: patient.fullName,
         ),
       ),
     );
+    
+    if (mounted) {
+      debugPrint('[PatientList] Returned from details. Result: $result');
+      if (result == true) {
+        debugPrint('[PatientList] Result is true, clearing search and reloading...');
+        _searchCtrl.clear();
+        await _loadPatients();
+      } else {
+        debugPrint('[PatientList] Result is not true, refreshing current view...');
+        await refresh();
+      }
+    }
   }
 
   Future<void> _onAddPatient() async {
@@ -201,9 +215,10 @@ class _PatientListScreenState extends State<PatientListScreen> {
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
         itemCount: _patients.length,
         itemBuilder: (context, i) {
+          final p = _patients[i];
           return _PatientTile(
-            patient: _patients[i],
-            onTap: () => _openDetails(_patients[i]),
+            patient: p,
+            onTap: () => _openDetails(p),
           );
         },
       ),
@@ -255,7 +270,10 @@ class _SearchBar extends StatelessWidget {
 // ── Patient tile ──────────────────────────────────────────────────────────────
 
 class _PatientTile extends StatelessWidget {
-  const _PatientTile({required this.patient, required this.onTap});
+  const _PatientTile({
+    required this.patient,
+    required this.onTap,
+  });
   final Patient patient;
   final VoidCallback onTap;
 
@@ -344,7 +362,6 @@ class _PatientTile extends StatelessWidget {
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right, color: Colors.grey),
               ],
             ),
           ),

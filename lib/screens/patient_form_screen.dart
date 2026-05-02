@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/patient_model.dart';
 import '../repositories/patient_repository.dart';
@@ -20,6 +21,7 @@ class PatientFormScreen extends StatefulWidget {
 
 class _PatientFormScreenState extends State<PatientFormScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _usernameController = TextEditingController();
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _phoneController = TextEditingController();
@@ -49,6 +51,7 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
     super.initState();
     if (_isEditing) {
       final p = widget.initialPatient!;
+      _usernameController.text = p.username ?? '';
       _firstNameController.text = p.firstName;
       _lastNameController.text = p.lastName ?? '';
       _phoneController.text = p.phone;
@@ -90,6 +93,7 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
 
   @override
   void dispose() {
+    _usernameController.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
     _phoneController.dispose();
@@ -132,9 +136,12 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
       String patientId = _isEditing ? widget.initialPatient!.id : '';
       String? authUserId = _isEditing ? widget.initialPatient!.authUserId : null;
 
+      final username = _usernameController.text.trim();
       final email = _emailController.text.trim();
       final phone = _phoneController.text.trim();
       final password = _passwordController.text;
+
+      final authEmail = email.isNotEmpty ? email : '$username@prodontics.local';
 
       // ── Step 1: Handle Auth (Create or Update) ───────────────────────────
       // We do this BEFORE the SQL update so that if email is taken, 
@@ -144,8 +151,8 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
         // CASE A: NEW PATIENT OR UPGRADING EXISTING PATIENT TO PORTAL
         // Create the auth user first
         final newAuthId = await AuthService.adminCreateUser(
-          email: email,
-          phone: phone,
+          email: authEmail,
+          phone: phone.isNotEmpty ? phone : null,
           password: password,
         );
         authUserId = newAuthId;
@@ -159,8 +166,8 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
         // CASE B: UPDATING EXISTING PATIENT WHO ALREADY HAS AUTH
         await AuthService.adminUpdateUser(
           userId: authUserId,
-          email: email,
-          phone: phone,
+          email: authEmail,
+          phone: phone.isNotEmpty ? phone : null,
           password: password.isEmpty ? null : password,
         );
       }
@@ -168,6 +175,7 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
       // ── Step 2: Build and Save SQL Record ─────────────────────────────────
       final patient = Patient(
         id: patientId,
+        username: username,
         firstName: _firstNameController.text.trim(),
         lastName: _lastNameController.text.trim().isEmpty
             ? null
@@ -255,6 +263,24 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
             _SectionHeader(title: 'Personal Information'),
             const SizedBox(height: 12),
             TextFormField(
+              controller: _usernameController,
+              decoration: const InputDecoration(
+                labelText: 'Username *',
+                hintText: 'Enter unique username',
+                prefixIcon: Icon(Icons.account_circle_outlined),
+              ),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9._-]')),
+              ],
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) {
+                  return 'Username is required';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
               controller: _firstNameController,
               textCapitalization: TextCapitalization.words,
               decoration: const InputDecoration(
@@ -284,7 +310,7 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
               controller: _phoneController,
               keyboardType: TextInputType.phone,
               decoration: const InputDecoration(
-                labelText: 'Phone *',
+                labelText: 'Phone (Optional)',
                 hintText: 'Enter phone number',
                 prefixIcon: Icon(Icons.phone_outlined),
               ),
@@ -295,14 +321,11 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
               },
               validator: (v) {
                 final phone = v?.trim() ?? '';
-                
-                if (phone.isEmpty) {
-                  return 'Phone number is required';
-                }
-                
-                final phoneRegex = RegExp(r'^\+?[0-9]{7,15}$');
-                if (!phoneRegex.hasMatch(phone)) {
-                  return 'Enter a valid phone number';
+                if (phone.isNotEmpty) {
+                  final phoneRegex = RegExp(r'^\+?[0-9]{7,15}$');
+                  if (!phoneRegex.hasMatch(phone)) {
+                    return 'Enter a valid phone number';
+                  }
                 }
                 return null;
               },
@@ -317,22 +340,19 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
                 _formKey.currentState?.validate();
               },
               decoration: const InputDecoration(
-                labelText: 'Email Address *',
+                labelText: 'Email Address (Optional)',
                 hintText: 'Enter email address',
                 prefixIcon: Icon(Icons.email_outlined),
               ),
               validator: (v) {
                 final email = v?.trim() ?? '';
-
-                if (email.isEmpty) {
-                  return 'Email address is required';
-                }
-
-                final emailRegex = RegExp(
-                  r'^[a-zA-Z0-9.]+@[a-zA-Z0-9]+\.[a-zA-Z]+',
-                );
-                if (!emailRegex.hasMatch(email)) {
-                  return 'Enter a valid email address';
+                if (email.isNotEmpty) {
+                  final emailRegex = RegExp(
+                    r'^[a-zA-Z0-9.]+@[a-zA-Z0-9]+\.[a-zA-Z]+',
+                  );
+                  if (!emailRegex.hasMatch(email)) {
+                    return 'Enter a valid email address';
+                  }
                 }
                 return null;
               },

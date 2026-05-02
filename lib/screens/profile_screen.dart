@@ -459,11 +459,6 @@ class _SettingsTile extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(
-                Icons.chevron_right,
-                color: isDestructive ? _red400 : _slate200,
-                size: 20,
-              ),
             ],
           ),
         ),

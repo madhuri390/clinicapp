@@ -29,12 +29,14 @@ class MainShellState extends State<MainShell> {
 
   final GlobalKey<DashboardScreenState> _dashboardScreenKey =
       GlobalKey<DashboardScreenState>();
+  final GlobalKey<PatientListScreenState> _patientListScreenKey =
+      GlobalKey<PatientListScreenState>();
   final GlobalKey<AppointmentsScreenState> _appointmentsScreenKey =
       GlobalKey<AppointmentsScreenState>();
 
   List<Widget> get _screens => [
     DashboardScreen(key: _dashboardScreenKey),
-    const PatientListScreen(),
+    PatientListScreen(key: _patientListScreenKey),
     AppointmentsScreen(key: _appointmentsScreenKey),
     const ProfileScreen(),
   ];
@@ -56,6 +58,11 @@ class MainShellState extends State<MainShell> {
     if (index < 0 || index >= _screens.length) return;
     setState(() => _currentIndex = index);
     _refreshDashboardTabIfNeeded(index);
+    if (index == 1) refreshPatientTab();
+  }
+
+  void refreshPatientTab() {
+    _patientListScreenKey.currentState?.refresh();
   }
 
   NavigatorState? getNavigatorForTab(int index) {

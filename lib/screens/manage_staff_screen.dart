@@ -50,21 +50,48 @@ class _ManageStaffScreenState extends State<ManageStaffScreen> {
       backgroundColor: Colors.transparent,
       builder: (_) => StaffFormSheet(
         staff: staff,
-        onSave: (updatedStaff) async {
-          Navigator.pop(context); // close sheet
+        onSave: (updatedStaff, password) async {
           setState(() => _isLoading = true);
           try {
             if (updatedStaff.id.isEmpty) {
-              await _service.createStaff(updatedStaff);
+              final email = updatedStaff.email;
+              final username = updatedStaff.username;
+              final phone = updatedStaff.phone;
+              final authEmail = (email != null && email.isNotEmpty) ? email : '$username@prodontics.local';
+              
+              final authUserId = await AuthService.adminCreateUser(
+                email: authEmail,
+                phone: (phone != null && phone.isNotEmpty) ? phone : null,
+                password: password!, // Form validation ensures this is not null for new staff
+              );
+              
+              final finalStaff = updatedStaff.copyWith(authUserId: authUserId);
+              await _service.createStaff(finalStaff);
             } else {
+              final email = updatedStaff.email;
+              final username = updatedStaff.username;
+              final phone = updatedStaff.phone;
+              final authEmail = (email != null && email.isNotEmpty) ? email : '$username@prodontics.local';
+              
+              if (updatedStaff.authUserId != null) {
+                await AuthService.adminUpdateUser(
+                  userId: updatedStaff.authUserId!,
+                  email: authEmail,
+                  phone: (phone != null && phone.isNotEmpty) ? phone : null,
+                  password: (password != null && password.isNotEmpty) ? password : null,
+                );
+              }
               await _service.updateStaff(updatedStaff);
             }
             await _loadStaff();
+            if (mounted) Navigator.pop(context); // close sheet only on success
           } catch (e) {
             setState(() => _isLoading = false);
             if (mounted) {
+              var msg = e.toString();
+              if (msg.startsWith('Exception: ')) msg = msg.replaceFirst('Exception: ', '');
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Failed to save staff: $e')),
+                SnackBar(content: Text('Failed to save staff: $msg')),
               );
             }
           }

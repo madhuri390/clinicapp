@@ -30,8 +30,13 @@ class AuthService {
   static Future<AuthResponse> signInWithEmail({
     required String email,
     required String password,
-  }) =>
-      _client.auth.signInWithPassword(email: email, password: password);
+  }) async {
+    try {
+      return await _client.auth.signInWithPassword(email: email, password: password);
+    } on AuthException catch (e) {
+      throw AuthException(e.message.replaceAll('Email', 'Username').replaceAll('email', 'username'), statusCode: e.statusCode);
+    }
+  }
 
   static Future<AuthResponse> signInWithPhone({
     required String phone,
@@ -42,8 +47,13 @@ class AuthService {
   static Future<AuthResponse> signUpWithEmail({
     required String email,
     required String password,
-  }) =>
-      _client.auth.signUp(email: email, password: password);
+  }) async {
+    try {
+      return await _client.auth.signUp(email: email, password: password);
+    } on AuthException catch (e) {
+      throw AuthException(e.message.replaceAll('Email', 'Username').replaceAll('email', 'username'), statusCode: e.statusCode);
+    }
+  }
 
   static Future<void> resetPassword(String email) =>
       _client.auth.resetPasswordForEmail(email);
@@ -143,7 +153,10 @@ class AuthService {
 
     if (response.statusCode != 200 && response.statusCode != 201) {
       final decoded = jsonDecode(response.body) as Map<String, dynamic>?;
-      final msg = decoded?['msg'] ?? decoded?['message'] ?? response.body;
+      var msg = decoded?['msg'] ?? decoded?['message'] ?? response.body;
+      if (msg is String) {
+        msg = msg.replaceAll('Email', 'Username').replaceAll('email', 'username');
+      }
       print('[AuthService] Error in adminCreateUser: $msg');
       throw Exception('Failed to create auth user: $msg');
     }
@@ -187,7 +200,10 @@ class AuthService {
 
     if (response.statusCode != 200 && response.statusCode != 201) {
       final decoded = jsonDecode(response.body) as Map<String, dynamic>?;
-      final msg = decoded?['msg'] ?? decoded?['message'] ?? response.body;
+      var msg = decoded?['msg'] ?? decoded?['message'] ?? response.body;
+      if (msg is String) {
+        msg = msg.replaceAll('Email', 'Username').replaceAll('email', 'username');
+      }
       print('[AuthService] Error in adminUpdateUser: $msg');
       throw Exception('Failed to update auth user: $msg');
     }
