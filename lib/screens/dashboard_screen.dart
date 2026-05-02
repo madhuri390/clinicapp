@@ -12,7 +12,10 @@ import 'appointments_screen.dart';
 import 'login_screen.dart';
 import 'main_shell.dart';
 import 'patient_form_screen.dart';
+import 'patient_list_screen.dart';
+import 'patient_details_screen.dart';
 import 'profile_screen.dart';
+import '../models/visit_detail_model.dart';
 
 // ── Reference colors (Tailwind) ─────────────────────────────────────────────
 const _blue600 = Color(0xFF2563EB);
@@ -76,6 +79,7 @@ class DashboardScreenState extends State<DashboardScreen> {
   final _visitRepo = VisitDetailRepository();
   int _todayAppointmentsCount = 0;
   List<Appointment> _todayVisits = [];
+  List<VisitDetail> _ongoingVisits = [];
   String _welcomeName = 'Doctor';
   String _profileRole = '';
 
@@ -250,9 +254,14 @@ class DashboardScreenState extends State<DashboardScreen> {
         ..sort((a, b) => a.timeSlot.compareTo(b.timeSlot));
 
       if (!mounted) return;
+      
+      final ongoingVisits = await _visitRepo.getAllOngoing();
+      
+      if (!mounted) return;
       setState(() {
         _todayAppointmentsCount = visits.length;
         _todayVisits = visits;
+        _ongoingVisits = ongoingVisits;
       });
     } catch (_) {
       if (mounted) {
@@ -308,6 +317,8 @@ class DashboardScreenState extends State<DashboardScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _buildTodaySchedule(),
+                      const SizedBox(height: 16),
+                      _buildOngoingTreatments(),
                       const SizedBox(height: 16),
                       _buildQuickActions(),
                     ],
@@ -770,6 +781,145 @@ class DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  Widget _buildOngoingTreatments() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: _slate200),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.bolt, color: _orange600, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    "Ongoing Treatments",
+                    style: GoogleFonts.inter(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: _slate900,
+                    ),
+                  ),
+                ],
+              ),
+              GestureDetector(
+                onTap: () {
+                  final shell = MainShell.of(context);
+                  if (shell != null) {
+                    shell.setTabIndex(1);
+                  } else {
+                    _go(const PatientListScreen());
+                  }
+                },
+                child: Text(
+                  'View All',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: _blue600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (_ongoingVisits.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'No ongoing treatments right now.',
+                style: GoogleFonts.inter(fontSize: 14, color: _slate500, height: 1.35),
+              ),
+            )
+          else
+            ..._ongoingVisits.take(5).map(
+              (v) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Material(
+                  color: _slate50,
+                  borderRadius: BorderRadius.circular(8),
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => PatientDetailsScreen(
+                            patientId: v.visit.patientId,
+                            patientName: v.patientName,
+                            initialTabIndex: 1, // Ongoing tab
+                          ),
+                        ),
+                      );
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.local_hospital_outlined,
+                            color: _orange600,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  v.patientName,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: _slate900,
+                                  ),
+                                ),
+                                if (v.visit.chiefComplaint != null && v.visit.chiefComplaint!.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    v.visit.chiefComplaint!,
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      color: _slate600,
+                                    ),
+                                  ),
+                                ],
+                                if (v.treatments.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Plan: ${v.treatments.first.treatmentName}',
+                                    style: GoogleFonts.inter(
+                                      fontSize: 12,
+                                      color: _slate500,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildQuickActions() {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -882,7 +1032,6 @@ class DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
-
 
 }
 

@@ -14,6 +14,7 @@ class PatientDetailsScreen extends StatefulWidget {
     super.key,
     required this.patientId,
     required this.patientName,
+    this.initialTabIndex = 0,
     this.patientPortalMode = false,
     /// Patient shell: fires when Home requests Ongoing (1) or History (2).
     this.careNavSignal,
@@ -22,6 +23,7 @@ class PatientDetailsScreen extends StatefulWidget {
 
   final String patientId;
   final String patientName;
+  final int initialTabIndex;
   final bool patientPortalMode;
   final ValueNotifier<int>? careNavSignal;
   final int Function()? careTargetTabResolver;
@@ -50,7 +52,11 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(
+      length: 3, 
+      vsync: this, 
+      initialIndex: widget.initialTabIndex,
+    );
     _loadAll();
     _resolveDoctorId();
     widget.careNavSignal?.addListener(_onCareNavSignal);

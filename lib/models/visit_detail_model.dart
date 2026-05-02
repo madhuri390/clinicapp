@@ -10,6 +10,7 @@ class VisitDetail {
   const VisitDetail({
     required this.visit,
     required this.doctorName,
+    required this.patientName,
     required this.treatments,
     required this.sittings,
     required this.prescriptions,
@@ -18,6 +19,7 @@ class VisitDetail {
 
   final Visit visit;
   final String doctorName;
+  final String patientName;
   final List<TreatmentPlan> treatments;
   final List<Sitting> sittings;
   final List<Prescription> prescriptions;
@@ -53,6 +55,7 @@ class VisitDetail {
   VisitDetail copyWith({
     Visit? visit,
     String? doctorName,
+    String? patientName,
     List<TreatmentPlan>? treatments,
     List<Sitting>? sittings,
     List<Prescription>? prescriptions,
@@ -61,6 +64,7 @@ class VisitDetail {
       VisitDetail(
         visit: visit ?? this.visit,
         doctorName: doctorName ?? this.doctorName,
+        patientName: patientName ?? this.patientName,
         treatments: treatments ?? this.treatments,
         sittings: sittings ?? this.sittings,
         prescriptions: prescriptions ?? this.prescriptions,
@@ -80,6 +84,12 @@ class VisitDetail {
     if (rawName.isNotEmpty) {
       doctorName = rawName.toLowerCase().startsWith('dr.') ? rawName : 'Dr. $rawName';
     }
+
+    // Patient name from joined patients table
+    final patientJson = json['patients'] as Map<String, dynamic>?;
+    final pfName = patientJson?['first_name'] as String? ?? '';
+    final plName = patientJson?['last_name'] as String? ?? '';
+    final patientName = '$pfName $plName'.trim();
 
     // Treatment plans array
     final treatmentsList = (json['treatment_plans'] as List? ?? [])
@@ -108,6 +118,7 @@ class VisitDetail {
     return VisitDetail(
       visit: visit,
       doctorName: doctorName,
+      patientName: patientName,
       treatments: treatmentsList,
       sittings: sittingsList,
       prescriptions: prescriptionsList,

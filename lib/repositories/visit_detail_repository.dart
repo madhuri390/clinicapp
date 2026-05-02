@@ -19,6 +19,7 @@ class VisitDetailRepository {
     id, patient_id, doctor_id, visit_date, chief_complaint,
     diagnosis, notes, next_visit_date, status, created_at,
     doctors ( id, first_name, last_name ),
+    patients ( id, first_name, last_name ),
     treatment_plans (
       id, visit_id, treatment_name, description, teeth, total_cost, status, created_at,
       sittings (
@@ -44,6 +45,17 @@ class VisitDetailRepository {
         .from('visits')
         .select(_nestedSelect)
         .eq('patient_id', patientId)
+        .eq('status', 'ongoing')
+        .order('visit_date', ascending: false);
+    return (data as List)
+        .map((e) => VisitDetail.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<VisitDetail>> getAllOngoing() async {
+    final data = await _client
+        .from('visits')
+        .select(_nestedSelect)
         .eq('status', 'ongoing')
         .order('visit_date', ascending: false);
     return (data as List)
