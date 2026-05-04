@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 
 import '../models/appointment_model.dart';
 import '../repositories/appointment_repository.dart';
-import '../services/notification_service.dart';
 
 // Colors
 const _primaryColor = Color(0xFF0D8DC4);
@@ -18,10 +17,26 @@ const _slate700 = Color(0xFF334155);
 const _slate900 = Color(0xFF0F172A);
 
 const _allTimeSlots = [
-  '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
-  '12:00', '12:30', '13:00', '13:30', '14:00', '14:30',
-  '15:00', '15:30', '16:00', '16:30', '17:00', '17:30',
-  '18:00', '18:30',
+  '09:00',
+  '09:30',
+  '10:00',
+  '10:30',
+  '11:00',
+  '11:30',
+  '12:00',
+  '12:30',
+  '13:00',
+  '13:30',
+  '14:00',
+  '14:30',
+  '15:00',
+  '15:30',
+  '16:00',
+  '16:30',
+  '17:00',
+  '17:30',
+  '18:00',
+  '18:30',
 ];
 
 /// Bottom sheet for rescheduling an appointment.
@@ -79,13 +94,16 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
     for (final a in _doctorDayAppts) {
       if (a.id == widget.appointment.id) continue;
       if (a.status == AppointmentStatus.cancelled ||
-          a.status == AppointmentStatus.rescheduled) continue;
+          a.status == AppointmentStatus.rescheduled)
+        continue;
       final parts = a.timeSlot.split(':');
       var h = int.parse(parts[0]);
       var m = int.parse(parts[1]);
       var remaining = a.duration;
       while (remaining > 0) {
-        bookedSlots.add('${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}');
+        bookedSlots.add(
+          '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}',
+        );
         m += 30;
         if (m >= 60) {
           h += 1;
@@ -103,15 +121,20 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
     setState(() => _loadingSlots = true);
     try {
       final all = await _repo.getForDoctor(did);
-      final day = all.where((a) =>
-          a.date.year == _newDate.year &&
-          a.date.month == _newDate.month &&
-          a.date.day == _newDate.day).toList();
+      final day = all
+          .where(
+            (a) =>
+                a.date.year == _newDate.year &&
+                a.date.month == _newDate.month &&
+                a.date.day == _newDate.day,
+          )
+          .toList();
       if (!mounted) return;
       setState(() {
         _doctorDayAppts = day;
         _loadingSlots = false;
-        if (_newSlot != null && _bookedSlots.contains(_newSlot)) _newSlot = null;
+        if (_newSlot != null && _bookedSlots.contains(_newSlot))
+          _newSlot = null;
       });
     } catch (_) {
       if (!mounted) return;
@@ -129,7 +152,9 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
       lastDate: today.add(const Duration(days: 365)),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
-          colorScheme: Theme.of(context).colorScheme.copyWith(primary: _primaryColor),
+          colorScheme: Theme.of(
+            context,
+          ).colorScheme.copyWith(primary: _primaryColor),
         ),
         child: child!,
       ),
@@ -148,7 +173,10 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
   Future<void> _save() async {
     if (_newSlot == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a new time slot'), behavior: SnackBarBehavior.floating),
+        const SnackBar(
+          content: Text('Please select a new time slot'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
       return;
     }
@@ -163,7 +191,10 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
     }
     if (_messageCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please add a message for the patient'), behavior: SnackBarBehavior.floating),
+        const SnackBar(
+          content: Text('Please add a message for the patient'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
       return;
     }
@@ -181,7 +212,10 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), behavior: SnackBarBehavior.floating),
+        SnackBar(
+          content: Text('Error: $e'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
       return;
     }
@@ -193,17 +227,15 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
       status: AppointmentStatus.rescheduled,
       doctorMessage: msg,
     );
-    NotificationService.instance.onAppointmentRescheduled(
-      oldAppt: oldAppt,
-      newAppt: newAppt,
-      doctorMessage: msg,
-    );
 
     widget.onSaved();
     Navigator.of(context).pop();
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Appointment rescheduled'), behavior: SnackBarBehavior.floating),
+      const SnackBar(
+        content: Text('Appointment rescheduled'),
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
@@ -213,7 +245,9 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
     final booked = _bookedSlots;
 
     return Container(
-      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.88),
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.88,
+      ),
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -225,8 +259,12 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
           Center(
             child: Container(
               margin: const EdgeInsets.only(top: 10),
-              width: 40, height: 4,
-              decoration: BoxDecoration(color: _slate300, borderRadius: BorderRadius.circular(2)),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: _slate300,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
           ),
           Padding(
@@ -234,8 +272,18 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Reschedule Appointment', style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600, color: _slate900)),
-                IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close, color: _slate400)),
+                Text(
+                  'Reschedule Appointment',
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: _slate900,
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close, color: _slate400),
+                ),
               ],
             ),
           ),
@@ -262,9 +310,28 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(a.patientName, style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: _slate900)),
-                              Text('${a.type} • ${a.timeRange}', style: GoogleFonts.inter(fontSize: 13, color: _slate600)),
-                              Text('Current: ${DateFormat('dd MMM yyyy').format(a.date)}', style: GoogleFonts.inter(fontSize: 12, color: _slate500)),
+                              Text(
+                                a.patientName,
+                                style: GoogleFonts.inter(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: _slate900,
+                                ),
+                              ),
+                              Text(
+                                '${a.type} • ${a.timeRange}',
+                                style: GoogleFonts.inter(
+                                  fontSize: 13,
+                                  color: _slate600,
+                                ),
+                              ),
+                              Text(
+                                'Current: ${DateFormat('dd MMM yyyy').format(a.date)}',
+                                style: GoogleFonts.inter(
+                                  fontSize: 12,
+                                  color: _slate500,
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -274,12 +341,22 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
                   const SizedBox(height: 20),
 
                   // New date
-                  Text('New Date', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: _slate700)),
+                  Text(
+                    'New Date',
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: _slate700,
+                    ),
+                  ),
                   const SizedBox(height: 6),
                   GestureDetector(
                     onTap: _pickDate,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 14,
+                      ),
                       decoration: BoxDecoration(
                         border: Border.all(color: _slate200),
                         borderRadius: BorderRadius.circular(8),
@@ -287,10 +364,19 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.calendar_today, size: 18, color: _primaryColor),
+                          Icon(
+                            Icons.calendar_today,
+                            size: 18,
+                            color: _primaryColor,
+                          ),
                           const SizedBox(width: 10),
-                          Text(DateFormat('EEEE, dd MMM yyyy').format(_newDate),
-                              style: GoogleFonts.inter(fontSize: 14, color: _slate700)),
+                          Text(
+                            DateFormat('EEEE, dd MMM yyyy').format(_newDate),
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              color: _slate700,
+                            ),
+                          ),
                           const Spacer(),
                           Icon(Icons.arrow_drop_down, color: _slate400),
                         ],
@@ -300,12 +386,25 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
                   const SizedBox(height: 16),
 
                   // New time slot
-                  Text('New Time Slot', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: _slate700)),
+                  Text(
+                    'New Time Slot',
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: _slate700,
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   if (_loadingSlots)
                     const Padding(
                       padding: EdgeInsets.only(bottom: 8),
-                      child: Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
+                      child: Center(
+                        child: SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
                     ),
                   Wrap(
                     spacing: 6,
@@ -316,20 +415,40 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
                       final blocked = isBooked || isPast;
                       final isSelected = _newSlot == slot;
                       return GestureDetector(
-                        onTap: blocked ? null : () => setState(() => _newSlot = slot),
+                        onTap: blocked
+                            ? null
+                            : () => setState(() => _newSlot = slot),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 150),
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
-                            color: blocked ? _slate50 : isSelected ? _primaryColor : Colors.white,
+                            color: blocked
+                                ? _slate50
+                                : isSelected
+                                ? _primaryColor
+                                : Colors.white,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: blocked ? _slate200 : isSelected ? _primaryColor : _slate300),
+                            border: Border.all(
+                              color: blocked
+                                  ? _slate200
+                                  : isSelected
+                                  ? _primaryColor
+                                  : _slate300,
+                            ),
                           ),
                           child: Text(
                             Appointment.to12Hour(slot),
                             style: GoogleFonts.inter(
-                              fontSize: 12, fontWeight: FontWeight.w500,
-                              color: blocked ? _slate300 : isSelected ? Colors.white : _slate700,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: blocked
+                                  ? _slate300
+                                  : isSelected
+                                  ? Colors.white
+                                  : _slate700,
                             ),
                           ),
                         ),
@@ -339,20 +458,43 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
                   const SizedBox(height: 20),
 
                   // Doctor message
-                  Text("Doctor's Message *", style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: _slate700)),
+                  Text(
+                    "Doctor's Message *",
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: _slate700,
+                    ),
+                  ),
                   const SizedBox(height: 6),
                   TextFormField(
                     controller: _messageCtrl,
                     maxLines: 3,
                     decoration: InputDecoration(
-                      hintText: 'Reason for rescheduling (sent to patient via WhatsApp)',
-                      hintStyle: GoogleFonts.inter(fontSize: 13, color: _slate400),
+                      hintText:
+                          'Reason for rescheduling (sent to patient via WhatsApp)',
+                      hintStyle: GoogleFonts.inter(
+                        fontSize: 13,
+                        color: _slate400,
+                      ),
                       filled: true,
                       fillColor: _slate50,
                       contentPadding: const EdgeInsets.all(12),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: _slate200)),
-                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: _slate200)),
-                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: _primaryColor, width: 1.5)),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: _slate200),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: _slate200),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: const BorderSide(
+                          color: _primaryColor,
+                          width: 1.5,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -363,7 +505,10 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
                       Expanded(
                         child: Text(
                           'This message will be sent to the patient via WhatsApp',
-                          style: GoogleFonts.inter(fontSize: 11, color: _primaryColor),
+                          style: GoogleFonts.inter(
+                            fontSize: 11,
+                            color: _primaryColor,
+                          ),
                         ),
                       ),
                     ],
@@ -376,12 +521,20 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
                     child: ElevatedButton.icon(
                       onPressed: _save,
                       icon: const Icon(Icons.schedule),
-                      label: Text('Reschedule', style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600)),
+                      label: Text(
+                        'Reschedule',
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _primaryColor,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
                     ),
                   ),

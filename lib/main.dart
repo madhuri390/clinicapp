@@ -4,7 +4,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'screens/splash_screen.dart';
 import 'services/app_role_service.dart';
-import 'services/notification_service.dart';
 import 'theme/app_theme.dart';
 
 Future<void> main() async {
@@ -30,7 +29,6 @@ Future<void> main() async {
   );
 
   await AppRoleService.load();
-  await NotificationService.instance.init();
 
   runApp(const ClinicApp());
 }
