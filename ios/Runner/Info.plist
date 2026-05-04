@@ -53,7 +53,7 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>io.supabase.clinicapp</string>
+				<string>com.prodontics.app</string>
 			</array>
 		</dict>
 	</array>
