@@ -4,7 +4,6 @@ import 'package:intl/intl.dart';
 
 import '../models/appointment_model.dart';
 import '../repositories/appointment_repository.dart';
-import '../services/notification_service.dart';
 
 // Colors
 const _slate50 = Color(0xFFF8FAFC);
@@ -64,16 +63,14 @@ class _CancelAppointmentSheetState extends State<CancelAppointmentSheet> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), behavior: SnackBarBehavior.floating),
+        SnackBar(
+          content: Text('Error: $e'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
       return;
     }
     if (!mounted) return;
-
-    NotificationService.instance.onAppointmentCancelled(
-      appt: appt,
-      doctorMessage: msg,
-    );
 
     widget.onSaved();
     Navigator.of(context).pop();
@@ -102,8 +99,12 @@ class _CancelAppointmentSheetState extends State<CancelAppointmentSheet> {
           Center(
             child: Container(
               margin: const EdgeInsets.only(top: 10),
-              width: 40, height: 4,
-              decoration: BoxDecoration(color: _slate300, borderRadius: BorderRadius.circular(2)),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: _slate300,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
           ),
           // Header
@@ -114,7 +115,11 @@ class _CancelAppointmentSheetState extends State<CancelAppointmentSheet> {
               children: [
                 Text(
                   'Cancel Appointment',
-                  style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600, color: _red700),
+                  style: GoogleFonts.inter(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: _red700,
+                  ),
                 ),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
@@ -139,12 +144,19 @@ class _CancelAppointmentSheetState extends State<CancelAppointmentSheet> {
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.warning_amber_rounded, size: 20, color: _red500),
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        size: 20,
+                        color: _red500,
+                      ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           'This will cancel the appointment and notify the patient via WhatsApp.',
-                          style: GoogleFonts.inter(fontSize: 13, color: _red700),
+                          style: GoogleFonts.inter(
+                            fontSize: 13,
+                            color: _red700,
+                          ),
                         ),
                       ),
                     ],
@@ -167,25 +179,51 @@ class _CancelAppointmentSheetState extends State<CancelAppointmentSheet> {
                         children: [
                           Icon(Icons.person, size: 18, color: _slate500),
                           const SizedBox(width: 8),
-                          Text(a.patientName, style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: _slate900)),
+                          Text(
+                            a.patientName,
+                            style: GoogleFonts.inter(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: _slate900,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 6),
                       Row(
                         children: [
-                          Icon(Icons.medical_services_outlined, size: 16, color: _slate400),
+                          Icon(
+                            Icons.medical_services_outlined,
+                            size: 16,
+                            color: _slate400,
+                          ),
                           const SizedBox(width: 8),
-                          Expanded(child: Text(a.type, style: GoogleFonts.inter(fontSize: 13, color: _slate600))),
+                          Expanded(
+                            child: Text(
+                              a.type,
+                              style: GoogleFonts.inter(
+                                fontSize: 13,
+                                color: _slate600,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 4),
                       Row(
                         children: [
-                          Icon(Icons.calendar_today, size: 16, color: _slate400),
+                          Icon(
+                            Icons.calendar_today,
+                            size: 16,
+                            color: _slate400,
+                          ),
                           const SizedBox(width: 8),
                           Text(
                             '${DateFormat('dd MMM yyyy').format(a.date)} • ${a.timeRange}',
-                            style: GoogleFonts.inter(fontSize: 13, color: _slate600),
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              color: _slate600,
+                            ),
                           ),
                         ],
                       ),
@@ -197,15 +235,23 @@ class _CancelAppointmentSheetState extends State<CancelAppointmentSheet> {
                 // Doctor message
                 Text(
                   "Cancellation Reason *",
-                  style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: _slate700),
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: _slate700,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 TextFormField(
                   controller: _messageCtrl,
                   maxLines: 3,
                   decoration: InputDecoration(
-                    hintText: 'Reason for cancellation (sent to patient via WhatsApp)',
-                    hintStyle: GoogleFonts.inter(fontSize: 13, color: _slate400),
+                    hintText:
+                        'Reason for cancellation (sent to patient via WhatsApp)',
+                    hintStyle: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: _slate400,
+                    ),
                     filled: true,
                     fillColor: _slate50,
                     contentPadding: const EdgeInsets.all(12),
@@ -234,11 +280,17 @@ class _CancelAppointmentSheetState extends State<CancelAppointmentSheet> {
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           side: BorderSide(color: _slate200),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
                         child: Text(
                           'Keep Appointment',
-                          style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500, color: _slate700),
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: _slate700,
+                          ),
                         ),
                       ),
                     ),
@@ -249,13 +301,18 @@ class _CancelAppointmentSheetState extends State<CancelAppointmentSheet> {
                         icon: const Icon(Icons.cancel, size: 18),
                         label: Text(
                           'Cancel',
-                          style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600),
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _red500,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
                       ),
                     ),
