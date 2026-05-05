@@ -332,19 +332,13 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
       );
       return;
     }
-    if (_selectedPatientPhone == null || _selectedPatientPhone!.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not load patient phone'), behavior: SnackBarBehavior.floating),
-      );
-      return;
-    }
 
     final id = 'appt_${DateTime.now().millisecondsSinceEpoch}';
     final appt = Appointment(
       id: id,
       patientId: _selectedPatientId!,
       patientName: _selectedPatientName ?? _nameCtrl.text.trim(),
-      patientPhone: _selectedPatientPhone!,
+      patientPhone: _selectedPatientPhone?.trim() ?? '',
       doctorId: _selectedDoctorId!,
       date: _date,
       timeSlot: _selectedSlot!,

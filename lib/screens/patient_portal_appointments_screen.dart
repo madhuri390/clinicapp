@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../models/appointment_model.dart';
 import '../repositories/appointment_repository.dart';
+import '../services/notification_service.dart';
 import '../services/patient_session.dart';
 import '../theme/patient_portal_theme.dart';
 import '../widgets/add_appointment_sheet.dart';
@@ -49,6 +50,11 @@ class _PatientPortalAppointmentsScreenState
         _loading = false;
         _loadError = null;
       });
+      // Ensure local reminders are scheduled for all upcoming appointments.
+      NotificationService.instance.scheduleRemindersForAll(list);
+
+      // Prompt for exact alarm permission if needed (once per session).
+      _showExactAlarmDialogIfNeeded();
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -56,6 +62,55 @@ class _PatientPortalAppointmentsScreenState
         _loadError = 'Could not load appointments. Pull to refresh or try again later.';
       });
     }
+  }
+
+  void _showExactAlarmDialogIfNeeded() {
+    final notif = NotificationService.instance;
+    if (notif.exactAlarmsPermitted || notif.alarmDialogShown) return;
+    notif.markAlarmDialogShown();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Icon(Icons.notifications_active_rounded,
+                  color: PatientPortalTheme.skyBlue, size: 28),
+              const SizedBox(width: 12),
+              Text('Enable Reminders',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 18)),
+            ],
+          ),
+          content: Text(
+            'To receive appointment reminders exactly on time (previous night, 1 hour, and 15 minutes before), '
+            'please allow "Alarms & reminders" for this app.\n\n'
+            'Without this, reminders may be delayed by several minutes.',
+            style: GoogleFonts.inter(fontSize: 14, color: Colors.grey[600], height: 1.5),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('Later', style: GoogleFonts.inter(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                notif.openExactAlarmSettings();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: PatientPortalTheme.skyBlue,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: Text('Enable', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+      );
+    });
   }
 
   void _book() {
@@ -66,15 +121,6 @@ class _PatientPortalAppointmentsScreenState
     final phone = (linked?.phone ?? '').trim();
 
     if (pid == null) return;
-    if (phone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Your profile is missing a phone number. Please update it first.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
 
     showModalBottomSheet<void>(
       context: context,

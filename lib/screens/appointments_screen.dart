@@ -6,6 +6,7 @@ import '../models/appointment_model.dart';
 import '../repositories/appointment_repository.dart';
 import '../repositories/visit_detail_repository.dart';
 import '../services/auth_service.dart';
+import '../services/notification_service.dart';
 import '../services/staff_service.dart';
 
 import 'main_shell.dart';
@@ -134,8 +135,62 @@ class AppointmentsScreenState extends State<AppointmentsScreen>
       return;
     }
 
+    // 4. Ensure local reminders are scheduled for all upcoming appointments.
+    NotificationService.instance.scheduleRemindersForAll(_appointments);
+
     if (!mounted) return;
     setState(() => _loading = false);
+
+    // 5. Prompt for exact alarm permission if needed (once per session).
+    _showExactAlarmDialogIfNeeded();
+  }
+
+  void _showExactAlarmDialogIfNeeded() {
+    final notif = NotificationService.instance;
+    if (notif.exactAlarmsPermitted || notif.alarmDialogShown) return;
+    notif.markAlarmDialogShown();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              Icon(Icons.notifications_active_rounded, color: _blue600, size: 28),
+              const SizedBox(width: 12),
+              Text('Enable Reminders',
+                  style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 18)),
+            ],
+          ),
+          content: Text(
+            'To receive appointment reminders exactly on time (previous night, 1 hour, and 15 minutes before), '
+            'please allow "Alarms & reminders" for this app.\n\n'
+            'Without this, reminders may be delayed by several minutes.',
+            style: GoogleFonts.inter(fontSize: 14, color: _slate600, height: 1.5),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('Later', style: GoogleFonts.inter(color: _slate400)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(ctx);
+                notif.openExactAlarmSettings();
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _blue600,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: Text('Enable', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+            ),
+          ],
+        ),
+      );
+    });
   }
 
   void _buildDateRange() {
