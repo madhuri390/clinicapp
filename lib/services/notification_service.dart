@@ -22,8 +22,13 @@ class NotificationService {
   final _localNotif = FlutterLocalNotificationsPlugin();
   bool _localReady = false;
 
+  /// Returns true if local push notifications are supported on the current platform (Android / iOS).
+  bool get isSupportedPlatform =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.android ||
+          defaultTargetPlatform == TargetPlatform.iOS);
+
   /// Whether the device supports exact alarm scheduling.
-  /// If false, reminders may be delayed by a few minutes.
   bool _exactAlarmsPermitted = false;
   bool get exactAlarmsPermitted => _exactAlarmsPermitted;
 
@@ -38,6 +43,11 @@ class NotificationService {
   // ── Initialization ──────────────────────────────────────────────────────
 
   Future<void> init() async {
+    if (!isSupportedPlatform) {
+      debugPrint('[Notification] Local push notifications skipped on non-mobile platform.');
+      return;
+    }
+
     tz.initializeTimeZones();
     tz.setLocalLocation(tz.getLocation('Asia/Kolkata'));
 
@@ -47,27 +57,29 @@ class NotificationService {
       requestBadgePermission: true,
       requestSoundPermission: true,
     );
-    await _localNotif.initialize(
-      const InitializationSettings(android: androidSettings, iOS: iosSettings),
-    );
 
-    // Request Android 13+ notification permission at startup.
-    final androidPlugin = _localNotif
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-    await androidPlugin?.requestNotificationsPermission();
+    try {
+      await (_localNotif as dynamic).initialize(
+        const InitializationSettings(android: androidSettings, iOS: iosSettings),
+      );
 
-    // Check if exact alarms are permitted.
-    _exactAlarmsPermitted =
-        await androidPlugin?.canScheduleExactNotifications() ?? true;
+      final androidPlugin = _localNotif
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      await androidPlugin?.requestNotificationsPermission();
 
-    _localReady = true;
-    debugPrint('[Notification] Local notifications initialized '
-        '(exactAlarms=$_exactAlarmsPermitted)');
+      _exactAlarmsPermitted =
+          await androidPlugin?.canScheduleExactNotifications() ?? true;
+
+      _localReady = true;
+      debugPrint('[Notification] Local notifications initialized (exactAlarms=$_exactAlarmsPermitted)');
+    } catch (e) {
+      debugPrint('[Notification] Failed to initialize local notifications: $e');
+    }
   }
 
   /// Opens the system Settings page for exact alarm permission.
-  /// Call after showing an in-app explanation dialog.
   Future<void> openExactAlarmSettings() async {
+    if (!isSupportedPlatform) return;
     final androidPlugin = _localNotif
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
     await androidPlugin?.requestExactAlarmsPermission();
@@ -75,6 +87,7 @@ class NotificationService {
 
   /// Re-checks exact alarm permission (call after returning from Settings).
   Future<void> recheckExactAlarmPermission() async {
+    if (!isSupportedPlatform) return;
     final androidPlugin = _localNotif
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
     _exactAlarmsPermitted =
@@ -118,7 +131,6 @@ class NotificationService {
       title: 'Appointment Rescheduled',
       body: '${newAppt.patientName} moved to ${_fmtDate(newAppt.date)} at ${Appointment.to12Hour(newAppt.timeSlot)}',
     );
-    // Replace old scheduled reminders with new ones.
     await cancelAppointmentReminders(oldAppt.id);
     await scheduleAppointmentReminders(newAppt);
   }
@@ -194,9 +206,8 @@ class NotificationService {
 
   // ── 3-tier local notification scheduling ───────────────────────────────
 
-  /// Schedule reminders for all upcoming appointments in one go.
-  /// Call after loading appointments from the server (e.g. on fresh install/login).
   Future<void> scheduleRemindersForAll(List<Appointment> appointments) async {
+    if (!isSupportedPlatform || !_localReady) return;
     final upcoming = appointments.where((a) =>
         a.status == AppointmentStatus.scheduled ||
         a.status == AppointmentStatus.ongoing,
@@ -208,16 +219,11 @@ class NotificationService {
     }
   }
 
-  /// Deterministic notification IDs for the 3 reminder tiers.
-  /// Using `* 3 + offset` ensures each tier gets a unique, stable ID.
-  /// Mod by 715827881 so the max value (715827881*3+2 = 2147483645) fits in 32-bit.
   static int _baseId(String apptId) => apptId.hashCode.abs() % 715827881;
   static int _prevNightId(String apptId)  => _baseId(apptId) * 3;
   static int _oneHourId(String apptId)    => _baseId(apptId) * 3 + 1;
   static int _fifteenMinId(String apptId) => _baseId(apptId) * 3 + 2;
 
-  /// Role-aware notification body — doctors see patient names,
-  /// patients see doctor + procedure names.
   static String _bodyForRole(Appointment appt, {String? suffix}) {
     final time12 = Appointment.to12Hour(appt.timeSlot);
     final extra = suffix != null ? ' $suffix' : '';
@@ -227,20 +233,12 @@ class NotificationService {
     return '${appt.patientName} — ${appt.type} at $time12$extra';
   }
 
-  /// Schedules **3 local notifications** for an appointment:
-  ///   1. Previous day at 10:00 PM
-  ///   2. 1 hour before
-  ///   3. 15 minutes before
-  ///
-  /// Safe to call on already-past appointments — each tier is individually
-  /// checked and silently skipped if its fire time is in the past.
   Future<void> scheduleAppointmentReminders(Appointment appt) async {
-    if (!_localReady) return;
+    if (!isSupportedPlatform || !_localReady) return;
 
     final now = DateTime.now();
     final startDT = appt.startDateTime;
 
-    // ── Tier 1: Previous day at 10:00 PM ──
     final prevNight = DateTime(
       appt.date.year, appt.date.month, appt.date.day - 1, 22, 0,
     );
@@ -255,20 +253,18 @@ class NotificationService {
       debugPrint('[Notification] Prev-night reminder in the past, skipping: ${appt.id}');
     }
 
-    // ── Tier 2: 1 hour before ──
     final oneHourBefore = startDT.subtract(const Duration(hours: 1));
     if (oneHourBefore.isAfter(now)) {
       await _scheduleOne(
         id: _oneHourId(appt.id),
         time: oneHourBefore,
         title: 'Appointment in 1 Hour',
-        body: _bodyForRole(appt),
+        body: _bodyForRole(appt, suffix: 'in 1 hour'),
       );
     } else {
       debugPrint('[Notification] 1-hour reminder in the past, skipping: ${appt.id}');
     }
 
-    // ── Tier 3: 15 minutes before ──
     final fifteenMinBefore = startDT.subtract(const Duration(minutes: 15));
     if (fifteenMinBefore.isAfter(now)) {
       await _scheduleOne(
@@ -282,25 +278,26 @@ class NotificationService {
     }
   }
 
-  /// Cancels all 3 scheduled reminders for an appointment.
   Future<void> cancelAppointmentReminders(String appointmentId) async {
-    if (!_localReady) return;
-    await _localNotif.cancel(_prevNightId(appointmentId));
-    await _localNotif.cancel(_oneHourId(appointmentId));
-    await _localNotif.cancel(_fifteenMinId(appointmentId));
-    debugPrint('[Notification] Cancelled all 3 reminders for appointment $appointmentId');
+    if (!isSupportedPlatform || !_localReady) return;
+    try {
+      await (_localNotif as dynamic).cancel(_prevNightId(appointmentId));
+      await (_localNotif as dynamic).cancel(_oneHourId(appointmentId));
+      await (_localNotif as dynamic).cancel(_fifteenMinId(appointmentId));
+      debugPrint('[Notification] Cancelled all 3 reminders for appointment $appointmentId');
+    } catch (e) {
+      debugPrint('[Notification] Cancel failed: $e');
+    }
   }
 
-  // ── Internal helpers ────────────────────────────────────────────────────
-
-  /// Schedules a single local notification at the given [time].
-  /// Tries exact alarms first; falls back to inexact if permission is denied.
   Future<void> _scheduleOne({
     required int id,
     required DateTime time,
     required String title,
     required String body,
   }) async {
+    if (!isSupportedPlatform || !_localReady) return;
+
     final tzTime = tz.TZDateTime.from(time, tz.local);
     const notifDetails = NotificationDetails(
       android: AndroidNotificationDetails(
@@ -319,22 +316,16 @@ class NotificationService {
     );
 
     try {
-      // Try exact alarm first (precise timing).
-      await _localNotif.zonedSchedule(
+      await (_localNotif as dynamic).zonedSchedule(
         id, title, body, tzTime, notifDetails,
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
       );
       debugPrint('[Notification] Scheduled (exact) "$title" at $tzTime (id=$id)');
     } catch (_) {
-      // Fallback to inexact — may be off by a few minutes but always works.
       try {
-        await _localNotif.zonedSchedule(
+        await (_localNotif as dynamic).zonedSchedule(
           id, title, body, tzTime, notifDetails,
           androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-          uiLocalNotificationDateInterpretation:
-              UILocalNotificationDateInterpretation.absoluteTime,
         );
         debugPrint('[Notification] Scheduled (inexact fallback) "$title" at $tzTime (id=$id)');
       } catch (e) {
@@ -345,6 +336,5 @@ class NotificationService {
 
   void _sendPush({required String title, required String body}) {
     debugPrint('[Push] $title: $body');
-    // TODO: Integrate with Firebase Cloud Messaging
   }
 }

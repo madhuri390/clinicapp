@@ -1094,9 +1094,15 @@ void _showBillPreview(
 
   // Calculate totals consistently
   double totalAmount = 0;
-  for (var s in sittings) totalAmount += (s.cost ?? 0);
-  for (var p in prescriptions) totalAmount += (p.price ?? 0);
-  for (var f in files) totalAmount += (f.price ?? 0);
+  for (var s in sittings) {
+    totalAmount += (s.cost ?? 0);
+  }
+  for (var p in prescriptions) {
+    totalAmount += (p.price ?? 0);
+  }
+  for (var f in files) {
+    totalAmount += (f.price ?? 0);
+  }
 
   final double paidTotal = payments.fold<double>(
     0,
