@@ -9,6 +9,8 @@ import '../services/patient_session.dart';
 import '../theme/patient_portal_theme.dart';
 import '../widgets/add_appointment_sheet.dart';
 import '../widgets/patient_portal_logo.dart';
+import '../widgets/ui_kit.dart';
+import '../theme/app_tokens.dart';
 
 /// Patient-facing: list own appointments and book new ones.
 class PatientPortalAppointmentsScreen extends StatefulWidget {
@@ -81,19 +83,19 @@ class _PatientPortalAppointmentsScreenState
                   color: PatientPortalTheme.skyBlue, size: 28),
               const SizedBox(width: 12),
               Text('Enable Reminders',
-                  style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 18)),
+                  style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, fontSize: 18)),
             ],
           ),
           content: Text(
             'To receive appointment reminders exactly on time (previous night, 1 hour, and 15 minutes before), '
             'please allow "Alarms & reminders" for this app.\n\n'
             'Without this, reminders may be delayed by several minutes.',
-            style: GoogleFonts.inter(fontSize: 14, color: Colors.grey[600], height: 1.5),
+            style: GoogleFonts.plusJakartaSans(fontSize: 14, color: AppTokens.body, height: 1.5),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text('Later', style: GoogleFonts.inter(color: Colors.grey)),
+              child: Text('Later', style: GoogleFonts.plusJakartaSans(color: AppTokens.muted)),
             ),
             ElevatedButton(
               onPressed: () {
@@ -103,9 +105,9 @@ class _PatientPortalAppointmentsScreenState
               style: ElevatedButton.styleFrom(
                 backgroundColor: PatientPortalTheme.skyBlue,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
-              child: Text('Enable', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+              child: Text('Enable', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
             ),
           ],
         ),
@@ -140,7 +142,7 @@ class _PatientPortalAppointmentsScreenState
     showDialog<void>(
       context: context,
       builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
           child: Column(
@@ -234,11 +236,13 @@ class _PatientPortalAppointmentsScreenState
     final pid = PatientSession.portalPatientId;
     if (pid == null) {
       return Scaffold(
-        backgroundColor: PatientPortalTheme.surface,
-        body: Center(
-          child: Text(
-            'Could not load appointments.',
-            style: PatientPortalTheme.body(context),
+        backgroundColor: Colors.transparent,
+        body: AppGradientBackground(
+          child: Center(
+            child: Text(
+              'Could not load appointments.',
+              style: PatientPortalTheme.body(context),
+            ),
           ),
         ),
       );
@@ -268,10 +272,11 @@ class _PatientPortalAppointmentsScreenState
       ..sort((a, b) => b.date.compareTo(a.date));
 
     return Scaffold(
-      backgroundColor: PatientPortalTheme.surface,
-      body: RefreshIndicator(
+      backgroundColor: Colors.transparent,
+      body: AppGradientBackground(
+        child: RefreshIndicator(
         onRefresh: _load,
-        color: PatientPortalTheme.skyBlue,
+        color: PatientPortalTheme.brightBlue,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
           slivers: [
@@ -317,14 +322,14 @@ class _PatientPortalAppointmentsScreenState
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                   child: Material(
-                    color: const Color(0xFFFEF2F2),
-                    borderRadius: BorderRadius.circular(16),
+                    color: AppTokens.dangerSoft,
+                    borderRadius: BorderRadius.circular(20),
                     child: Padding(
                       padding: const EdgeInsets.all(14),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.error_outline_rounded, color: Colors.red.shade700, size: 22),
+                          Icon(Icons.error_outline_rounded, color: AppTokens.danger, size: 22),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
@@ -332,7 +337,7 @@ class _PatientPortalAppointmentsScreenState
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
-                                color: Colors.red.shade900,
+                                color: AppTokens.danger,
                                 height: 1.35,
                               ),
                             ),
@@ -361,12 +366,15 @@ class _PatientPortalAppointmentsScreenState
                       subtitle: 'Tap Book visit to choose a doctor and time.',
                     )
                   else
-                    ...active.map(
-                      (a) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _AppointmentCard(
-                          appointment: a,
-                          onTap: () => _showDetails(a),
+                    ...active.asMap().entries.map(
+                      (e) => AnimatedEntrance(
+                        index: e.key,
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _AppointmentCard(
+                            appointment: e.value,
+                            onTap: () => _showDetails(e.value),
+                          ),
                         ),
                       ),
                     ),
@@ -381,12 +389,15 @@ class _PatientPortalAppointmentsScreenState
                         subtitle: 'Completed and cancelled visits will show up here.',
                       )
                     else
-                      ...past.map(
-                        (a) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _AppointmentCard(
-                            appointment: a,
-                            onTap: () => _showDetails(a),
+                      ...past.asMap().entries.map(
+                        (e) => AnimatedEntrance(
+                          index: e.key,
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _AppointmentCard(
+                              appointment: e.value,
+                              onTap: () => _showDetails(e.value),
+                            ),
                           ),
                         ),
                       ),
@@ -395,6 +406,7 @@ class _PatientPortalAppointmentsScreenState
               ),
             ),
           ],
+        ),
         ),
       ),
       floatingActionButton: Container(
@@ -456,22 +468,11 @@ class _AppointmentEmptyCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 22),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: PatientPortalTheme.skyBlue.withValues(alpha: 0.12)),
-      ),
+      decoration: PatientPortalTheme.glassDecoration(context),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: PatientPortalTheme.skyBlue.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(icon, color: PatientPortalTheme.skyBlue, size: 26),
-          ),
+          HeroIconBadge(icon: icon, size: 46),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -517,7 +518,7 @@ class _AppointmentCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
         child: Ink(
-          decoration: PatientPortalTheme.cardDecoration(context),
+          decoration: PatientPortalTheme.glassDecoration(context),
           child: Padding(
             padding: const EdgeInsets.all(18),
             child: Row(

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -5,8 +7,20 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'screens/splash_screen.dart';
 import 'services/app_role_service.dart';
 import 'theme/app_theme.dart';
+import 'widgets/ui_kit.dart';
 
 Future<void> main() async {
+  await runZonedGuarded(_init, (error, stack) {
+    // Silence google_fonts network errors — fonts fall back to bundled assets.
+    if (error.toString().contains('fonts.gstatic.com') ||
+        error.toString().contains('Failed to load font')) {
+      return;
+    }
+    debugPrint('Uncaught error: $error\n$stack');
+  });
+}
+
+Future<void> _init() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await dotenv.load(fileName: '.env');
@@ -42,6 +56,11 @@ class ClinicApp extends StatelessWidget {
       title: 'Prodontics',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
+      // The gradient canvas is painted once, here, behind every route — screens
+      // just leave their Scaffold transparent. Individual screens must not wrap
+      // themselves in AppGradientBackground or the glow blob stacks twice.
+      builder: (context, child) =>
+          AppGradientBackground(child: child ?? const SizedBox.shrink()),
       home: const SplashScreen(),
     );
   }

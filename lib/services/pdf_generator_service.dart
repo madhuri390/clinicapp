@@ -14,7 +14,10 @@ import 'auth_service.dart';
 import 'staff_service.dart';
 
 class PdfGeneratorService {
-  // Spec: primary blue #0973c1, divider #a1d3e2
+  // Spec: primary blue #0973c1, divider #a1d3e2.
+  // Deliberately the original clinic palette — printed documents keep the old
+  // blue even though the app theme has moved to #2563EB. Do not "fix" these to
+  // match AppTokens.
   static const _primaryBlue = PdfColor.fromInt(0xFF0973C1);
   static const _dividerBlue = PdfColor.fromInt(0xFFA1D3E2);
   static const _textDark = PdfColor.fromInt(0xFF222222);
@@ -46,7 +49,7 @@ class PdfGeneratorService {
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(5),
         header: (_) => buildPdfHeader(
-          logo: logoImage,
+          logoWidget: pw.Image(logoImage, fit: pw.BoxFit.fill),
           bold: boldFont,
           regular: regularFont,
         ),
@@ -175,43 +178,45 @@ class PdfGeneratorService {
     final bold = await PdfGoogleFonts.interBold();
     final italic = await PdfGoogleFonts.interItalic();
     final boldItalic = await PdfGoogleFonts.interBoldItalic();
-    final signatureFont = await PdfGoogleFonts.dancingScriptRegular();
 
+    final generatedAt = DateTime.now();
     final pdf = pw.Document();
     pdf.addPage(
-      pw.Page(
+      pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(30),
-        build: (_) {
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-            children: [
-              buildPdfHeader(logo: logoImage, bold: bold, regular: regular),
-              pw.SizedBox(height: 10),
-              _patientInfoBar(
-                patient: patient,
-                generatedAt: DateTime.now(),
-                regularItalic: italic,
-                boldItalic: boldItalic,
-                bold: bold,
-              ),
-              pw.SizedBox(height: 12),
-              _rxBody(
-                detail: detail,
-                patient: patient,
-                investigations: investigations,
-                bold: bold,
-                regular: regular,
-              ),
-              pw.Spacer(),
-              _rxFooterSignature(
-                doctorName: doctorName,
-                signatureFont: signatureFont,
-                bold: bold,
-              ),
-            ],
-          );
-        },
+        header: (_) => pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+          children: [
+            buildPdfHeader(
+              logoWidget: pw.Image(logoImage, fit: pw.BoxFit.fill),
+              bold: bold,
+              regular: regular,
+            ),
+            pw.SizedBox(height: 10),
+            _patientInfoBar(
+              patient: patient,
+              generatedAt: generatedAt,
+              regularItalic: italic,
+              boldItalic: boldItalic,
+              bold: bold,
+            ),
+            pw.SizedBox(height: 12),
+          ],
+        ),
+        footer: (_) => _rxFooterSignature(
+          doctorName: doctorName,
+          bold: bold,
+        ),
+        build: (_) => [
+          _rxBody(
+            detail: detail,
+            patient: patient,
+            investigations: investigations,
+            bold: bold,
+            regular: regular,
+          ),
+        ],
       ),
     );
 
@@ -623,7 +628,7 @@ class PdfGeneratorService {
   /// Reusable PDF header widget (STRICT 2-column layout).
   /// Matches the provided dental report header design.
   static pw.Widget buildPdfHeader({
-    required pw.MemoryImage logo,
+    required pw.Widget logoWidget,
     required pw.Font bold,
     required pw.Font regular,
   }) {
@@ -663,7 +668,7 @@ class PdfGeneratorService {
                     //   borderRadius: pw.BorderRadius.circular(10),
                     // ),
                     alignment: pw.Alignment.center,
-                    child: pw.Image(logo, fit: pw.BoxFit.fill),
+                    child: logoWidget,
                   ),
                   pw.SizedBox(width: 6),
                   pw.Expanded(
@@ -1184,30 +1189,14 @@ class PdfGeneratorService {
 
   static pw.Widget _rxFooterSignature({
     required String doctorName,
-    required pw.Font signatureFont,
     required pw.Font bold,
   }) {
     return pw.Align(
       alignment: pw.Alignment.bottomRight,
-      child: pw.Column(
-        mainAxisSize: pw.MainAxisSize.min,
-        crossAxisAlignment: pw.CrossAxisAlignment.center,
-        children: [
-          pw.Text(
-            'Surya Teja',
-            style: pw.TextStyle(
-              font: signatureFont,
-              fontSize: 24,
-              color: PdfColor.fromInt(0xFF111111),
-            ),
-          ),
-          pw.SizedBox(height: 2),
-          pw.Text(
-            doctorName.replaceAll('DR. ', 'Dr. '),
-            style: pw.TextStyle(font: bold, fontSize: 11, color: _textDark),
-            textAlign: pw.TextAlign.center,
-          ),
-        ],
+      child: pw.Text(
+        doctorName.replaceAll('DR. ', 'Dr. '),
+        style: pw.TextStyle(font: bold, fontSize: 11, color: _textDark),
+        textAlign: pw.TextAlign.center,
       ),
     );
   }

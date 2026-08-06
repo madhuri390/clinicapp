@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/patient_model.dart';
+import '../theme/patient_portal_theme.dart';
 import 'patient_details_header.dart';
+import 'ui_kit.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // PROFILE TAB  —  matches referencedesign.html #profileScreen exactly
@@ -42,7 +44,8 @@ class ProfileTab extends StatelessWidget {
       child: Column(
         children: [
           // ── Contact details card (.info-card) ─────────────────────
-          _InfoCard(
+          AnimatedEntrance(
+            child: _InfoCard(
             children: [
               const _SectionTitle(
                 icon: Icons.badge_outlined,
@@ -62,10 +65,13 @@ class ProfileTab extends StatelessWidget {
               ),
             ],
           ),
+          ),
           const SizedBox(height: 16),
 
           // ── Medical Conditions card (.info-card) ──────────────────
-          _InfoCard(
+          AnimatedEntrance(
+            index: 1,
+            child: _InfoCard(
             children: [
               const _SectionTitle(
                 icon: Icons.medical_information_outlined,
@@ -86,7 +92,7 @@ class ProfileTab extends StatelessWidget {
               else
                 Text(
                   'No medical conditions recorded.',
-                  style: GoogleFonts.lato(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
                     color: kRefMuted,
                     fontStyle: FontStyle.italic,
@@ -100,17 +106,20 @@ class ProfileTab extends StatelessWidget {
                     const SizedBox(width: 6),
                     Text(
                       'Last updated ${ProfileTab.formatDate(p!.createdAt!)}',
-                      style: GoogleFonts.lato(fontSize: 12, color: kRefMuted),
+                      style: GoogleFonts.plusJakartaSans(fontSize: 12, color: kRefMuted),
                     ),
                   ],
                 ),
               ],
             ],
           ),
+          ),
           const SizedBox(height: 16),
 
           // ── Dental History card (.info-card) ─────────────────────
-          _InfoCard(
+          AnimatedEntrance(
+            index: 2,
+            child: _InfoCard(
             children: [
               const _SectionTitle(
                 icon: Icons.health_and_safety_outlined,
@@ -120,7 +129,7 @@ class ProfileTab extends StatelessWidget {
               if (p?.dentalHistory != null && p!.dentalHistory!.isNotEmpty)
                 Text(
                   p.dentalHistory!,
-                  style: GoogleFonts.lato(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
                     color: kRefDark,
                     height: 1.5,
@@ -129,13 +138,14 @@ class ProfileTab extends StatelessWidget {
               else
                 Text(
                   'No dental history recorded.',
-                  style: GoogleFonts.lato(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
                     color: kRefMuted,
                     fontStyle: FontStyle.italic,
                   ),
                 ),
             ],
+          ),
           ),
           if (onDelete != null) ...[
             const SizedBox(height: 32),
@@ -185,18 +195,7 @@ class _InfoCard extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: kRefBorder),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x05000000), // 0.02 opacity
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
+      decoration: PatientPortalTheme.glassDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: children,
@@ -213,25 +212,15 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        border: Border(left: BorderSide(color: kRefPrimary, width: 3)),
-      ),
-      padding: const EdgeInsets.only(left: 12),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: kRefPrimary),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: GoogleFonts.lato(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: kRefDark,
-            ),
-          ),
-        ],
-      ),
+    return Row(
+      children: [
+        HeroIconBadge(icon: icon, size: 40),
+        const SizedBox(width: 12),
+        Text(
+          label,
+          style: PatientPortalTheme.titleMedium(context),
+        ),
+      ],
     );
   }
 }
@@ -255,13 +244,13 @@ class _ContactRow extends StatelessWidget {
         children: [
           SizedBox(
             width: 32,
-            child: Icon(icon, size: 18, color: kRefPrimary),
+            child: Icon(icon, size: 18, color: PatientPortalTheme.brightBlue),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               text,
-              style: GoogleFonts.lato(
+              style: GoogleFonts.plusJakartaSans(
                 fontSize: 14,
                 color: isMuted ? kRefMuted : kRefDark,
               ),
@@ -284,18 +273,21 @@ class _ConditionTag extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9),
+        color: PatientPortalTheme.skyTint.withValues(alpha: 0.7),
         borderRadius: BorderRadius.circular(40),
+        border: Border.all(
+            color: PatientPortalTheme.brightBlue.withValues(alpha: 0.15)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: kRefMuted),
+          Icon(icon, size: 14, color: PatientPortalTheme.brightBlue),
           const SizedBox(width: 8),
           Text(
             label,
-            style: GoogleFonts.lato(
+            style: GoogleFonts.plusJakartaSans(
               fontSize: 13,
+              fontWeight: FontWeight.w600,
               color: kRefDark,
             ),
           ),
@@ -319,7 +311,7 @@ class _DeleteButton extends StatelessWidget {
           icon: const Icon(Icons.delete_outline, color: Colors.red),
           label: Text(
             'Delete Patient',
-            style: GoogleFonts.lato(
+            style: GoogleFonts.plusJakartaSans(
               color: Colors.red,
               fontWeight: FontWeight.w700,
               fontSize: 15,
@@ -328,7 +320,7 @@ class _DeleteButton extends StatelessWidget {
           style: OutlinedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 16),
             side: BorderSide(color: Colors.red.withValues(alpha: 0.3)),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             backgroundColor: Colors.red.withValues(alpha: 0.05),
           ),
         ),

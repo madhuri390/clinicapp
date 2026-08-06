@@ -3,40 +3,23 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/staff_model.dart';
 import '../services/auth_service.dart';
 import '../services/staff_service.dart';
-import '../services/app_role_service.dart';
-import '../theme/app_theme.dart';
+import '../theme/patient_portal_theme.dart';
+import '../widgets/ui_kit.dart';
 import '../repositories/appointment_repository.dart';
 import '../repositories/visit_detail_repository.dart';
 import '../models/appointment_model.dart';
 import 'appointments_screen.dart';
-import 'login_screen.dart';
 import 'main_shell.dart';
 import 'patient_form_screen.dart';
 import 'patient_list_screen.dart';
 import 'patient_details_screen.dart';
-import 'profile_screen.dart';
 import '../models/visit_detail_model.dart';
+import '../theme/app_tokens.dart';
 
-// ── Reference colors (Tailwind) ─────────────────────────────────────────────
-const _blue600 = Color(0xFF2563EB);
-const _blue100 = Color(0xFFDBEAFE);
-const _slate50 = Color(0xFFF8FAFC);
-// const _slate100 = Color(0xFFF1F5F9);
-const _slate200 = Color(0xFFE2E8F0);
-const _slate500 = Color(0xFF64748B);
-const _slate600 = Color(0xFF475569);
-const _slate700 = Color(0xFF334155);
-const _slate900 = Color(0xFF0F172A);
-// const _orange50 = Color(0xFFFFF7ED);
-// const _orange200 = Color(0xFFFED7AA);
-const _orange600 = Color(0xFFEA580C);
-// const _orange700 = Color(0xFFC2410C);
-// const _orange800 = Color(0xFF9A3412);
-// const _orange900 = Color(0xFF7C2D12);
-// const _green600 = Color(0xFF16A34A);
-const _purple600 = Color(0xFF9333EA);
-const _purple50 = Color(0xFFF5F3FF);
-const _red500 = Color(0xFFEF4444);
+// ── Neutral text colors ─────────────────────────────────────────────────────
+const _slate500 = AppTokens.body;
+const _slate600 = AppTokens.body;
+const _slate900 = AppTokens.ink;
 
 /*
 /// Mock inventory item for low stock.
@@ -223,9 +206,8 @@ class DashboardScreenState extends State<DashboardScreen> {
       }
       if (me != null && mounted) {
         final m = me;
-        final n = m.name.trim();
         setState(() {
-          _welcomeName = n.toLowerCase().startsWith('dr.') ? n : 'Dr. $n';
+          _welcomeName = m.displayName;
           _profileRole = m.role;
         });
       }
@@ -302,71 +284,156 @@ class DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _slate50,
-      body: Stack(
-        children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.only(bottom: 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildHeader(context),
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _buildTodaySchedule(),
-                      const SizedBox(height: 16),
-                      _buildOngoingTreatments(),
-                      const SizedBox(height: 16),
-                      _buildQuickActions(),
-                    ],
-                  ),
+      backgroundColor: Colors.transparent,
+      body: AppGradientBackground(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.only(bottom: 28),
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AnimatedEntrance(child: _buildHeader(context)),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 18, 16, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    AnimatedEntrance(index: 1, child: _buildQuickActions()),
+                    const SizedBox(height: 18),
+                    AnimatedEntrance(index: 2, child: _buildTodaySchedule()),
+                    const SizedBox(height: 18),
+                    AnimatedEntrance(
+                        index: 3, child: _buildOngoingTreatments()),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-
-        ],
+        ),
       ),
     );
   }
 
 
 
+  BoxDecoration get _softCard => PatientPortalTheme.glassDecoration(context);
+
   Widget _buildHeader(BuildContext context) {
     final topPadding = MediaQuery.paddingOf(context).top;
+    final subtitle = _profileRole.isEmpty
+        ? 'Welcome back, $_welcomeName'
+        : 'Welcome back, $_welcomeName · $_profileRole';
     return Container(
-      color: AppTheme.primaryColor,
-      padding: EdgeInsets.fromLTRB(16, topPadding + 16, 16, 20),
+      margin: EdgeInsets.fromLTRB(16, topPadding + 10, 16, 0),
+      decoration: BoxDecoration(
+        gradient: PatientPortalTheme.headerGradient,
+        borderRadius: BorderRadius.circular(28),
+        boxShadow: PatientPortalTheme.glow(PatientPortalTheme.brightBlue),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Dashboard',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white.withValues(alpha: 0.9),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.18),
+                  shape: BoxShape.circle,
+                  border:
+                      Border.all(color: Colors.white.withValues(alpha: 0.35)),
+                ),
+                child: const Icon(Icons.medical_services_rounded,
+                    color: Colors.white, size: 24),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: _headerStat(
+                  Icons.calendar_today_rounded,
+                  '$_todayAppointmentsCount',
+                  "Today's visits",
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _headerStat(
+                  Icons.bolt_rounded,
+                  '${_ongoingVisits.length}',
+                  'Ongoing',
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _headerStat(IconData icon, String value, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+      ),
       child: Row(
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Dashboard',
-                  style: GoogleFonts.inter(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+          Icon(icon, color: Colors.white, size: 22),
+          const SizedBox(width: 10),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Welcome back, $_welcomeName',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    color: Colors.white.withValues(alpha: 0.88),
-                  ),
+              ),
+              Text(
+                label,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white.withValues(alpha: 0.85),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-
-
         ],
       ),
     );
@@ -376,15 +443,15 @@ class DashboardScreenState extends State<DashboardScreen> {
   Widget _buildLowStockAlert() {
     return Material(
       color: _orange50,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: _onInventoryTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             border: Border.all(color: _orange200, width: 2),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -397,7 +464,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     Text(
                       'Low Stock Alert!',
-                      style: GoogleFonts.inter(
+                      style: GoogleFonts.plusJakartaSans(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                         color: _orange900,
@@ -406,7 +473,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                     const SizedBox(height: 4),
                     Text(
                       '${_lowStockItems.length} inventory item(s) are running low on stock',
-                      style: GoogleFonts.inter(fontSize: 14, color: _orange700),
+                      style: GoogleFonts.plusJakartaSans(fontSize: 14, color: _orange700),
                     ),
                     const SizedBox(height: 8),
                     ..._lowStockItems
@@ -416,7 +483,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                             padding: const EdgeInsets.only(bottom: 4),
                             child: Text(
                               '• ${item.name}: ${item.quantity} ${item.unit} (Min: ${item.minStock})',
-                              style: GoogleFonts.inter(
+                              style: GoogleFonts.plusJakartaSans(
                                 fontSize: 14,
                                 color: _orange800,
                               ),
@@ -426,7 +493,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                     if (_lowStockItems.length > 3)
                       Text(
                         '+ ${_lowStockItems.length - 3} more items',
-                        style: GoogleFonts.inter(
+                        style: GoogleFonts.plusJakartaSans(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                           color: _orange700,
@@ -475,15 +542,15 @@ class DashboardScreenState extends State<DashboardScreen> {
         Expanded(
           child: Material(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             child: InkWell(
               onTap: () => _go(const AppointmentsScreen()),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   border: Border.all(color: _slate200),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -494,7 +561,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                         const SizedBox(width: 12),
                         Text(
                           '$_todayAppointmentsCount',
-                          style: GoogleFonts.inter(
+                          style: GoogleFonts.plusJakartaSans(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
                             color: _slate900,
@@ -505,7 +572,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                     const SizedBox(height: 8),
                     Text(
                       "Today's Appointments",
-                      style: GoogleFonts.inter(fontSize: 14, color: _slate600),
+                      style: GoogleFonts.plusJakartaSans(fontSize: 14, color: _slate600),
                     ),
                   ],
                 ),
@@ -517,15 +584,15 @@ class DashboardScreenState extends State<DashboardScreen> {
         Expanded(
           child: Material(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
             child: InkWell(
               onTap: () => _go(const PatientListScreen()),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   border: Border.all(color: _slate200),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -536,7 +603,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                         const SizedBox(width: 12),
                         Text(
                           '$_ongoingCount',
-                          style: GoogleFonts.inter(
+                          style: GoogleFonts.plusJakartaSans(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
                             color: _slate900,
@@ -547,7 +614,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                     const SizedBox(height: 8),
                     Text(
                       'Ongoing Treatments',
-                      style: GoogleFonts.inter(fontSize: 14, color: _slate600),
+                      style: GoogleFonts.plusJakartaSans(fontSize: 14, color: _slate600),
                     ),
                   ],
                 ),
@@ -566,11 +633,7 @@ class DashboardScreenState extends State<DashboardScreen> {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: _slate200),
-        borderRadius: BorderRadius.circular(12),
-      ),
+      decoration: _softCard,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -579,7 +642,7 @@ class DashboardScreenState extends State<DashboardScreen> {
             children: [
               Text(
                 'Monthly Revenue',
-                style: GoogleFonts.inter(
+                style: GoogleFonts.plusJakartaSans(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                   color: _slate900,
@@ -589,7 +652,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                 onTap: () => _go(const PatientListScreen()),
                 child: Text(
                   'View All',
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                     color: _blue600,
@@ -612,14 +675,14 @@ class DashboardScreenState extends State<DashboardScreen> {
                     children: [
                       Text(
                         months[i],
-                        style: GoogleFonts.inter(
+                        style: GoogleFonts.plusJakartaSans(
                           fontSize: 14,
                           color: _slate600,
                         ),
                       ),
                       Text(
                         '\$$amount',
-                        style: GoogleFonts.inter(
+                        style: GoogleFonts.plusJakartaSans(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                           color: _slate900,
@@ -667,11 +730,7 @@ class DashboardScreenState extends State<DashboardScreen> {
   Widget _buildTodaySchedule() {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: _slate200),
-        borderRadius: BorderRadius.circular(12),
-      ),
+      decoration: _softCard,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -680,15 +739,12 @@ class DashboardScreenState extends State<DashboardScreen> {
             children: [
               Row(
                 children: [
-                  Icon(Icons.calendar_today_outlined, color: _blue600, size: 20),
-                  const SizedBox(width: 8),
+                  const HeroIconBadge(
+                      icon: Icons.calendar_month_rounded, size: 40),
+                  const SizedBox(width: 12),
                   Text(
                     "Today's schedule",
-                    style: GoogleFonts.inter(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: _slate900,
-                    ),
+                    style: PatientPortalTheme.titleMedium(context),
                   ),
                 ],
               ),
@@ -703,10 +759,10 @@ class DashboardScreenState extends State<DashboardScreen> {
                 },
                 child: Text(
                   'View All',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: _blue600,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: PatientPortalTheme.brightBlue,
                   ),
                 ),
               ),
@@ -718,26 +774,26 @@ class DashboardScreenState extends State<DashboardScreen> {
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Text(
                 'No visits scheduled for today.',
-                style: GoogleFonts.inter(fontSize: 14, color: _slate500, height: 1.35),
+                style: GoogleFonts.plusJakartaSans(fontSize: 14, color: _slate500, height: 1.35),
               ),
             )
           else
             ..._todayVisits.map(
               (a) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.only(bottom: 10),
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: _slate50,
-                    borderRadius: BorderRadius.circular(12),
+                    color: PatientPortalTheme.skyTint.withValues(alpha: 0.55),
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.schedule,
-                        color: _orange600,
-                        size: 18,
+                      const Icon(
+                        Icons.schedule_rounded,
+                        color: PatientPortalTheme.brightBlue,
+                        size: 20,
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -746,7 +802,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                           children: [
                             Text(
                               a.patientName,
-                              style: GoogleFonts.inter(
+                              style: GoogleFonts.plusJakartaSans(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w500,
                                 color: _slate900,
@@ -755,7 +811,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                             const SizedBox(height: 4),
                             Text(
                               a.type,
-                              style: GoogleFonts.inter(
+                              style: GoogleFonts.plusJakartaSans(
                                 fontSize: 12,
                                 color: _slate600,
                               ),
@@ -763,7 +819,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                             const SizedBox(height: 4),
                             Text(
                               '${a.timeRange} · ${a.statusLabel}',
-                              style: GoogleFonts.inter(
+                              style: GoogleFonts.plusJakartaSans(
                                 fontSize: 12,
                                 color: _slate500,
                               ),
@@ -784,11 +840,7 @@ class DashboardScreenState extends State<DashboardScreen> {
   Widget _buildOngoingTreatments() {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: _slate200),
-        borderRadius: BorderRadius.circular(8),
-      ),
+      decoration: _softCard,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -797,15 +849,18 @@ class DashboardScreenState extends State<DashboardScreen> {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.bolt, color: _orange600, size: 20),
-                  const SizedBox(width: 8),
+                  const HeroIconBadge(
+                    icon: Icons.bolt_rounded,
+                    size: 40,
+                    gradient: LinearGradient(
+                      colors: [AppTokens.success, AppTokens.success],
+                    ),
+                    glowColor: AppTokens.success,
+                  ),
+                  const SizedBox(width: 12),
                   Text(
                     "Ongoing Treatments",
-                    style: GoogleFonts.inter(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: _slate900,
-                    ),
+                    style: PatientPortalTheme.titleMedium(context),
                   ),
                 ],
               ),
@@ -820,10 +875,10 @@ class DashboardScreenState extends State<DashboardScreen> {
                 },
                 child: Text(
                   'View All',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: _blue600,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: PatientPortalTheme.brightBlue,
                   ),
                 ),
               ),
@@ -835,21 +890,21 @@ class DashboardScreenState extends State<DashboardScreen> {
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Text(
                 'No ongoing treatments right now.',
-                style: GoogleFonts.inter(fontSize: 14, color: _slate500, height: 1.35),
+                style: GoogleFonts.plusJakartaSans(fontSize: 14, color: _slate500, height: 1.35),
               ),
             )
           else
             ..._ongoingVisits.take(5).map(
               (v) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.only(bottom: 10),
                 child: Material(
-                  color: _slate50,
-                  borderRadius: BorderRadius.circular(8),
+                  color: AppTokens.success.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(20),
                   child: InkWell(
                     onTap: () {
                       Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => PatientDetailsScreen(
+                        FadeSlideRoute<void>(
+                          page: PatientDetailsScreen(
                             patientId: v.visit.patientId,
                             patientName: v.patientName,
                             initialTabIndex: 1, // Ongoing tab
@@ -857,19 +912,19 @@ class DashboardScreenState extends State<DashboardScreen> {
                         ),
                       );
                     },
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(20),
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Icon(
-                            Icons.local_hospital_outlined,
-                            color: _orange600,
-                            size: 18,
+                            Icons.local_hospital_rounded,
+                            color: AppTokens.success,
+                            size: 20,
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -878,7 +933,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                               children: [
                                 Text(
                                   v.patientName,
-                                  style: GoogleFonts.inter(
+                                  style: GoogleFonts.plusJakartaSans(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w500,
                                     color: _slate900,
@@ -888,7 +943,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                                   const SizedBox(height: 4),
                                   Text(
                                     v.visit.chiefComplaint!,
-                                    style: GoogleFonts.inter(
+                                    style: GoogleFonts.plusJakartaSans(
                                       fontSize: 12,
                                       color: _slate600,
                                     ),
@@ -898,7 +953,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                                   const SizedBox(height: 4),
                                   Text(
                                     'Plan: ${v.treatments.first.treatmentName}',
-                                    style: GoogleFonts.inter(
+                                    style: GoogleFonts.plusJakartaSans(
                                       fontSize: 12,
                                       color: _slate500,
                                     ),
@@ -907,7 +962,7 @@ class DashboardScreenState extends State<DashboardScreen> {
                               ],
                             ),
                           ),
-                          const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
+                          const Icon(Icons.chevron_right, color: AppTokens.muted, size: 20),
                         ],
                       ),
                     ),
@@ -922,113 +977,94 @@ class DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildQuickActions() {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: _slate200),
-        borderRadius: BorderRadius.circular(12),
-      ),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+      decoration: _softCard,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Quick Actions',
-            style: GoogleFonts.inter(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: _slate900,
-            ),
-          ),
-          const SizedBox(height: 12),
+          Text('Quick Actions',
+              style: PatientPortalTheme.titleMedium(context)),
+          const SizedBox(height: 14),
           Row(
             children: [
-              Expanded(
-                child: Material(
-                  color: _blue100,
-                  borderRadius: BorderRadius.circular(12),
-                  child: InkWell(
-                    onTap: _onAddPatient,
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 12,
-                        horizontal: 8,
-                      ),
-                      alignment: Alignment.center,
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.people, color: _blue600, size: 18),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Add Patient',
-                              style: GoogleFonts.inter(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: _blue600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+              _actionTile(
+                icon: Icons.person_add_alt_1_rounded,
+                label: 'Add Patient',
+                gradient: PatientPortalTheme.buttonGradient,
+                glow: PatientPortalTheme.brightSky,
+                onTap: _onAddPatient,
               ),
               const SizedBox(width: 12),
-              Expanded(
-                child: Material(
-                  color: _purple50,
-                  borderRadius: BorderRadius.circular(12),
-                  child: InkWell(
-                    onTap: () {
-                      final shell = MainShell.of(context);
-                      if (shell != null) {
-                        shell.setTabIndex(2); // Switch to Appointments tab
-                      } else {
-                        _go(const AppointmentsScreen());
-                      }
-                    },
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 12,
-                        horizontal: 8,
-                      ),
-                      alignment: Alignment.center,
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.calendar_today,
-                              color: _purple600,
-                              size: 18,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'New Appointment ($_todayAppointmentsCount)',
-                              style: GoogleFonts.inter(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: _purple600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
+              _actionTile(
+                icon: Icons.calendar_month_rounded,
+                label: 'Schedule',
+                gradient: const LinearGradient(
+                  colors: [AppTokens.accent, AppTokens.accent],
                 ),
+                glow: AppTokens.accent,
+                onTap: () {
+                  final shell = MainShell.of(context);
+                  if (shell != null) {
+                    shell.setTabIndex(2);
+                  } else {
+                    _go(const AppointmentsScreen());
+                  }
+                },
+              ),
+              const SizedBox(width: 12),
+              _actionTile(
+                icon: Icons.people_rounded,
+                label: 'Patients',
+                gradient: const LinearGradient(
+                  colors: [AppTokens.success, AppTokens.success],
+                ),
+                glow: AppTokens.success,
+                onTap: () {
+                  final shell = MainShell.of(context);
+                  if (shell != null) {
+                    shell.setTabIndex(1);
+                  } else {
+                    _go(const PatientListScreen());
+                  }
+                },
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _actionTile({
+    required IconData icon,
+    required String label,
+    required Gradient gradient,
+    required Color glow,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: Material(
+        color: PatientPortalTheme.skyTint.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            child: Column(
+              children: [
+                HeroIconBadge(
+                  icon: icon,
+                  size: 46,
+                  gradient: gradient,
+                  glowColor: glow,
+                ),
+                const SizedBox(height: 10),
+                Text(label, style: PatientPortalTheme.label(context)),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -1055,11 +1091,7 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: _slate200),
-        borderRadius: BorderRadius.circular(12),
-      ),
+      decoration: _softCard,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1073,7 +1105,7 @@ class _StatCard extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     trend,
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.plusJakartaSans(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                       color: _green600,
@@ -1086,13 +1118,13 @@ class _StatCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             value,
-            style: GoogleFonts.inter(
+            style: GoogleFonts.plusJakartaSans(
               fontSize: 24,
               fontWeight: FontWeight.bold,
               color: _slate900,
             ),
           ),
-          Text(label, style: GoogleFonts.inter(fontSize: 14, color: _slate600)),
+          Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 14, color: _slate600)),
         ],
       ),
     );

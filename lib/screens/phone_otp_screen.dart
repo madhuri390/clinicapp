@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/role_aware_shell.dart';
+import '../theme/app_tokens.dart';
 
 class PhoneOtpScreen extends StatefulWidget {
   const PhoneOtpScreen({super.key, this.initialPhone = ''});
@@ -121,7 +122,7 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),
-        backgroundColor: Colors.red.shade600,
+        backgroundColor: AppTokens.danger,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -130,17 +131,17 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        iconTheme: IconThemeData(color: Colors.grey.shade700),
+        iconTheme: IconThemeData(color: AppTokens.body),
         title: Text(
           'Phone Login',
-          style: GoogleFonts.poppins(
+          style: GoogleFonts.plusJakartaSans(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color: Colors.black87),
+              color: AppTokens.ink),
         ),
       ),
       body: SafeArea(
@@ -162,18 +163,18 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
               const SizedBox(height: 24),
               Text(
                 _otpSent ? 'Verify your number' : 'Enter phone number',
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.plusJakartaSans(
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
-                    color: Colors.black87),
+                    color: AppTokens.ink),
               ),
               const SizedBox(height: 8),
               Text(
                 _otpSent
                     ? 'We sent a 6-digit code to $_phone'
                     : 'We\'ll send you a one-time password via SMS',
-                style: GoogleFonts.poppins(
-                    fontSize: 14, color: Colors.grey.shade600),
+                style: GoogleFonts.plusJakartaSans(
+                    fontSize: 14, color: AppTokens.body),
               ),
               const SizedBox(height: 32),
 
@@ -188,8 +189,8 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
                     labelText: 'Phone Number',
                     hintText: '9876543210',
                     prefixText: '+91  ',
-                    prefixStyle: GoogleFonts.poppins(
-                        fontSize: 15, color: Colors.black87),
+                    prefixStyle: GoogleFonts.plusJakartaSans(
+                        fontSize: 15, color: AppTokens.ink),
                     counterText: '',
                   ),
                 ),
@@ -208,7 +209,7 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
                             ),
                           )
                         : Text('Send OTP',
-                            style: GoogleFonts.poppins(
+                            style: GoogleFonts.plusJakartaSans(
                                 fontSize: 16, fontWeight: FontWeight.w600)),
                   ),
                 ),
@@ -229,14 +230,14 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
                           FilteringTextInputFormatter.digitsOnly,
                           LengthLimitingTextInputFormatter(1),
                         ],
-                        style: GoogleFonts.poppins(
+                        style: GoogleFonts.plusJakartaSans(
                             fontSize: 22, fontWeight: FontWeight.w700),
                         decoration: InputDecoration(
                           contentPadding: EdgeInsets.zero,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                             borderSide:
-                                BorderSide(color: Colors.grey.shade300),
+                                BorderSide(color: AppTokens.hairline),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
@@ -271,7 +272,7 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
                             ),
                           )
                         : Text('Verify & Login',
-                            style: GoogleFonts.poppins(
+                            style: GoogleFonts.plusJakartaSans(
                                 fontSize: 16, fontWeight: FontWeight.w600)),
                   ),
                 ),
@@ -280,14 +281,14 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
                   child: _resendSeconds > 0
                       ? Text(
                           'Resend OTP in ${_resendSeconds}s',
-                          style: GoogleFonts.poppins(
-                              fontSize: 13, color: Colors.grey.shade500),
+                          style: GoogleFonts.plusJakartaSans(
+                              fontSize: 13, color: AppTokens.muted),
                         )
                       : GestureDetector(
                           onTap: _sendOtp,
                           child: Text(
                             'Resend OTP',
-                            style: GoogleFonts.poppins(
+                            style: GoogleFonts.plusJakartaSans(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
                               color: AppTheme.primaryColor,
@@ -301,8 +302,8 @@ class _PhoneOtpScreenState extends State<PhoneOtpScreen> {
                     onTap: () => setState(() => _otpSent = false),
                     child: Text(
                       'Change phone number',
-                      style: GoogleFonts.poppins(
-                          fontSize: 13, color: Colors.grey.shade600),
+                      style: GoogleFonts.plusJakartaSans(
+                          fontSize: 13, color: AppTokens.body),
                     ),
                   ),
                 ),

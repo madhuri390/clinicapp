@@ -151,10 +151,9 @@ Rows come from `prescriptions` for the visit:
 
 ## Footer (signature)
 
-- **Signature image**
-  - Current implementation: **placeholder text signature** rendered using a cursive font.
-  - If you provide a real signature image asset path, we can replace this.
-
-- **Doctor name under signature**
+- **Doctor name**
   - Source: same as header doctor name
+  - Rendered bottom-right, bold, with `DR.` normalised to `Dr.` (e.g. `Dr. SURYA TEJA. S`)
+  - No signature mark is drawn — the cursive placeholder signature was removed;
+    leave space for the doctor to sign by hand.
 

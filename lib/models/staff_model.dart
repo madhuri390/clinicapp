@@ -1,4 +1,8 @@
 class Staff {
+  /// Non-clinical role. Stored in the same `specialisation` column as the
+  /// dental specialisations, so it must match the dropdown value exactly.
+  static const receptionistRole = 'Receptionist';
+
   final String id;
   final String name;
   final String role;
@@ -24,6 +28,17 @@ class Staff {
     this.createdAt,
     this.updatedAt,
   });
+
+  /// Receptionists sit in the `doctors` table but never treat patients, so
+  /// they must be kept out of doctor pickers and never titled "Dr.".
+  bool get isReceptionist => role == receptionistRole;
+
+  /// Name as it should be shown to users — "Dr." only for clinical staff.
+  String get displayName {
+    final n = name.trim();
+    if (isReceptionist) return n;
+    return n.toLowerCase().startsWith('dr.') ? n : 'Dr. $n';
+  }
 
   factory Staff.fromJson(Map<String, dynamic> json) {
     final fName = json['first_name'] as String? ?? '';

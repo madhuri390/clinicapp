@@ -1,102 +1,104 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-/// Brand palette aligned with Prodontics logo (sky → navy gradient).
+import 'app_theme.dart';
+import 'app_tokens.dart';
+
+/// Surface treatments for the patient portal.
+///
+/// The portal no longer carries its own palette or type scale — everything
+/// resolves to [AppTokens] and [AppTheme] so the patient and staff sides are
+/// one product. The names below are kept as a thin, stable facade over the
+/// tokens for the screens that already consume them.
 abstract final class PatientPortalTheme {
-  static const Color skyBlue = Color(0xFF00AEEF);
-  static const Color navyBlue = Color(0xFF003366);
-  static const Color surface = Color(0xFFF3F9FC);
-  static const Color surfaceElevated = Colors.white;
-  static const Color textPrimary = Color(0xFF0F172A);
-  static const Color textSecondary = Color(0xFF64748B);
+  // ── Brand ─────────────────────────────────────────────────────────────────
+  static const Color skyBlue = AppTokens.accent;
+  static const Color navyBlue = AppTokens.accentDeep;
+  static const Color brightSky = AppTokens.accent;
+  static const Color brightBlue = AppTokens.accentDark;
+
+  // ── Tints ─────────────────────────────────────────────────────────────────
+  // Formerly lavender/mint/peach pastels. Now a single-hue set, which is what
+  // stops the portal from reading as a different app.
+  static const Color lavender = AppTokens.accentSofter;
+  static const Color skyTint = AppTokens.accentSoft;
+  static const Color mint = AppTokens.successSoft;
+  static const Color peach = AppTokens.warningSoft;
+
+  // ── Surfaces & text ───────────────────────────────────────────────────────
+  static const Color surface = AppTokens.canvas;
+  static const Color surfaceElevated = AppTokens.surface;
+  static const Color textPrimary = AppTokens.ink;
+  static const Color textSecondary = AppTokens.body;
+
+  // ── Gradients ─────────────────────────────────────────────────────────────
+
+  /// The page canvas. Deliberately near-flat — depth now comes from card
+  /// contrast and hairlines rather than a coloured wash.
+  static const LinearGradient scaffoldGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [AppTokens.accentSofter, AppTokens.canvas],
+    stops: [0.0, 0.55],
+  );
+
+  /// Primary CTA fill. A tight two-stop ramp inside the brand hue reads as a
+  /// solid colour with depth, not as a gradient.
+  static const LinearGradient buttonGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [AppTokens.accent, AppTokens.accentDark],
+  );
 
   static LinearGradient get headerGradient => const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: [
-          Color(0xFF00AEEF),
-          Color(0xFF0088C6),
-          Color(0xFF003366),
-        ],
-        stops: [0.0, 0.45, 1.0],
+        colors: [AppTokens.accent, AppTokens.accentDark, AppTokens.accentDeep],
+        stops: [0.0, 0.55, 1.0],
       );
 
-  static LinearGradient get accentGradient => const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [skyBlue, navyBlue],
+  static LinearGradient get accentGradient => buttonGradient;
+
+  // ── Elevation & cards ─────────────────────────────────────────────────────
+  static List<BoxShadow> cardShadow(BuildContext context) => AppTokens.shadowSm;
+
+  static List<BoxShadow> glow(Color color) => AppTokens.accentGlow(color);
+
+  static BoxDecoration cardDecoration(BuildContext context) => AppTokens.card;
+
+  /// Previously a translucent "glass" panel. Now an opaque card — legibility
+  /// over patient data beats the frosted effect.
+  static BoxDecoration glassDecoration(BuildContext context) =>
+      AppTokens.cardRaised;
+
+  // ── Typography ────────────────────────────────────────────────────────────
+  // Thin wrappers over the app text theme so the portal cannot drift.
+
+  static TextStyle displayLarge(BuildContext context) =>
+      AppTheme.textTheme.headlineMedium!;
+
+  /// Accent word inside a hero headline, painted with [accentGradient].
+  static TextStyle displayAccent(BuildContext context) =>
+      AppTheme.textTheme.headlineMedium!.copyWith(
+        fontStyle: FontStyle.italic,
       );
-
-  static List<BoxShadow> cardShadow(BuildContext context) => [
-        BoxShadow(
-          color: navyBlue.withValues(alpha: 0.07),
-          blurRadius: 24,
-          offset: const Offset(0, 10),
-        ),
-        BoxShadow(
-          color: Colors.black.withValues(alpha: 0.03),
-          blurRadius: 8,
-          offset: const Offset(0, 2),
-        ),
-      ];
-
-  static BoxDecoration cardDecoration(BuildContext context) {
-    return BoxDecoration(
-      color: surfaceElevated,
-      borderRadius: BorderRadius.circular(20),
-      boxShadow: cardShadow(context),
-      border: Border.all(color: Colors.white.withValues(alpha: 0.8)),
-    );
-  }
 
   static TextStyle titleLarge(BuildContext context) =>
-      GoogleFonts.plusJakartaSans(
-        fontSize: 22,
-        fontWeight: FontWeight.w700,
-        color: textPrimary,
-        letterSpacing: -0.3,
-      );
+      AppTheme.textTheme.titleLarge!;
 
   static TextStyle titleMedium(BuildContext context) =>
-      GoogleFonts.plusJakartaSans(
-        fontSize: 16,
-        fontWeight: FontWeight.w700,
-        color: textPrimary,
-        letterSpacing: -0.2,
-      );
+      AppTheme.textTheme.titleMedium!;
 
-  static TextStyle body(BuildContext context) => GoogleFonts.plusJakartaSans(
-        fontSize: 14,
-        fontWeight: FontWeight.w500,
-        color: textSecondary,
-        height: 1.4,
-      );
+  static TextStyle body(BuildContext context) =>
+      AppTheme.textTheme.bodyMedium!;
 
-  static TextStyle label(BuildContext context) => GoogleFonts.plusJakartaSans(
-        fontSize: 12,
-        fontWeight: FontWeight.w600,
-        color: textSecondary,
-        letterSpacing: 0.2,
-      );
+  static TextStyle label(BuildContext context) =>
+      AppTheme.textTheme.labelMedium!;
 
-  /// Wraps the patient shell to tune Material defaults without affecting staff UI.
+  /// Wraps the patient shell. Only the transparent scaffold differs from the
+  /// staff theme — the portal paints its own canvas behind the content.
   static ThemeData themeOverlay(BuildContext context) {
-    final base = Theme.of(context);
-    return base.copyWith(
-      colorScheme: base.colorScheme.copyWith(
-        primary: skyBlue,
-        secondary: navyBlue,
-        surface: surface,
-        onPrimary: Colors.white,
-        onSurface: textPrimary,
-      ),
-      scaffoldBackgroundColor: surface,
-      appBarTheme: base.appBarTheme.copyWith(
-        backgroundColor: Colors.transparent,
-        foregroundColor: textPrimary,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-      ),
+    return Theme.of(context).copyWith(
+      scaffoldBackgroundColor: Colors.transparent,
     );
   }
 }

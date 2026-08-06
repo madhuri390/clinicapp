@@ -2,17 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/patient_model.dart';
+import '../theme/patient_portal_theme.dart';
+import '../theme/app_tokens.dart';
 
 // ── Reference design palette (single source of truth) ─────────────────────
-const kRefPrimary   = Color(0xFF0D8DC4);
-const kRefPrimaryDk = Color(0xFF0A719D);
-const kRefDark      = Color(0xFF0F172A);
-const kRefMuted     = Color(0xFF5B6E8C);
-const kRefTabInactive = Color(0xFF94A3B8);
-const kRefBorder    = Color(0xFFEDF2F7);
-const kRefScreenBg  = Color(0xFFF9FAFE);
+const kRefPrimary   = AppTokens.accent;
+const kRefPrimaryDk = AppTokens.accentDark;
+const kRefDark      = AppTokens.ink;
+const kRefMuted     = AppTokens.body;
+const kRefTabInactive = AppTokens.muted;
+const kRefBorder    = AppTokens.subtle;
+const kRefScreenBg  = AppTokens.canvas;
 
-/// Header matching `.main-header > .header-row > .patient-header + .new-btn`.
+/// Patient identity block plus the screen's primary actions.
+///
+/// Identity sits on the first row; the actions get their own full-width row
+/// beneath it as labelled buttons. An icon-only control was too small to hit
+/// and gave no clue what it did.
 class PatientHeader extends StatelessWidget {
   const PatientHeader({
     super.key,
@@ -21,7 +27,7 @@ class PatientHeader extends StatelessWidget {
     this.onBack,
     this.onNewConsultation,
     this.onEdit,
-    this.editTooltip = 'Edit Patient',
+    this.editLabel = 'Edit details',
   });
 
   final Patient? patient;
@@ -29,130 +35,102 @@ class PatientHeader extends StatelessWidget {
   final VoidCallback? onBack;
   final VoidCallback? onNewConsultation;
   final VoidCallback? onEdit;
-  final String editTooltip;
+
+  /// Label on the edit button — "Update profile" in the patient portal.
+  final String editLabel;
 
   @override
   Widget build(BuildContext context) {
     final name = patient?.fullName ?? displayName;
     final age = patient?.age;
     final gender = patient?.gender;
-    final initials = _initials(name);
+    final blood = patient?.bloodGroup;
+    final phone = patient?.phone;
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: kRefBorder, width: 1)),
-      ),
-      child: Row(
+    final facts = <String>[
+      if (age != null) '$age yrs',
+      if (gender != null && gender.isNotEmpty) gender,
+      if (blood != null && blood.isNotEmpty && blood != 'Unknown') blood,
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (onBack != null) ...[
-            IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new, size: 18),
-              onPressed: onBack,
-              color: kRefMuted,
-              constraints: const BoxConstraints(),
-              padding: const EdgeInsets.only(right: 8),
-              visualDensity: VisualDensity.compact,
-            ),
-          ],
-          // Gradient avatar (48×48, borderRadius 28)
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(28),
-              gradient: const LinearGradient(
-                colors: [kRefPrimary, kRefPrimaryDk],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              initials,
-              style: GoogleFonts.lato(
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              if (onBack != null) ...[
+                _CircleIconButton(icon: Icons.arrow_back_ios_new, onTap: onBack!),
+                const SizedBox(width: 10),
+              ],
+              _Avatar(initials: _initials(name)),
+              const SizedBox(width: 13),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Flexible(
-                      child: Text(
-                        name,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.lato(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: kRefDark,
-                          height: 1.2,
-                        ),
+                    Text(
+                      name,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800,
+                        color: kRefDark,
+                        height: 1.15,
+                        letterSpacing: -0.3,
                       ),
                     ),
-                    if (onEdit != null)
-                      IconButton(
-                        icon: const Icon(Icons.edit_outlined, size: 16),
-                        onPressed: onEdit,
-                        visualDensity: VisualDensity.compact,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        color: kRefTabInactive,
-                        tooltip: editTooltip,
+                    if (facts.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [for (final f in facts) _FactChip(label: f)],
                       ),
+                    ] else if (phone != null && phone.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        phone,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12.5,
+                          color: kRefMuted,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
-                if (age != null || (gender != null && gender.isNotEmpty))
-                  Text(
-                    [
-                      if (age != null) '$age yrs',
-                      if (gender != null && gender.isNotEmpty) gender,
-                    ].join(' · '),
-                    style: GoogleFonts.lato(fontSize: 12, color: kRefMuted),
+              ),
+            ],
+          ),
+          if (onEdit != null || onNewConsultation != null) ...[
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                if (onEdit != null)
+                  Expanded(
+                    child: _HeaderAction(
+                      label: editLabel,
+                      icon: Icons.edit_outlined,
+                      onPressed: onEdit!,
+                    ),
+                  ),
+                if (onEdit != null && onNewConsultation != null)
+                  const SizedBox(width: 10),
+                if (onNewConsultation != null)
+                  Expanded(
+                    child: _HeaderAction(
+                      label: 'New visit',
+                      icon: Icons.add_rounded,
+                      onPressed: onNewConsultation!,
+                      primary: true,
+                    ),
                   ),
               ],
             ),
-          ),
-          if (onNewConsultation != null)
-            GestureDetector(
-              onTap: onNewConsultation,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: kRefPrimary,
-                  borderRadius: BorderRadius.circular(30),
-                  boxShadow: [
-                    BoxShadow(
-                      color: kRefPrimary.withValues(alpha: 0.20),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.add_circle_outline, size: 16, color: Colors.white),
-                    const SizedBox(width: 6),
-                    Text(
-                      'New Visit',
-                      style: GoogleFonts.lato(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          ],
         ],
       ),
     );
@@ -163,6 +141,155 @@ class PatientHeader extends StatelessWidget {
     if (parts.length >= 2) return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
     if (parts.isNotEmpty && parts[0].isNotEmpty) return parts[0][0].toUpperCase();
     return '?';
+  }
+}
+
+// ── Header pieces ───────────────────────────────────────────────────────────
+
+class _Avatar extends StatelessWidget {
+  const _Avatar({required this.initials});
+  final String initials;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 54,
+      height: 54,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(19),
+        gradient: PatientPortalTheme.accentGradient,
+        boxShadow: PatientPortalTheme.glow(PatientPortalTheme.brightSky),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        initials,
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 21,
+          fontWeight: FontWeight.w800,
+          color: Colors.white,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+}
+
+class _CircleIconButton extends StatelessWidget {
+  const _CircleIconButton({required this.icon, required this.onTap});
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppTokens.surface,
+      shape: CircleBorder(side: BorderSide(color: AppTokens.hairline)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Icon(icon, size: 15, color: kRefDark),
+        ),
+      ),
+    );
+  }
+}
+
+/// Small tinted pill carrying one fact about the patient.
+class _FactChip extends StatelessWidget {
+  const _FactChip({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppTokens.accentSoft,
+        borderRadius: const BorderRadius.all(Radius.circular(AppTokens.rPill)),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 11.5,
+          fontWeight: FontWeight.w700,
+          color: kRefPrimaryDk,
+          height: 1.25,
+        ),
+      ),
+    );
+  }
+}
+
+/// Header CTA. [primary] fills with the brand gradient; otherwise it is a
+/// white pill with a hairline border so the two read as a clear hierarchy.
+class _HeaderAction extends StatefulWidget {
+  const _HeaderAction({
+    required this.label,
+    required this.icon,
+    required this.onPressed,
+    this.primary = false,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback onPressed;
+  final bool primary;
+
+  @override
+  State<_HeaderAction> createState() => _HeaderActionState();
+}
+
+class _HeaderActionState extends State<_HeaderAction> {
+  bool _down = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = widget.primary;
+    final fg = primary ? Colors.white : kRefPrimaryDk;
+
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _down = true),
+      onTapCancel: () => setState(() => _down = false),
+      onTapUp: (_) => setState(() => _down = false),
+      onTap: widget.onPressed,
+      child: AnimatedScale(
+        scale: _down ? 0.97 : 1,
+        duration: AppTokens.fast,
+        curve: AppTokens.ease,
+        child: Container(
+          height: 46,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            gradient: primary ? PatientPortalTheme.buttonGradient : null,
+            color: primary ? null : AppTokens.surface,
+            borderRadius: const BorderRadius.all(Radius.circular(AppTokens.rPill)),
+            border: primary ? null : Border.all(color: AppTokens.hairline),
+            boxShadow: primary ? AppTokens.accentGlow() : AppTokens.shadowSm,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(widget.icon, size: 17, color: fg),
+              const SizedBox(width: 7),
+              Flexible(
+                child: Text(
+                  widget.label,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: fg,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

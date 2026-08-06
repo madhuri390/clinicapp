@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
+import '../widgets/ui_kit.dart';
 import 'appointments_screen.dart';
 import 'dashboard_screen.dart';
 // import 'inventory_screen.dart';
 // import 'messages_screen.dart';
 import 'patient_list_screen.dart';
 import 'profile_screen.dart';
-
-// Reference: PatientTrackingVersion4 bottom-nav.tsx colors
-const _blue600 = Color(0xFF0D8DC4);
-const _slate400 = Color(0xFF94A3B8);
+import '../theme/app_tokens.dart';
 
 /// Root shell with persistent bottom navigation.
 /// Matches PatientTrackingVersion4/src/app/components/bottom-nav.tsx
@@ -95,7 +94,10 @@ class MainShellState extends State<MainShell> {
             return Navigator(
               key: _navigatorKeys[i],
               onGenerateRoute: (settings) {
-                return MaterialPageRoute(builder: (_) => _screens[i]);
+                return FadeSlideRoute<void>(
+                  page: _screens[i],
+                  settings: settings,
+                );
               },
             );
           }),
@@ -126,16 +128,20 @@ class _BottomNavBar extends StatelessWidget {
   final ValueChanged<int> onTap;
 
   static const _items = [
-    (icon: Icons.home_outlined, activeIcon: Icons.home, label: 'Home'),
-    (icon: Icons.people_outline, activeIcon: Icons.people, label: 'Patients'),
+    (icon: Icons.home_outlined, activeIcon: Icons.home_rounded, label: 'Home'),
     (
-      icon: Icons.calendar_today_outlined,
-      activeIcon: Icons.calendar_today,
-      label: 'Appointments',
+      icon: Icons.people_outline,
+      activeIcon: Icons.people_rounded,
+      label: 'Patients'
     ),
     (
-      icon: Icons.person_outline,
-      activeIcon: Icons.person,
+      icon: Icons.calendar_today_outlined,
+      activeIcon: Icons.calendar_month_rounded,
+      label: 'Schedule',
+    ),
+    (
+      icon: Icons.person_outline_rounded,
+      activeIcon: Icons.person_rounded,
       label: 'Profile',
     ),
   ];
@@ -143,33 +149,65 @@ class _BottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      margin: const EdgeInsets.fromLTRB(AppTokens.s16, 0, AppTokens.s16, 12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: const Color(0xFFE2E8F0))),
+        color: AppTokens.surface,
+        borderRadius: AppTokens.brXl,
+        border: Border.all(color: AppTokens.hairline),
+        boxShadow: AppTokens.shadowLg,
       ),
       child: SafeArea(
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: List.generate(_items.length, (i) {
-            final item = _items[i];
-            final isActive = currentIndex == i;
-            return Expanded(
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () => onTap(i),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Icon(
-                      isActive ? item.activeIcon : item.icon,
-                      size: 24,
-                      color: isActive ? _blue600 : _slate400,
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+          child: Row(
+            children: List.generate(_items.length, (i) {
+              final item = _items[i];
+              final isActive = currentIndex == i;
+              // A soft tinted pill rather than a saturated fill: at four tabs
+              // wide, solid blue blocks fight the content above them.
+              final tint = isActive ? AppTokens.accentDark : AppTokens.muted;
+              return Expanded(
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => onTap(i),
+                    borderRadius: AppTokens.brLg,
+                    child: AnimatedContainer(
+                      duration: AppTokens.medium,
+                      curve: AppTokens.ease,
+                      padding: const EdgeInsets.symmetric(vertical: 9),
+                      decoration: BoxDecoration(
+                        color: isActive ? AppTokens.accentSoft : null,
+                        borderRadius: AppTokens.brLg,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isActive ? item.activeIcon : item.icon,
+                            size: 22,
+                            color: tint,
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            item.label,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 10.5,
+                              fontWeight:
+                                  isActive ? FontWeight.w700 : FontWeight.w600,
+                              letterSpacing: 0.1,
+                              color: tint,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            );
-          }),
+              );
+            }),
+          ),
         ),
       ),
     );

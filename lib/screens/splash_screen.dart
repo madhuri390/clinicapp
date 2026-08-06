@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../services/auth_service.dart';
-import '../theme/app_theme.dart';
+import '../theme/patient_portal_theme.dart';
 import '../widgets/patient_portal_logo.dart';
 import '../widgets/role_aware_shell.dart';
 import 'login_screen.dart';
@@ -19,6 +19,7 @@ class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _fadeIn;
+  late final Animation<double> _scaleIn;
 
   @override
   void initState() {
@@ -27,7 +28,7 @@ class _SplashScreenState extends State<SplashScreen>
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
+        statusBarIconBrightness: Brightness.dark,
       ),
     );
 
@@ -36,6 +37,9 @@ class _SplashScreenState extends State<SplashScreen>
       duration: const Duration(milliseconds: 700),
     );
     _fadeIn = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
+    _scaleIn = Tween<double>(begin: 0.82, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
+    );
     _controller.forward();
 
     Future<void>.delayed(const Duration(milliseconds: 1800), () {
@@ -70,35 +74,42 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.primaryColor,
-      body: FadeTransition(
-        opacity: _fadeIn,
+      body: DecoratedBox(
+        decoration: const BoxDecoration(
+          gradient: PatientPortalTheme.scaffoldGradient,
+        ),
         child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const ProdonticsBadge(size: 88, iconSize: 44),
-              const SizedBox(height: 20),
-              Text(
-                'Prodontics',
-                style: GoogleFonts.poppins(
-                  fontSize: 34,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                  letterSpacing: 0.5,
-                ),
+          child: FadeTransition(
+            opacity: _fadeIn,
+            child: ScaleTransition(
+              scale: _scaleIn,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const ProdonticsBadge(size: 96, iconSize: 48),
+                  const SizedBox(height: 22),
+                  Text(
+                    'Prodontics',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 34,
+                      fontWeight: FontWeight.w800,
+                      color: PatientPortalTheme.textPrimary,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Kokapet',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: PatientPortalTheme.textSecondary,
+                      letterSpacing: 2.0,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 6),
-              Text(
-                'Kokapet',
-                style: GoogleFonts.poppins(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w400,
-                  color: Colors.white70,
-                  letterSpacing: 1.2,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),

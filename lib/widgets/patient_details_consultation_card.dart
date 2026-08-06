@@ -10,6 +10,7 @@ import '../models/visit_model.dart';
 import '../services/local_store.dart';
 import '../theme/app_theme.dart';
 import 'patient_details_profile_tab.dart';
+import '../theme/app_tokens.dart';
 
 class ConsultationCard extends StatelessWidget {
   const ConsultationCard({
@@ -92,7 +93,7 @@ class ConsultationCard extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text(
                       ProfileTab.formatDate(visit.visitDate),
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.plusJakartaSans(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                         color: AppTheme.primaryColor,
@@ -106,15 +107,15 @@ class ConsultationCard extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: isOngoing ? Colors.black : Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(12),
+                    color: isOngoing ? Colors.black : AppTokens.hairline,
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: Text(
                     isOngoing ? 'Ongoing' : 'Completed',
-                    style: GoogleFonts.poppins(
+                    style: GoogleFonts.plusJakartaSans(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: isOngoing ? Colors.white : Colors.black87,
+                      color: isOngoing ? Colors.white : AppTokens.ink,
                     ),
                   ),
                 ),
@@ -128,10 +129,10 @@ class ConsultationCard extends StatelessWidget {
               children: [
                 Text(
                   visit.chiefComplaint ?? 'General Checkup',
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                    color: AppTokens.ink,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -139,7 +140,7 @@ class ConsultationCard extends StatelessWidget {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: AppTheme.lightBlueBackground,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Row(
                     children: [
@@ -149,7 +150,7 @@ class ConsultationCard extends StatelessWidget {
                           children: [
                             Text(
                               'Diagnosis',
-                              style: GoogleFonts.poppins(
+                              style: GoogleFonts.plusJakartaSans(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
                                 color: AppTheme.primaryColor,
@@ -157,7 +158,7 @@ class ConsultationCard extends StatelessWidget {
                             ),
                             Text(
                               visit.diagnosis ?? 'Pending diagnosis',
-                              style: GoogleFonts.poppins(
+                              style: GoogleFonts.plusJakartaSans(
                                 fontSize: 14,
                                 color: AppTheme.primaryColor.withValues(alpha: 0.8),
                               ),
@@ -172,7 +173,7 @@ class ConsultationCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-          Divider(height: 1, color: Colors.grey.shade200),
+          Divider(height: 1, color: AppTokens.hairline),
           if (treatments.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
@@ -181,10 +182,10 @@ class ConsultationCard extends StatelessWidget {
                 children: [
                   Text(
                     'Treatments planned',
-                    style: GoogleFonts.poppins(
+                    style: GoogleFonts.plusJakartaSans(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: Colors.black87,
+                      color: AppTokens.ink,
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -255,7 +256,7 @@ class ConsultationCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Divider(height: 1, color: Colors.grey.shade200),
+                  Divider(height: 1, color: AppTokens.hairline),
                   const SizedBox(height: 16),
                 ],
                 Row(
@@ -263,18 +264,18 @@ class ConsultationCard extends StatelessWidget {
                   children: [
                     Text(
                       'Total Amount Paid:',
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.plusJakartaSans(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: Colors.black87,
+                        color: AppTokens.ink,
                       ),
                     ),
                     Text(
                       '₹${payments.fold<double>(0, (sum, p) => sum + p.amountPaid).toStringAsFixed(0)}',
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.plusJakartaSans(
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
-                        color: const Color(0xFF10B981),
+                        color: AppTokens.success,
                       ),
                     ),
                   ],
@@ -288,8 +289,8 @@ class ConsultationCard extends StatelessWidget {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: isOngoing
                             ? (canComplete
-                                  ? const Color(0xFF10B981)
-                                  : Colors.grey.shade400)
+                                  ? AppTokens.success
+                                  : AppTokens.muted)
                             : AppTheme.primaryColor,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
@@ -313,7 +314,7 @@ class ConsultationCard extends StatelessWidget {
                       ),
                       label: Text(
                         isOngoing ? 'Complete Consultation' : 'Generate Bill',
-                        style: GoogleFonts.poppins(
+                        style: GoogleFonts.plusJakartaSans(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                         ),
@@ -356,25 +357,25 @@ class _TreatmentAccordion extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade200),
-        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTokens.hairline),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          collapsedIconColor: Colors.grey.shade500,
-          iconColor: Colors.grey.shade500,
+          collapsedIconColor: AppTokens.muted,
+          iconColor: AppTokens.muted,
           title: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFD1FAE5),
-                  borderRadius: BorderRadius.circular(8),
+                  color: AppTokens.successSoft,
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
                   Icons.medical_services_outlined,
-                  color: Color(0xFF065F46),
+                  color: AppTokens.success,
                   size: 20,
                 ),
               ),
@@ -385,17 +386,17 @@ class _TreatmentAccordion extends StatelessWidget {
                   children: [
                     Text(
                       treatment.treatmentName ?? 'Treatment',
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.plusJakartaSans(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: Colors.black87,
+                        color: AppTokens.ink,
                       ),
                     ),
                     Text(
                       '${sittings.length} sittings',
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.plusJakartaSans(
                         fontSize: 13,
-                        color: Colors.grey.shade500,
+                        color: AppTokens.muted,
                       ),
                     ),
                   ],
@@ -407,15 +408,15 @@ class _TreatmentAccordion extends StatelessWidget {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(12),
+                  color: AppTokens.subtle,
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Text(
                   treatment.status ?? 'planned',
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
-                    color: Colors.grey.shade700,
+                    color: AppTokens.body,
                   ),
                 ),
               ),
@@ -429,18 +430,18 @@ class _TreatmentAccordion extends StatelessWidget {
                 children: [
                   Text(
                     'Treatment Description',
-                    style: GoogleFonts.poppins(
+                    style: GoogleFonts.plusJakartaSans(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: Colors.black87,
+                      color: AppTokens.ink,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     treatment.description ?? 'No description provided.',
-                    style: GoogleFonts.poppins(
+                    style: GoogleFonts.plusJakartaSans(
                       fontSize: 14,
-                      color: Colors.grey.shade600,
+                      color: AppTokens.body,
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -472,7 +473,7 @@ class _TreatmentAccordion extends StatelessWidget {
                             label: const Text('Add Medication'),
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 12),
-                              side: BorderSide(color: Colors.grey.shade300),
+                              side: BorderSide(color: AppTokens.hairline),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(10),
                               ),
@@ -486,10 +487,10 @@ class _TreatmentAccordion extends StatelessWidget {
                   if (prescriptions.isNotEmpty) ...[
                     Text(
                       'Treatment Prescriptions',
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.plusJakartaSans(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: Colors.black87,
+                        color: AppTokens.ink,
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -498,7 +499,7 @@ class _TreatmentAccordion extends StatelessWidget {
                         margin: const EdgeInsets.only(bottom: 8),
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF5F3FF),
+                          color: AppTokens.accentSofter,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Column(
@@ -507,7 +508,7 @@ class _TreatmentAccordion extends StatelessWidget {
                               children: [
                                 const Icon(
                                   Icons.medication,
-                                  color: Color(0xFF7C3AED),
+                                  color: AppTokens.accentDark,
                                   size: 20,
                                 ),
                                 const SizedBox(width: 12),
@@ -518,16 +519,16 @@ class _TreatmentAccordion extends StatelessWidget {
                                     children: [
                                       Text(
                                         p.medicineName ?? '',
-                                        style: GoogleFonts.poppins(
+                                        style: GoogleFonts.plusJakartaSans(
                                           fontSize: 14,
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
                                       Text(
                                         p.dosage ?? '',
-                                        style: GoogleFonts.poppins(
+                                        style: GoogleFonts.plusJakartaSans(
                                           fontSize: 12,
-                                          color: const Color(0xFF7C3AED),
+                                          color: AppTokens.accentDark,
                                         ),
                                       ),
                                     ],
@@ -538,16 +539,16 @@ class _TreatmentAccordion extends StatelessWidget {
                                   children: [
                                     Text(
                                       '₹${p.price?.toStringAsFixed(0) ?? '0'}',
-                                      style: GoogleFonts.poppins(
+                                      style: GoogleFonts.plusJakartaSans(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w700,
-                                        color: const Color(0xFF4C1D95),
+                                        color: AppTokens.accentDeep,
                                       ),
                                     ),
                                     if ((p.price ?? 0) > 0)
                                       Text(
                                         p.payment != null ? 'Paid' : 'Pending',
-                                        style: GoogleFonts.poppins(
+                                        style: GoogleFonts.plusJakartaSans(
                                           fontSize: 11,
                                           fontWeight: FontWeight.w600,
                                           color: p.payment != null
@@ -591,10 +592,10 @@ class _TreatmentAccordion extends StatelessWidget {
                                     ),
                                     child: Text(
                                       'Edit',
-                                      style: GoogleFonts.poppins(
+                                      style: GoogleFonts.plusJakartaSans(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
-                                        color: const Color(0xFF7C3AED),
+                                        color: AppTokens.accentDark,
                                       ),
                                     ),
                                   ),
@@ -623,7 +624,7 @@ class _TreatmentAccordion extends StatelessWidget {
                                       ),
                                       child: Text(
                                         'Mark Paid',
-                                        style: GoogleFonts.poppins(
+                                        style: GoogleFonts.plusJakartaSans(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w600,
                                           color: Colors.green,
@@ -658,7 +659,7 @@ class _TreatmentAccordion extends StatelessWidget {
                     const SizedBox(height: 16),
                     Text(
                       'Attached Files',
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.plusJakartaSans(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
@@ -674,7 +675,7 @@ class _TreatmentAccordion extends StatelessWidget {
                                 Icon(
                                   Icons.insert_drive_file,
                                   size: 16,
-                                  color: Colors.orange.shade700,
+                                  color: AppTokens.warning,
                                 ),
                                 const SizedBox(width: 8),
                                 Expanded(
@@ -684,14 +685,14 @@ class _TreatmentAccordion extends StatelessWidget {
                                     children: [
                                       Text(
                                         f.fileName ?? 'Unnamed File',
-                                        style: GoogleFonts.poppins(
+                                        style: GoogleFonts.plusJakartaSans(
                                           fontSize: 13,
                                         ),
                                       ),
                                       if ((f.price ?? 0) > 0)
                                         Text(
                                           '₹${f.price!.toStringAsFixed(0)} • ${f.payment != null ? 'Paid' : 'Pending'}',
-                                          style: GoogleFonts.poppins(
+                                          style: GoogleFonts.plusJakartaSans(
                                             fontSize: 11,
                                             color: f.payment != null
                                                 ? Colors.green
@@ -745,7 +746,7 @@ class _TreatmentAccordion extends StatelessWidget {
                                       ),
                                       child: Text(
                                         'Mark Paid',
-                                        style: GoogleFonts.poppins(
+                                        style: GoogleFonts.plusJakartaSans(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w600,
                                           color: Colors.green,
@@ -786,7 +787,7 @@ class _ActionChip extends StatelessWidget {
     required this.icon,
     required this.onTap,
     this.iconColor = AppTheme.primaryColor,
-    this.textColor = Colors.black87,
+    this.textColor = AppTokens.ink,
   });
 
   final String label;
@@ -799,13 +800,13 @@ class _ActionChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: Colors.grey.shade50,
-          border: Border.all(color: Colors.grey.shade200),
-          borderRadius: BorderRadius.circular(8),
+          color: AppTokens.subtle,
+          border: Border.all(color: AppTokens.hairline),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -814,7 +815,7 @@ class _ActionChip extends StatelessWidget {
             const SizedBox(width: 6),
             Text(
               label,
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.plusJakartaSans(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
                 color: textColor,
@@ -1109,7 +1110,7 @@ void _showBillPreview(
     context: context,
     builder: (context) => Dialog(
       backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Container(
         padding: const EdgeInsets.all(24),
         width: MediaQuery.of(context).size.width * 0.9,
@@ -1122,14 +1123,14 @@ void _showBillPreview(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: AppTheme.lightBlueBackground,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 child: Center(
                   child: Column(
                     children: [
                       Text(
                         'Prodontics Clinic',
-                        style: GoogleFonts.poppins(
+                        style: GoogleFonts.plusJakartaSans(
                           fontSize: 22,
                           fontWeight: FontWeight.w700,
                           color: AppTheme.primaryColor,
@@ -1137,7 +1138,7 @@ void _showBillPreview(
                       ),
                       Text(
                         'Professional Dental Care',
-                        style: GoogleFonts.poppins(
+                        style: GoogleFonts.plusJakartaSans(
                           fontSize: 14,
                           color: AppTheme.primaryColor.withValues(alpha: 0.8),
                         ),
@@ -1172,10 +1173,10 @@ void _showBillPreview(
               if (treatments.isNotEmpty) ...[
                 Text(
                   'Treatment Details',
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: Colors.black87,
+                    color: AppTokens.ink,
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -1185,26 +1186,26 @@ void _showBillPreview(
                     padding: const EdgeInsets.all(12),
                     margin: const EdgeInsets.only(bottom: 8),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
-                      borderRadius: BorderRadius.circular(8),
+                      color: AppTokens.subtle,
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           t.treatmentName ?? '',
-                          style: GoogleFonts.poppins(
+                          style: GoogleFonts.plusJakartaSans(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
-                            color: Colors.black87,
+                            color: AppTokens.ink,
                           ),
                         ),
                         if (t.description != null)
                           Text(
                             t.description!,
-                            style: GoogleFonts.poppins(
+                            style: GoogleFonts.plusJakartaSans(
                               fontSize: 13,
-                              color: Colors.grey.shade600,
+                              color: AppTokens.body,
                             ),
                           ),
                       ],
@@ -1215,10 +1216,10 @@ void _showBillPreview(
               ],
               Text(
                 'Itemized Charges',
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.plusJakartaSans(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  color: Colors.black87,
+                  color: AppTokens.ink,
                 ),
               ),
               const SizedBox(height: 12),
@@ -1265,7 +1266,7 @@ void _showBillPreview(
               _invoiceSummaryRow(
                 'Amount Paid:',
                 paidTotal,
-                color: const Color(0xFF059669),
+                color: AppTokens.success,
               ),
               const SizedBox(height: 8),
               Row(
@@ -1273,20 +1274,20 @@ void _showBillPreview(
                 children: [
                   Text(
                     'Balance Due:',
-                    style: GoogleFonts.poppins(
+                    style: GoogleFonts.plusJakartaSans(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
-                      color: Colors.black87,
+                      color: AppTokens.ink,
                     ),
                   ),
                   Text(
                     '₹${(balance.abs() < 0.01 ? 0 : balance).toStringAsFixed(0)}',
-                    style: GoogleFonts.poppins(
+                    style: GoogleFonts.plusJakartaSans(
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
                       color: balance <= 0.01
-                          ? Colors.green.shade700
-                          : Colors.red.shade700,
+                          ? AppTokens.success
+                          : AppTokens.danger,
                     ),
                   ),
                 ],
@@ -1317,10 +1318,10 @@ void _showBillPreview(
                       icon: const Icon(Icons.check_circle_outline),
                       label: const Text('Complete Consultation'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF10B981),
+                        backgroundColor: AppTokens.success,
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                       ),
                     ),
@@ -1336,7 +1337,7 @@ void _showBillPreview(
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                       ),
                     ),
@@ -1348,11 +1349,11 @@ void _showBillPreview(
                       icon: const Icon(Icons.download_outlined),
                       label: const Text('Download'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0F0B1A),
+                        backgroundColor: AppTokens.ink,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                       ),
                     ),
@@ -1373,14 +1374,14 @@ Widget _invoiceInfoRow(String label, String value) {
     children: [
       Text(
         label,
-        style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade500),
+        style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppTokens.muted),
       ),
       Text(
         value,
-        style: GoogleFonts.poppins(
+        style: GoogleFonts.plusJakartaSans(
           fontSize: 14,
           fontWeight: FontWeight.w600,
-          color: Colors.black87,
+          color: AppTokens.ink,
         ),
       ),
     ],
@@ -1405,17 +1406,17 @@ Widget _invoiceItemRow(
             children: [
               Text(
                 title,
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.plusJakartaSans(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+                  color: AppTokens.ink,
                 ),
               ),
               Text(
                 date,
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.plusJakartaSans(
                   fontSize: 12,
-                  color: Colors.grey.shade500,
+                  color: AppTokens.muted,
                 ),
               ),
               if (subtitle != null && subtitle.isNotEmpty)
@@ -1423,9 +1424,9 @@ Widget _invoiceItemRow(
                   padding: const EdgeInsets.only(top: 2),
                   child: Text(
                     subtitle,
-                    style: GoogleFonts.poppins(
+                    style: GoogleFonts.plusJakartaSans(
                       fontSize: 12,
-                      color: Colors.grey.shade600,
+                      color: AppTokens.body,
                       fontStyle: FontStyle.italic,
                     ),
                   ),
@@ -1438,15 +1439,15 @@ Widget _invoiceItemRow(
           children: [
             Text(
               '₹${amount.toStringAsFixed(0)}',
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.plusJakartaSans(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
-                color: Colors.black87,
+                color: AppTokens.ink,
               ),
             ),
             Text(
               status,
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.plusJakartaSans(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: statusColor,
@@ -1467,14 +1468,14 @@ Widget _invoiceSummaryRow(String label, double amount, {Color? color}) {
       children: [
         Text(
           label,
-          style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey.shade600),
+          style: GoogleFonts.plusJakartaSans(fontSize: 14, color: AppTokens.body),
         ),
         Text(
           '₹${amount.toStringAsFixed(0)}',
-          style: GoogleFonts.poppins(
+          style: GoogleFonts.plusJakartaSans(
             fontSize: 16,
             fontWeight: FontWeight.w700,
-            color: color ?? Colors.black87,
+            color: color ?? AppTokens.ink,
           ),
         ),
       ],
@@ -1499,7 +1500,7 @@ class _SaveButton extends StatelessWidget {
       width: double.infinity,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF0F0B1A),
+          backgroundColor: AppTokens.ink,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 14),
           shape: RoundedRectangleBorder(
@@ -1518,7 +1519,7 @@ class _SaveButton extends StatelessWidget {
               )
             : Text(
                 label,
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.plusJakartaSans(
                   fontWeight: FontWeight.w600,
                   fontSize: 15,
                 ),
@@ -1551,7 +1552,7 @@ class _BottomSheetWrapper extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
       padding: EdgeInsets.fromLTRB(
         20,
@@ -1569,7 +1570,7 @@ class _BottomSheetWrapper extends StatelessWidget {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
+                  color: AppTokens.hairline,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -1577,10 +1578,10 @@ class _BottomSheetWrapper extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               title,
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.plusJakartaSans(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
-                color: Colors.black87,
+                color: AppTokens.ink,
               ),
             ),
             const SizedBox(height: 16),
@@ -1641,10 +1642,10 @@ class _SittingsHeader extends StatelessWidget {
       children: [
         Text(
           'Sittings',
-          style: GoogleFonts.poppins(
+          style: GoogleFonts.plusJakartaSans(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: Colors.black87,
+            color: AppTokens.ink,
           ),
         ),
         if (isOngoing && !readOnly)
@@ -1668,7 +1669,7 @@ class _SittingsHeader extends StatelessWidget {
             icon: const Icon(Icons.add, size: 18),
             label: Text(
               'Add Sitting',
-              style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+              style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600),
             ),
           ),
       ],
@@ -1698,7 +1699,7 @@ class _SittingsList extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 8.0),
         child: Text(
           'No sittings recorded yet.',
-          style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey.shade500),
+          style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppTokens.muted),
         ),
       );
     }
@@ -1743,17 +1744,17 @@ class _SittingItem extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade100),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppTokens.subtle),
       ),
       child: ExpansionTile(
         tilePadding: const EdgeInsets.symmetric(horizontal: 12),
         title: Text(
           'Sitting - ${ProfileTab.formatDate(sitting.sittingDate)}',
-          style: GoogleFonts.poppins(
+          style: GoogleFonts.plusJakartaSans(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            color: Colors.black87,
+            color: AppTokens.ink,
           ),
         ),
         trailing: Column(
@@ -1762,16 +1763,16 @@ class _SittingItem extends StatelessWidget {
           children: [
             Text(
               '₹${sitting.cost?.toStringAsFixed(0) ?? '0'}',
-              style: GoogleFonts.poppins(
+              style: GoogleFonts.plusJakartaSans(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
-                color: const Color(0xFF4C1D95),
+                color: AppTokens.accentDeep,
               ),
             ),
             if ((sitting.cost ?? 0) > 0)
               Text(
                 balance <= 0 ? 'Paid' : 'Pending',
-                style: GoogleFonts.poppins(
+                style: GoogleFonts.plusJakartaSans(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   color: balance <= 0 ? Colors.green : Colors.red,
@@ -1790,9 +1791,9 @@ class _SittingItem extends StatelessWidget {
                     padding: const EdgeInsets.only(bottom: 12.0),
                     child: Text(
                       sitting.notes!,
-                      style: GoogleFonts.poppins(
+                      style: GoogleFonts.plusJakartaSans(
                         fontSize: 13,
-                        color: Colors.grey.shade600,
+                        color: AppTokens.body,
                       ),
                     ),
                   ),

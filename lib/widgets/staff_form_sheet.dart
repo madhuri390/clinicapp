@@ -3,12 +3,17 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/staff_model.dart';
+import '../theme/app_tokens.dart';
 
 class StaffFormSheet extends StatefulWidget {
   const StaffFormSheet({super.key, this.staff, required this.onSave});
 
   final Staff? staff;
-  final void Function(Staff staff, String? password) onSave;
+
+  /// Awaited so the button can show progress and stay disabled until the
+  /// save resolves — creating staff makes two round trips (auth user, then
+  /// doctors row) and a double tap would create a duplicate auth user.
+  final Future<void> Function(Staff staff, String? password) onSave;
 
   @override
   State<StaffFormSheet> createState() => _StaffFormSheetState();
@@ -26,6 +31,7 @@ class _StaffFormSheetState extends State<StaffFormSheet> {
   String _endTimeStr = '17:00:00';
   String _selectedRole = 'General Dentist';
   bool _obscurePassword = true;
+  bool _saving = false;
 
   @override
   void initState() {
@@ -70,11 +76,9 @@ class _StaffFormSheetState extends State<StaffFormSheet> {
       context: context,
       initialTime: initialTime,
       builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: Theme.of(context).colorScheme.copyWith(
-                primary: const Color(0xFF0D8DC4),
-              ),
-        ),
+        data: Theme.of(
+          context,
+        ).copyWith(colorScheme: Theme.of(context).colorScheme.copyWith(primary: AppTokens.accent)),
         child: child!,
       ),
     );
@@ -111,13 +115,13 @@ class _StaffFormSheetState extends State<StaffFormSheet> {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: Colors.white,
-          border: Border.all(color: Colors.grey.shade300),
-          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppTokens.hairline),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Center(
           child: Text(
             displayTime,
-            style: GoogleFonts.inter(fontSize: 14, color: Colors.black87),
+            style: GoogleFonts.plusJakartaSans(fontSize: 14, color: AppTokens.ink),
           ),
         ),
       ),
@@ -127,9 +131,7 @@ class _StaffFormSheetState extends State<StaffFormSheet> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.9,
-      ),
+      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.9),
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -142,7 +144,7 @@ class _StaffFormSheetState extends State<StaffFormSheet> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.grey.shade300,
+                color: AppTokens.hairline,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -153,16 +155,16 @@ class _StaffFormSheetState extends State<StaffFormSheet> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  widget.staff == null ? 'Add Staff (Doctor)' : 'Edit Staff (Doctor)',
-                  style: GoogleFonts.inter(
+                  widget.staff == null ? 'Add Staff' : 'Edit Staff',
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                    color: AppTokens.ink,
                   ),
                 ),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close, color: Colors.grey),
+                  icon: const Icon(Icons.close, color: AppTokens.muted),
                 ),
               ],
             ),
@@ -179,15 +181,27 @@ class _StaffFormSheetState extends State<StaffFormSheet> {
                     _buildLabel('Role / Specialisation'),
                     DropdownButtonFormField<String>(
                       value: _selectedRole,
-                      items: [
-                        'General Dentist',
-                        'Endodontist',
-                        'Orthodontist',
-                        'Periodontist',
-                        'Prosthodontist',
-                        'Pediatric Dentist',
-                        'Oral Surgeon',
-                      ].map((role) => DropdownMenuItem(value: role, child: Text(role, style: GoogleFonts.inter(fontSize: 14)))).toList(),
+                      items:
+                          [
+                                'General Dentist',
+                                'Endodontist',
+                                'Orthodontist',
+                                'Periodontist',
+                                'Prosthodontist',
+                                'Pediatric Dentist',
+                                'Oral Surgeon',
+                                Staff.receptionistRole,
+                              ]
+                              .map(
+                                (role) => DropdownMenuItem(
+                                  value: role,
+                                  child: Text(
+                                    role,
+                                    style: GoogleFonts.plusJakartaSans(fontSize: 14),
+                                  ),
+                                ),
+                              )
+                              .toList(),
                       onChanged: (val) {
                         if (val != null) {
                           setState(() => _selectedRole = val);
@@ -198,12 +212,12 @@ class _StaffFormSheetState extends State<StaffFormSheet> {
                         fillColor: Colors.white,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: AppTokens.hairline),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide(color: AppTokens.hairline),
                         ),
                       ),
                     ),
@@ -218,13 +232,20 @@ class _StaffFormSheetState extends State<StaffFormSheet> {
                       validator: (v) => (v?.trim().isEmpty ?? true) ? 'Username is required' : null,
                     ),
                     const SizedBox(height: 16),
-                    _buildLabel(widget.staff == null ? 'Password *' : 'Password (leave blank to keep current)'),
+                    _buildLabel(
+                      widget.staff == null
+                          ? 'Password *'
+                          : 'Password (leave blank to keep current)',
+                    ),
                     _buildTextField(
-                      _passwordCtrl, 
-                      'Min 6 chars', 
+                      _passwordCtrl,
+                      'Min 6 chars',
                       obscureText: _obscurePassword,
                       suffixIcon: IconButton(
-                        icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, color: Colors.grey),
+                        icon: Icon(
+                          _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                          color: AppTokens.muted,
+                        ),
                         onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                       ),
                       validator: (v) {
@@ -241,28 +262,36 @@ class _StaffFormSheetState extends State<StaffFormSheet> {
                     const SizedBox(height: 16),
                     _buildLabel('Full Name *'),
                     _buildTextField(
-                      _nameCtrl, 
+                      _nameCtrl,
                       'Staff Name',
                       validator: (v) => (v?.trim().isEmpty ?? true) ? 'Name is required' : null,
                     ),
                     const SizedBox(height: 16),
                     _buildLabel('Phone Number (Optional)'),
-                    _buildTextField(_phoneCtrl, '+91 98765 43210', keyboardType: TextInputType.phone),
+                    _buildTextField(
+                      _phoneCtrl,
+                      '+91 98765 43210',
+                      keyboardType: TextInputType.phone,
+                    ),
                     const SizedBox(height: 16),
                     _buildLabel('Email Address (Optional)'),
-                    _buildTextField(_emailCtrl, 'doctor@clinic.com', keyboardType: TextInputType.emailAddress),
+                    _buildTextField(
+                      _emailCtrl,
+                      'doctor@clinic.com',
+                      keyboardType: TextInputType.emailAddress,
+                    ),
                     const SizedBox(height: 24),
-                    
+
                     Text(
                       'Standard Working Hours',
-                      style: GoogleFonts.inter(
+                      style: GoogleFonts.plusJakartaSans(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: Colors.black87,
+                        color: AppTokens.ink,
                       ),
                     ),
                     const SizedBox(height: 12),
-                    
+
                     Row(
                       children: [
                         Expanded(
@@ -286,46 +315,65 @@ class _StaffFormSheetState extends State<StaffFormSheet> {
                         ),
                       ],
                     ),
-                    
+
                     const SizedBox(height: 32),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: () {
-                          if (!_formKey.currentState!.validate()) {
-                            return;
-                          }
-                          
-                          widget.onSave(
-                            Staff(
-                              id: widget.staff?.id ?? '',
-                              name: _nameCtrl.text.trim(),
-                              role: _selectedRole,
-                              phone: _phoneCtrl.text.trim(),
-                              email: _emailCtrl.text.trim(),
-                              username: _usernameCtrl.text.trim(),
-                              workStartTime: _startTimeStr,
-                              workEndTime: _endTimeStr,
-                              authUserId: widget.staff?.authUserId,
-                            ),
-                            _passwordCtrl.text.isEmpty ? null : _passwordCtrl.text,
-                          );
-                        },
+                        onPressed: _saving
+                            ? null
+                            : () async {
+                                if (!_formKey.currentState!.validate()) {
+                                  return;
+                                }
+
+                                setState(() => _saving = true);
+                                try {
+                                  await widget.onSave(
+                                    Staff(
+                                      id: widget.staff?.id ?? '',
+                                      name: _nameCtrl.text.trim(),
+                                      role: _selectedRole,
+                                      phone: _phoneCtrl.text.trim(),
+                                      email: _emailCtrl.text.trim(),
+                                      username: _usernameCtrl.text.trim(),
+                                      workStartTime: _startTimeStr,
+                                      workEndTime: _endTimeStr,
+                                      authUserId: widget.staff?.authUserId,
+                                    ),
+                                    _passwordCtrl.text.isEmpty ? null : _passwordCtrl.text,
+                                  );
+                                } finally {
+                                  // A successful save pops this sheet, so only
+                                  // clear the flag if we are still on screen.
+                                  if (mounted) setState(() => _saving = false);
+                                }
+                              },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0D8DC4),
+                          backgroundColor: AppTokens.accent,
                           foregroundColor: Colors.white,
+                          // Keep the accent while saving so the white spinner
+                          // stays legible against the disabled button.
+                          disabledBackgroundColor: AppTokens.accent.withValues(alpha: 0.7),
                           padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
-                        child: Text(
-                          'Save Details',
-                          style: GoogleFonts.inter(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+                        child: _saving
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation(Colors.white),
+                                ),
+                              )
+                            : Text(
+                                'Save Details',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                       ),
                     ),
                   ],
@@ -343,16 +391,24 @@ class _StaffFormSheetState extends State<StaffFormSheet> {
       padding: const EdgeInsets.only(bottom: 6),
       child: Text(
         text,
-        style: GoogleFonts.inter(
+        style: GoogleFonts.plusJakartaSans(
           fontSize: 13,
           fontWeight: FontWeight.w500,
-          color: Colors.grey.shade700,
+          color: AppTokens.body,
         ),
       ),
     );
   }
 
-  Widget _buildTextField(TextEditingController ctrl, String hint, {TextInputType? keyboardType, bool obscureText = false, List<TextInputFormatter>? inputFormatters, String? Function(String?)? validator, Widget? suffixIcon}) {
+  Widget _buildTextField(
+    TextEditingController ctrl,
+    String hint, {
+    TextInputType? keyboardType,
+    bool obscureText = false,
+    List<TextInputFormatter>? inputFormatters,
+    String? Function(String?)? validator,
+    Widget? suffixIcon,
+  }) {
     return TextFormField(
       controller: ctrl,
       keyboardType: keyboardType,
@@ -361,29 +417,29 @@ class _StaffFormSheetState extends State<StaffFormSheet> {
       validator: validator,
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: GoogleFonts.inter(color: Colors.grey.shade400, fontSize: 14),
+        hintStyle: GoogleFonts.plusJakartaSans(color: AppTokens.muted, fontSize: 14),
         filled: true,
         fillColor: Colors.white,
         suffixIcon: suffixIcon,
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: AppTokens.hairline),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: AppTokens.hairline),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: Color(0xFF0D8DC4)),
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: AppTokens.accent),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: Colors.red),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: Colors.red, width: 2),
         ),
       ),

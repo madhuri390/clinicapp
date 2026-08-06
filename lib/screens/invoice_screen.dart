@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/pdf_generator_service.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_tokens.dart';
 
 /// Mock treatment line item for invoice.
 class _TreatmentItem {
@@ -37,10 +38,9 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
   ];
 
   Future<void> _onGeneratePdf() async {
-    final treatmentsMap = _treatments.map((t) => {
-      'name': t.name,
-      'amount': t.amount,
-    }).toList();
+    final treatmentsMap = _treatments
+        .map((t) => {'name': t.name, 'amount': t.amount})
+        .toList();
 
     await PdfGeneratorService.generateInvoicePdf(
       patientName: _patientName,
@@ -69,12 +69,12 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
     final paidAmount = _isPaid ? _totalAmount : _paidAmount;
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text(
           'Invoice',
           style: TextStyle(
-            color: Colors.black87,
+            color: AppTokens.ink,
             fontWeight: FontWeight.w600,
             fontSize: 20,
           ),
@@ -83,7 +83,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
         elevation: 0,
         scrolledUnderElevation: 1,
         centerTitle: false,
-        iconTheme: IconThemeData(color: Colors.grey.shade700),
+        iconTheme: IconThemeData(color: AppTokens.body),
       ),
       body: Column(
         children: [
@@ -112,7 +112,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
           ),
           Material(
             elevation: 8,
-            color: Colors.grey.shade50,
+            color: AppTokens.subtle,
             child: SafeArea(
               top: false,
               child: Padding(
@@ -130,7 +130,7 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
                         side: const BorderSide(color: AppTheme.primaryColor),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                         ),
                       ),
                     ),
@@ -138,14 +138,16 @@ class _InvoiceScreenState extends State<InvoiceScreen> {
                     ElevatedButton.icon(
                       onPressed: _isPaid ? null : _onMarkAsPaid,
                       icon: Icon(
-                        _isPaid ? Icons.check_circle : Icons.check_circle_outline,
+                        _isPaid
+                            ? Icons.check_circle
+                            : Icons.check_circle_outline,
                         size: 22,
                       ),
                       label: Text(_isPaid ? 'Paid' : 'Mark as Paid'),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                         ),
                       ),
                     ),
@@ -176,7 +178,7 @@ class _InvoiceHeaderCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.06),
@@ -204,12 +206,12 @@ class _InvoiceHeaderCard extends StatelessWidget {
                       'Patient',
                       style: Theme.of(
                         context,
-                      ).textTheme.bodySmall?.copyWith(color: Colors.black54),
+                      ).textTheme.bodySmall?.copyWith(color: AppTokens.body),
                     ),
                     Text(
                       patientName,
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.black87,
+                        color: AppTokens.ink,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -234,12 +236,12 @@ class _InvoiceHeaderCard extends StatelessWidget {
                     'Visit Date',
                     style: Theme.of(
                       context,
-                    ).textTheme.bodySmall?.copyWith(color: Colors.black54),
+                    ).textTheme.bodySmall?.copyWith(color: AppTokens.body),
                   ),
                   Text(
                     dateStr,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.black87,
+                      color: AppTokens.ink,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -282,7 +284,7 @@ class _TreatmentSummaryCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.06),
@@ -297,7 +299,7 @@ class _TreatmentSummaryCard extends StatelessWidget {
           Text(
             'Treatment Summary',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Colors.black87,
+              color: AppTokens.ink,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -313,13 +315,13 @@ class _TreatmentSummaryCard extends StatelessWidget {
                       t.name,
                       style: Theme.of(
                         context,
-                      ).textTheme.bodyMedium?.copyWith(color: Colors.black87),
+                      ).textTheme.bodyMedium?.copyWith(color: AppTokens.ink),
                     ),
                   ),
                   Text(
                     '₹${t.amount.toStringAsFixed(2)}',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.black87,
+                      color: AppTokens.ink,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -352,7 +354,7 @@ class _AmountsCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.06),
@@ -370,7 +372,7 @@ class _AmountsCard extends StatelessWidget {
           _AmountRow(
             label: 'Balance',
             value: balance,
-            valueColor: isPaid ? Colors.green.shade700 : Colors.orange.shade700,
+            valueColor: isPaid ? AppTokens.success : AppTokens.warning,
             bold: true,
           ),
         ],
@@ -400,14 +402,14 @@ class _AmountRow extends StatelessWidget {
         Text(
           label,
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: Colors.black54,
+            color: AppTokens.body,
             fontWeight: bold ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
         Text(
           '₹${value.toStringAsFixed(2)}',
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: valueColor ?? Colors.black87,
+            color: valueColor ?? AppTokens.ink,
             fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
           ),
         ),

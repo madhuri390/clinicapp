@@ -36,7 +36,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
-                    android:scheme="com.prodontics.app"
+                    android:scheme="com.prodontics1.app"
                     android:host="login-callback" />
             </intent-filter>
         </activity>

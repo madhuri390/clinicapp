@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import 'invoice_screen.dart';
+import '../theme/app_tokens.dart';
 
 /// Mock payment record.
 class _PaymentRecord {
@@ -96,7 +97,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                   child: Container(
                     width: 40, height: 4,
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
+                      color: AppTokens.hairline,
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -182,12 +183,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text(
           'Payment',
           style: TextStyle(
-            color: Colors.black87,
+            color: AppTokens.ink,
             fontWeight: FontWeight.w600,
             fontSize: 20,
           ),
@@ -196,7 +197,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         elevation: 0,
         scrolledUnderElevation: 1,
         centerTitle: false,
-        iconTheme: IconThemeData(color: Colors.grey.shade700),
+        iconTheme: IconThemeData(color: AppTokens.body),
         actions: [
           IconButton(
             icon: const Icon(Icons.receipt_long_outlined),
@@ -269,7 +270,7 @@ class _SummaryCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.06),
@@ -288,8 +289,8 @@ class _SummaryCard extends StatelessWidget {
             label: 'Balance',
             value: balance,
             valueColor: balance > 0
-                ? Colors.orange.shade700
-                : Colors.green.shade700,
+                ? AppTokens.warning
+                : AppTokens.success,
             bold: true,
           ),
         ],
@@ -319,14 +320,14 @@ class _SummaryRow extends StatelessWidget {
         Text(
           label,
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: Colors.black54,
+            color: AppTokens.body,
             fontWeight: bold ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
         Text(
           '₹${value.toStringAsFixed(2)}',
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: valueColor ?? Colors.black87,
+            color: valueColor ?? AppTokens.ink,
             fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
           ),
         ),
@@ -345,7 +346,7 @@ class _SectionHeader extends StatelessWidget {
     return Text(
       title,
       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-        color: Colors.black87,
+        color: AppTokens.ink,
         fontWeight: FontWeight.w600,
       ),
     );
@@ -377,7 +378,7 @@ class _PaymentFormCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.06),
@@ -458,7 +459,7 @@ class _PaymentListTile extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -474,7 +475,7 @@ class _PaymentListTile extends StatelessWidget {
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: AppTheme.primaryColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
               Icons.check_circle_outline,
@@ -490,7 +491,7 @@ class _PaymentListTile extends StatelessWidget {
                 Text(
                   '₹${record.amount.toStringAsFixed(2)}',
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.black87,
+                    color: AppTokens.ink,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -502,7 +503,7 @@ class _PaymentListTile extends StatelessWidget {
                     Text(
                       dateStr,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.grey.shade600,
+                        color: AppTokens.body,
                       ),
                     ),
                   ],
@@ -513,14 +514,14 @@ class _PaymentListTile extends StatelessWidget {
                     record.notes!,
                     style: Theme.of(
                       context,
-                    ).textTheme.bodySmall?.copyWith(color: Colors.black54),
+                    ).textTheme.bodySmall?.copyWith(color: AppTokens.body),
                   ),
                 ],
               ],
             ),
           ),
           IconButton(
-            icon: Icon(Icons.edit_outlined, size: 18, color: Colors.grey.shade500),
+            icon: Icon(Icons.edit_outlined, size: 18, color: AppTokens.muted),
             onPressed: onEdit,
             constraints: const BoxConstraints(),
             padding: const EdgeInsets.only(left: 8),
@@ -560,13 +561,13 @@ class _ModeChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: AppTokens.subtle,
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
         mode,
         style: TextStyle(
-          color: Colors.grey.shade800,
+          color: AppTokens.ink,
           fontSize: 12,
           fontWeight: FontWeight.w500,
         ),

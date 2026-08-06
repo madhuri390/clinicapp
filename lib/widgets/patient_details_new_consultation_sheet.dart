@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../models/visit_model.dart';
 import 'patient_details_header.dart';
+import '../theme/app_tokens.dart';
 
 /// Centered modal dialog for creating / editing a consultation.
 /// [onSave] is async — the dialog stays open (shows spinner) until the
@@ -101,45 +102,31 @@ class _NewConsultationSheetState extends State<NewConsultationSheet> {
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.existingVisit != null;
-    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      padding: EdgeInsets.fromLTRB(20, 16, 20, bottomInset + 20),
-      child: SafeArea(
-        top: false,
+    return Dialog(
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 30, vertical: 24),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Drag handle
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFCBD5E1),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-
               // Header
               Row(
                 children: [
                   const Icon(Icons.medical_services_outlined, size: 22, color: kRefPrimary),
                   const SizedBox(width: 8),
-                  Text(
-                    isEditing ? 'Edit Consultation' : 'New Consultation',
-                    style: GoogleFonts.lato(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                      color: kRefDark,
+                  Expanded(
+                    child: Text(
+                      isEditing ? 'Edit Consultation' : 'New Consultation',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: kRefDark,
+                      ),
                     ),
                   ),
                 ],
@@ -175,8 +162,8 @@ class _NewConsultationSheetState extends State<NewConsultationSheet> {
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFFDDDDDD)),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppTokens.hairline),
                   ),
                   child: Row(
                     children: [
@@ -184,7 +171,7 @@ class _NewConsultationSheetState extends State<NewConsultationSheet> {
                       const SizedBox(width: 8),
                       Text(
                         'Date: ${_visitDate.day}/${_visitDate.month}/${_visitDate.year}',
-                        style: GoogleFonts.lato(fontSize: 14, color: kRefDark),
+                        style: GoogleFonts.plusJakartaSans(fontSize: 14, color: kRefDark),
                       ),
                     ],
                   ),
@@ -196,7 +183,7 @@ class _NewConsultationSheetState extends State<NewConsultationSheet> {
                 const SizedBox(height: 4),
                 Text(
                   _error!,
-                  style: GoogleFonts.lato(fontSize: 12, color: Colors.red),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 12, color: Colors.red),
                 ),
                 const SizedBox(height: 8),
               ],
@@ -245,22 +232,22 @@ class _ModalInput extends StatelessWidget {
       child: TextField(
         controller: controller,
         maxLines: maxLines,
-        style: GoogleFonts.lato(fontSize: 14, color: kRefDark),
+        style: GoogleFonts.plusJakartaSans(fontSize: 14, color: kRefDark),
         decoration: InputDecoration(
           hintText: placeholder,
-          hintStyle: GoogleFonts.lato(fontSize: 14, color: kRefMuted),
+          hintStyle: GoogleFonts.plusJakartaSans(fontSize: 14, color: kRefMuted),
           contentPadding: const EdgeInsets.all(12),
           filled: false,
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
+            borderRadius: BorderRadius.circular(20),
+            borderSide: const BorderSide(color: AppTokens.hairline),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
+            borderRadius: BorderRadius.circular(20),
+            borderSide: const BorderSide(color: AppTokens.hairline),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
             borderSide: const BorderSide(color: kRefPrimary, width: 1.5),
           ),
         ),
@@ -285,13 +272,13 @@ class _OutlineBtn extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
         decoration: BoxDecoration(
           border: Border.all(
-            color: enabled ? const Color(0xFFCBD5E1) : const Color(0xFFE2E8F0),
+            color: enabled ? AppTokens.hairline : AppTokens.hairline,
           ),
           borderRadius: BorderRadius.circular(40),
         ),
         child: Text(
           label,
-          style: GoogleFonts.lato(
+          style: GoogleFonts.plusJakartaSans(
             fontSize: 12,
             fontWeight: FontWeight.w600,
             color: enabled ? kRefDark : kRefMuted,
@@ -319,7 +306,7 @@ class _PrimaryBtn extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
         decoration: BoxDecoration(
-          color: saving ? const Color(0xFFCBD5E1) : kRefPrimary,
+          color: saving ? AppTokens.hairline : kRefPrimary,
           borderRadius: BorderRadius.circular(40),
           boxShadow: saving
               ? []
@@ -339,7 +326,7 @@ class _PrimaryBtn extends StatelessWidget {
               )
             : Text(
                 label,
-                style: GoogleFonts.lato(
+                style: GoogleFonts.plusJakartaSans(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: Colors.white,

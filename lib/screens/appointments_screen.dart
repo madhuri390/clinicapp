@@ -13,26 +13,27 @@ import 'main_shell.dart';
 import '../widgets/add_appointment_sheet.dart';
 import '../widgets/cancel_appointment_sheet.dart';
 import '../widgets/reschedule_sheet.dart';
+import '../theme/app_tokens.dart';
 
 // ── Reference colors ────────────────────────────────────────────────────────
-const _blue600 = Color(0xFF0D8DC4);
-const _blue500 = Color(0xFF28A0D4);
-const _blue100 = Color(0xFFB4E0F0);
-const _blue50 = Color(0xFFEAF5FB);
-const _slate50 = Color(0xFFF8FAFC);
-const _slate100 = Color(0xFFF1F5F9);
-const _slate200 = Color(0xFFE2E8F0);
-const _slate300 = Color(0xFFCBD5E1);
-const _slate400 = Color(0xFF94A3B8);
-const _slate500 = Color(0xFF64748B);
-const _slate600 = Color(0xFF475569);
-const _slate900 = Color(0xFF0F172A);
-const _green100 = Color(0xFFDCFCE7);
-const _green600 = Color(0xFF16A34A);
-const _red100 = Color(0xFFFEE2E2);
-const _red500 = Color(0xFFEF4444);
-const _orange100 = Color(0xFFFFEDD5);
-const _orange700 = Color(0xFFC2410C);
+const _blue600 = AppTokens.accent;
+const _blue500 = AppTokens.accent;
+const _blue100 = AppTokens.accentSoft;
+const _blue50 = AppTokens.accentSoft;
+const _slate50 = AppTokens.canvas;
+const _slate100 = AppTokens.subtle;
+const _slate200 = AppTokens.hairline;
+const _slate300 = AppTokens.hairline;
+const _slate400 = AppTokens.muted;
+const _slate500 = AppTokens.body;
+const _slate600 = AppTokens.body;
+const _slate900 = AppTokens.ink;
+const _green100 = AppTokens.successSoft;
+const _green600 = AppTokens.success;
+const _red100 = AppTokens.dangerSoft;
+const _red500 = AppTokens.danger;
+const _orange100 = AppTokens.warningSoft;
+const _orange700 = AppTokens.warning;
 
 /// All available 30-min time slots (9 AM → 7 PM).
 const _allTimeSlots = [
@@ -120,7 +121,7 @@ class AppointmentsScreenState extends State<AppointmentsScreen>
       if (uid != null) {
         final staff = await _staffService.getStaff();
         final me = staff.where((s) => s.authUserId == uid).toList();
-        _doctorName = me.isNotEmpty ? 'Dr. ${me.first.name}' : null;
+        _doctorName = me.isNotEmpty ? me.first.displayName : null;
       }
     } catch (_) {
       // Name resolution failure must not prevent appointments from loading.
@@ -161,19 +162,19 @@ class AppointmentsScreenState extends State<AppointmentsScreen>
               Icon(Icons.notifications_active_rounded, color: _blue600, size: 28),
               const SizedBox(width: 12),
               Text('Enable Reminders',
-                  style: GoogleFonts.inter(fontWeight: FontWeight.w700, fontSize: 18)),
+                  style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, fontSize: 18)),
             ],
           ),
           content: Text(
             'To receive appointment reminders exactly on time (previous night, 1 hour, and 15 minutes before), '
             'please allow "Alarms & reminders" for this app.\n\n'
             'Without this, reminders may be delayed by several minutes.',
-            style: GoogleFonts.inter(fontSize: 14, color: _slate600, height: 1.5),
+            style: GoogleFonts.plusJakartaSans(fontSize: 14, color: _slate600, height: 1.5),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text('Later', style: GoogleFonts.inter(color: _slate400)),
+              child: Text('Later', style: GoogleFonts.plusJakartaSans(color: _slate400)),
             ),
             ElevatedButton(
               onPressed: () {
@@ -183,9 +184,9 @@ class AppointmentsScreenState extends State<AppointmentsScreen>
               style: ElevatedButton.styleFrom(
                 backgroundColor: _blue600,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
-              child: Text('Enable', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+              child: Text('Enable', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
             ),
           ],
         ),
@@ -349,9 +350,9 @@ class AppointmentsScreenState extends State<AppointmentsScreen>
     // Show a recoverable error screen with a retry button.
     if (_loadError != null) {
       return Scaffold(
-        backgroundColor: _slate50,
+        backgroundColor: Colors.transparent,
         appBar: AppBar(
-          title: Text('Schedule', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+          title: Text('Schedule', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
           backgroundColor: _blue600,
           foregroundColor: Colors.white,
         ),
@@ -366,19 +367,19 @@ class AppointmentsScreenState extends State<AppointmentsScreen>
                 Text(
                   'Could not load appointments',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(fontSize: 17, fontWeight: FontWeight.w600, color: _slate900),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 17, fontWeight: FontWeight.w600, color: _slate900),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   _loadError!,
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(fontSize: 13, color: _slate500, height: 1.4),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 13, color: _slate500, height: 1.4),
                 ),
                 const SizedBox(height: 20),
                 ElevatedButton.icon(
                   onPressed: _refresh,
                   icon: const Icon(Icons.refresh),
-                  label: Text('Retry', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+                  label: Text('Retry', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _blue600,
                     foregroundColor: Colors.white,
@@ -395,9 +396,9 @@ class AppointmentsScreenState extends State<AppointmentsScreen>
 
     if (_doctorId == null) {
       return Scaffold(
-        backgroundColor: _slate50,
+        backgroundColor: Colors.transparent,
         appBar: AppBar(
-          title: Text('Schedule', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+          title: Text('Schedule', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600)),
           backgroundColor: _blue600,
           foregroundColor: Colors.white,
         ),
@@ -412,13 +413,13 @@ class AppointmentsScreenState extends State<AppointmentsScreen>
                 Text(
                   'No doctor profile linked',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(fontSize: 17, fontWeight: FontWeight.w600, color: _slate900),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 17, fontWeight: FontWeight.w600, color: _slate900),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Your account needs a linked doctor record to load and manage appointments. Contact an administrator if this is unexpected.',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(fontSize: 14, color: _slate500, height: 1.4),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 14, color: _slate500, height: 1.4),
                 ),
               ],
             ),
@@ -434,7 +435,7 @@ class AppointmentsScreenState extends State<AppointmentsScreen>
         a.status == AppointmentStatus.rescheduled).toList();
 
     return Scaffold(
-      backgroundColor: _slate50,
+      backgroundColor: Colors.transparent,
       body: NestedScrollView(
         headerSliverBuilder: (context, _) => [
           _buildAppBar(),
@@ -561,14 +562,14 @@ class AppointmentsScreenState extends State<AppointmentsScreen>
                         children: [
                           Text(
                             'Schedule',
-                            style: GoogleFonts.inter(
+                            style: GoogleFonts.plusJakartaSans(
                               fontSize: 20, fontWeight: FontWeight.w600,
                               color: Colors.white,
                             ),
                           ),
                           Text(
                             DateFormat('EEEE, dd MMM yyyy').format(_selectedDate),
-                            style: GoogleFonts.inter(
+                            style: GoogleFonts.plusJakartaSans(
                               fontSize: 13, color: _blue100,
                             ),
                           ),
@@ -638,7 +639,7 @@ class AppointmentsScreenState extends State<AppointmentsScreen>
           unselectedLabelColor: _slate600,
           indicatorColor: _blue600,
           indicatorSize: TabBarIndicatorSize.label,
-          labelStyle: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500),
+          labelStyle: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w500),
           tabs: [
             Tab(text: 'All (${all.where((a) => a.status != AppointmentStatus.rescheduled).length})'),
             Tab(text: 'Upcoming (${upcoming.length})'),
@@ -663,10 +664,10 @@ class _HeaderButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       color: _blue600, // Use primary brand color
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           child: Row(
@@ -674,7 +675,7 @@ class _HeaderButton extends StatelessWidget {
             children: [
               Icon(icon, color: Colors.white, size: 16),
               const SizedBox(width: 4),
-              Text(label, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.white)),
+              Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.white)),
             ],
           ),
         ),
@@ -738,7 +739,7 @@ class _DateScrollerDelegate extends SliverPersistentHeaderDelegate {
                     margin: const EdgeInsets.symmetric(horizontal: 4),
                     decoration: BoxDecoration(
                       color: isSelected ? _blue600 : (isToday ? _blue50 : Colors.white),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                       border: Border.all(
                         color: isSelected ? _blue600 : (isToday ? _blue500 : _slate200),
                         width: isToday && !isSelected ? 1.5 : 1,
@@ -749,7 +750,7 @@ class _DateScrollerDelegate extends SliverPersistentHeaderDelegate {
                       children: [
                         Text(
                           DateFormat('E').format(date).substring(0, 3),
-                          style: GoogleFonts.inter(
+                          style: GoogleFonts.plusJakartaSans(
                             fontSize: 11,
                             fontWeight: FontWeight.w500,
                             color: isSelected ? Colors.white70 : _slate500,
@@ -758,7 +759,7 @@ class _DateScrollerDelegate extends SliverPersistentHeaderDelegate {
                         const SizedBox(height: 2),
                         Text(
                           '${date.day}',
-                          style: GoogleFonts.inter(
+                          style: GoogleFonts.plusJakartaSans(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
                             color: isSelected ? Colors.white : _slate900,
@@ -856,7 +857,7 @@ class _TimeBlockView extends StatelessWidget {
                       Text(
                         'No appointments for this day',
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.inter(fontSize: 15, color: _slate500),
+                        style: GoogleFonts.plusJakartaSans(fontSize: 15, color: _slate500),
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -864,7 +865,7 @@ class _TimeBlockView extends StatelessWidget {
                             ? 'Past days are read-only. Choose today or a future date to add visits.'
                             : 'Tap + to schedule one, or tap an empty time row.',
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.inter(fontSize: 13, color: _slate400, height: 1.35),
+                        style: GoogleFonts.plusJakartaSans(fontSize: 13, color: _slate400, height: 1.35),
                       ),
                     ],
                   ),
@@ -905,7 +906,7 @@ class _TimeBlockView extends StatelessWidget {
                       padding: const EdgeInsets.only(top: 8, left: 8),
                       child: Text(
                         Appointment.to12Hour(slot),
-                        style: GoogleFonts.inter(fontSize: 12, color: _slate400, fontWeight: FontWeight.w500),
+                        style: GoogleFonts.plusJakartaSans(fontSize: 12, color: _slate400, fontWeight: FontWeight.w500),
                       ),
                     ),
                   ),
@@ -1042,7 +1043,7 @@ class _AppointmentCard extends StatelessWidget {
                 ),
                 child: Text(
                   a.statusLabel,
-                  style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: _statusColor),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600, color: _statusColor),
                 ),
               ),
               const Spacer(),
@@ -1050,7 +1051,7 @@ class _AppointmentCard extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 a.timeRange,
-                style: GoogleFonts.inter(fontSize: 12, color: _slate500),
+                style: GoogleFonts.plusJakartaSans(fontSize: 12, color: _slate500),
               ),
             ],
           ),
@@ -1058,12 +1059,12 @@ class _AppointmentCard extends StatelessWidget {
           // Patient + type
           Text(
             a.patientName,
-            style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600, color: _slate900),
+            style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w600, color: _slate900),
           ),
           const SizedBox(height: 2),
           Text(
             a.type,
-            style: GoogleFonts.inter(fontSize: 13, color: _slate600),
+            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: _slate600),
           ),
           // Doctor message
           if (a.doctorMessage != null && a.doctorMessage!.isNotEmpty) ...[
@@ -1083,7 +1084,7 @@ class _AppointmentCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       'Dr: ${a.doctorMessage}',
-                      style: GoogleFonts.inter(fontSize: 12, color: _slate600, fontStyle: FontStyle.italic),
+                      style: GoogleFonts.plusJakartaSans(fontSize: 12, color: _slate600, fontStyle: FontStyle.italic),
                     ),
                   ),
                 ],
@@ -1099,7 +1100,7 @@ class _AppointmentCard extends StatelessWidget {
                 const SizedBox(width: 4),
                 Text(
                   'Linked to treatment plan',
-                  style: GoogleFonts.inter(fontSize: 11, color: _blue500),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 11, color: _blue500),
                 ),
               ],
             ),
@@ -1238,7 +1239,7 @@ class _ActionButton extends StatelessWidget {
                     fit: BoxFit.scaleDown,
                     child: Text(
                       label,
-                      style: GoogleFonts.inter(
+                      style: GoogleFonts.plusJakartaSans(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                         color: outlined ? color : Colors.white,
@@ -1300,13 +1301,13 @@ class _AppointmentListView extends StatelessWidget {
                       Text(
                         emptyMessage,
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.inter(fontSize: 15, color: _slate500),
+                        style: GoogleFonts.plusJakartaSans(fontSize: 15, color: _slate500),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         'Try another tab or pick a different day in the calendar.',
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.inter(fontSize: 13, color: _slate400, height: 1.35),
+                        style: GoogleFonts.plusJakartaSans(fontSize: 13, color: _slate400, height: 1.35),
                       ),
                     ],
                   ),

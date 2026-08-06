@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../repositories/patient_repository.dart';
-import '../services/app_role_service.dart';
 import '../services/auth_service.dart';
 import '../services/patient_session.dart';
 import '../theme/patient_portal_theme.dart';
+import '../widgets/ui_kit.dart';
 import 'login_screen.dart';
 import 'patient_form_screen.dart';
+import '../theme/app_tokens.dart';
 
 class PatientPortalProfileScreen extends StatefulWidget {
   const PatientPortalProfileScreen({super.key});
@@ -24,28 +25,41 @@ class _PatientPortalProfileScreenState extends State<PatientPortalProfileScreen>
     final initials = displayName.isNotEmpty ? displayName.substring(0, 1).toUpperCase() : '?';
 
     return Scaffold(
-      backgroundColor: PatientPortalTheme.surface,
-      appBar: AppBar(
-        title: Text(
-          'Profile',
-          style: PatientPortalTheme.titleLarge(context),
-        ),
-        centerTitle: false,
-        backgroundColor: Colors.transparent,
-      ),
-      body: CustomScrollView(
-        slivers: [
-          SliverPadding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                _buildProfileHeader(context, displayName, initials, patient?.phone, patient?.email),
-                const SizedBox(height: 24),
-                _buildSettingsSection(context),
-              ]),
+      backgroundColor: Colors.transparent,
+      body: AppGradientBackground(
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(
+              parent: BouncingScrollPhysics()),
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                    20, MediaQuery.paddingOf(context).top + 18, 20, 8),
+                child: AnimatedEntrance(
+                  child: Text('Profile',
+                      style: PatientPortalTheme.displayLarge(context)),
+                ),
+              ),
             ),
-          ),
-        ],
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  AnimatedEntrance(
+                    index: 1,
+                    child: _buildProfileHeader(context, displayName, initials,
+                        patient?.phone, patient?.email),
+                  ),
+                  const SizedBox(height: 20),
+                  AnimatedEntrance(
+                    index: 2,
+                    child: _buildSettingsSection(context),
+                  ),
+                ]),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -53,7 +67,7 @@ class _PatientPortalProfileScreenState extends State<PatientPortalProfileScreen>
   Widget _buildProfileHeader(BuildContext context, String name, String initials, String? phone, String? email) {
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: PatientPortalTheme.cardDecoration(context),
+      decoration: PatientPortalTheme.glassDecoration(context),
       child: Row(
         children: [
           Container(
@@ -62,6 +76,7 @@ class _PatientPortalProfileScreenState extends State<PatientPortalProfileScreen>
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               gradient: PatientPortalTheme.accentGradient,
+              boxShadow: PatientPortalTheme.glow(PatientPortalTheme.brightSky),
             ),
             child: Center(
               child: Text(
@@ -107,7 +122,7 @@ class _PatientPortalProfileScreenState extends State<PatientPortalProfileScreen>
 
   Widget _buildSettingsSection(BuildContext context) {
     return Container(
-      decoration: PatientPortalTheme.cardDecoration(context),
+      decoration: PatientPortalTheme.glassDecoration(context),
       child: Column(
         children: [
           _SettingsTile(
@@ -119,8 +134,8 @@ class _PatientPortalProfileScreenState extends State<PatientPortalProfileScreen>
               if (patient == null) return;
               
               final didUpdate = await Navigator.of(context).push<bool>(
-                MaterialPageRoute(
-                  builder: (_) => PatientFormScreen(
+                FadeSlideRoute<bool>(
+                  page: PatientFormScreen(
                     initialPatient: patient,
                     appBarTitle: 'Edit Personal Details',
                   ),
@@ -143,7 +158,7 @@ class _PatientPortalProfileScreenState extends State<PatientPortalProfileScreen>
               }
             },
           ),
-          Divider(height: 1, color: Colors.grey.withValues(alpha: 0.1)),
+          Divider(height: 1, color: AppTokens.muted.withValues(alpha: 0.1)),
           _SettingsTile(
             icon: Icons.logout_rounded,
             title: 'Logout',
@@ -160,7 +175,7 @@ class _PatientPortalProfileScreenState extends State<PatientPortalProfileScreen>
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
           'Log Out',
           style: PatientPortalTheme.titleMedium(context),
@@ -176,10 +191,10 @@ class _PatientPortalProfileScreenState extends State<PatientPortalProfileScreen>
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade500,
+              backgroundColor: AppTokens.danger,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
@@ -218,17 +233,27 @@ class _SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isDestructive ? Colors.red.shade500 : PatientPortalTheme.navyBlue;
+    final color = isDestructive ? AppTokens.danger : PatientPortalTheme.navyBlue;
+    final badgeGradient = isDestructive
+        ? const LinearGradient(colors: [AppTokens.danger, AppTokens.danger])
+        : PatientPortalTheme.buttonGradient;
+    final badgeGlow =
+        isDestructive ? AppTokens.danger : PatientPortalTheme.brightSky;
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(20),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
         child: Row(
           children: [
-            Icon(icon, color: color, size: 24),
-            const SizedBox(width: 16),
+            HeroIconBadge(
+              icon: icon,
+              size: 44,
+              gradient: badgeGradient,
+              glowColor: badgeGlow,
+            ),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

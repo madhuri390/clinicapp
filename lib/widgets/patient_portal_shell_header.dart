@@ -1,61 +1,69 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import '../theme/app_theme.dart';
+import '../theme/patient_portal_theme.dart';
+import 'ui_kit.dart';
 
-/// Doctor-dashboard-style header: solid primary, Inter title + subtitle.
+/// Bright, airy patient header: a large display title with an optional
+/// gradient accent word, sitting transparently over the gradient canvas.
 class PatientPortalShellHeader extends StatelessWidget {
   const PatientPortalShellHeader({
     super.key,
     required this.title,
+    this.accentWord,
     this.subtitle,
     this.trailing,
   });
 
   final String title;
+
+  /// Optional word rendered with the brand gradient after [title]
+  /// (e.g. title "Your", accent "Smile").
+  final String? accentWord;
   final String? subtitle;
   final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     final top = MediaQuery.paddingOf(context).top;
-    return Container(
-      width: double.infinity,
-      color: AppTheme.primaryColor,
-      padding: EdgeInsets.fromLTRB(16, top + 16, 16, 20),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: GoogleFonts.inter(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+    return AnimatedEntrance(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20, top + 18, 20, 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(title, style: PatientPortalTheme.displayLarge(context)),
+                      if (accentWord != null && accentWord!.trim().isNotEmpty) ...[
+                        Text(' ', style: PatientPortalTheme.displayLarge(context)),
+                        GradientText(
+                          accentWord!,
+                          style: PatientPortalTheme.displayAccent(context),
+                        ),
+                      ],
+                    ],
                   ),
-                ),
-                if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle!,
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      color: Colors.white.withValues(alpha: 0.88),
+                  if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      subtitle!,
+                      style: PatientPortalTheme.body(context),
                     ),
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-          if (trailing != null) ...[
-            const SizedBox(width: 12),
-            trailing!,
+            if (trailing != null) ...[
+              const SizedBox(width: 12),
+              trailing!,
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

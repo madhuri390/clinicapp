@@ -7,10 +7,12 @@ import '../services/local_store.dart';
 import '../services/patient_session.dart';
 import '../theme/patient_portal_theme.dart';
 import '../widgets/patient_portal_logo.dart';
+import '../widgets/ui_kit.dart';
 import 'patient_home_dashboard_screen.dart';
 import 'patient_portal_appointments_screen.dart';
 import 'patient_portal_care_screen.dart';
 import 'patient_portal_profile_screen.dart';
+import '../theme/app_tokens.dart';
 
 /// Patient app: Home (dashboard), Patient (profile / ongoing / history), Appointments, Profile.
 class PatientMainShell extends StatefulWidget {
@@ -139,17 +141,22 @@ class _PatientMainShellState extends State<PatientMainShell> {
           }
         },
         child: Scaffold(
-          backgroundColor: PatientPortalTheme.surface,
-          body: IndexedStack(
-            index: _currentIndex,
-            children: List.generate(stackScreens.length, (i) {
-              return Navigator(
-                key: _navigatorKeys[i],
-                onGenerateRoute: (settings) {
-                  return MaterialPageRoute<void>(builder: (_) => stackScreens[i]);
-                },
-              );
-            }),
+          backgroundColor: Colors.transparent,
+          body: AppGradientBackground(
+            child: IndexedStack(
+              index: _currentIndex,
+              children: List.generate(stackScreens.length, (i) {
+                return Navigator(
+                  key: _navigatorKeys[i],
+                  onGenerateRoute: (settings) {
+                    return FadeSlideRoute<void>(
+                      page: stackScreens[i],
+                      settings: settings,
+                    );
+                  },
+                );
+              }),
+            ),
           ),
           bottomNavigationBar: _PatientBottomNav(
             currentIndex: _currentIndex,
@@ -179,8 +186,8 @@ class _PatientBottomNav extends StatelessWidget {
   static const _items = [
     (icon: Icons.home_outlined, activeIcon: Icons.home_rounded, label: 'Home'),
     (
-      icon: Icons.person_outline_rounded,
-      activeIcon: Icons.person_rounded,
+      icon: Icons.medical_services_outlined,
+      activeIcon: Icons.medical_services_rounded,
       label: 'Patient',
     ),
     (
@@ -198,45 +205,35 @@ class _PatientBottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      margin: const EdgeInsets.fromLTRB(AppTokens.s16, 0, AppTokens.s16, 12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(28),
-        boxShadow: [
-          BoxShadow(
-            color: PatientPortalTheme.navyBlue.withValues(alpha: 0.12),
-            blurRadius: 32,
-            offset: const Offset(0, 12),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: AppTokens.surface,
+        borderRadius: AppTokens.brXl,
+        border: Border.all(color: AppTokens.hairline),
+        boxShadow: AppTokens.shadowLg,
       ),
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
           child: Row(
             children: List.generate(_items.length, (i) {
               final item = _items[i];
               final active = currentIndex == i;
+              final tint = active ? AppTokens.accentDark : AppTokens.muted;
               return Expanded(
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
                     onTap: () => onTap(i),
-                    borderRadius: BorderRadius.circular(22),
+                    borderRadius: AppTokens.brLg,
                     child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 220),
-                      curve: Curves.easeOutCubic,
-                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      duration: AppTokens.medium,
+                      curve: AppTokens.ease,
+                      padding: const EdgeInsets.symmetric(vertical: 9),
                       decoration: BoxDecoration(
-                        gradient: active ? PatientPortalTheme.accentGradient : null,
-                        color: active ? null : Colors.transparent,
-                        borderRadius: BorderRadius.circular(22),
+                        color: active ? AppTokens.accentSoft : null,
+                        borderRadius: AppTokens.brLg,
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -244,15 +241,17 @@ class _PatientBottomNav extends StatelessWidget {
                           Icon(
                             active ? item.activeIcon : item.icon,
                             size: 22,
-                            color: active ? Colors.white : PatientPortalTheme.textSecondary,
+                            color: tint,
                           ),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 3),
                           Text(
                             item.label,
                             style: GoogleFonts.plusJakartaSans(
-                              fontSize: 10,
-                              fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                              color: active ? Colors.white : PatientPortalTheme.textSecondary,
+                              fontSize: 10.5,
+                              fontWeight:
+                                  active ? FontWeight.w700 : FontWeight.w600,
+                              letterSpacing: 0.1,
+                              color: tint,
                             ),
                           ),
                         ],

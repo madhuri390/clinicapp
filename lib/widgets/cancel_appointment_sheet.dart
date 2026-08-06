@@ -4,20 +4,21 @@ import 'package:intl/intl.dart';
 
 import '../models/appointment_model.dart';
 import '../repositories/appointment_repository.dart';
+import '../theme/app_tokens.dart';
 
 // Colors
-const _slate50 = Color(0xFFF8FAFC);
-const _slate200 = Color(0xFFE2E8F0);
-const _slate300 = Color(0xFFCBD5E1);
-const _slate400 = Color(0xFF94A3B8);
-const _slate500 = Color(0xFF64748B);
-const _slate600 = Color(0xFF475569);
-const _slate700 = Color(0xFF334155);
-const _slate900 = Color(0xFF0F172A);
-const _red500 = Color(0xFFEF4444);
-const _red50 = Color(0xFFFEF2F2);
-const _red100 = Color(0xFFFEE2E2);
-const _red700 = Color(0xFFB91C1C);
+const _slate50 = AppTokens.canvas;
+const _slate200 = AppTokens.hairline;
+const _slate300 = AppTokens.hairline;
+const _slate400 = AppTokens.muted;
+const _slate500 = AppTokens.body;
+const _slate600 = AppTokens.body;
+const _slate700 = AppTokens.ink;
+const _slate900 = AppTokens.ink;
+const _red500 = AppTokens.danger;
+const _red50 = AppTokens.dangerSoft;
+const _red100 = AppTokens.dangerSoft;
+const _red700 = AppTokens.danger;
 
 /// Bottom sheet for cancelling an appointment with doctor's message.
 class CancelAppointmentSheet extends StatefulWidget {
@@ -115,7 +116,7 @@ class _CancelAppointmentSheetState extends State<CancelAppointmentSheet> {
               children: [
                 Text(
                   'Cancel Appointment',
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
                     color: _red700,
@@ -139,7 +140,7 @@ class _CancelAppointmentSheetState extends State<CancelAppointmentSheet> {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: _red50,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: _red100),
                   ),
                   child: Row(
@@ -153,7 +154,7 @@ class _CancelAppointmentSheetState extends State<CancelAppointmentSheet> {
                       Expanded(
                         child: Text(
                           'This will cancel the appointment and notify the patient via WhatsApp.',
-                          style: GoogleFonts.inter(
+                          style: GoogleFonts.plusJakartaSans(
                             fontSize: 13,
                             color: _red700,
                           ),
@@ -169,7 +170,7 @@ class _CancelAppointmentSheetState extends State<CancelAppointmentSheet> {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: _slate50,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: _slate200),
                   ),
                   child: Column(
@@ -181,7 +182,7 @@ class _CancelAppointmentSheetState extends State<CancelAppointmentSheet> {
                           const SizedBox(width: 8),
                           Text(
                             a.patientName,
-                            style: GoogleFonts.inter(
+                            style: GoogleFonts.plusJakartaSans(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
                               color: _slate900,
@@ -201,7 +202,7 @@ class _CancelAppointmentSheetState extends State<CancelAppointmentSheet> {
                           Expanded(
                             child: Text(
                               a.type,
-                              style: GoogleFonts.inter(
+                              style: GoogleFonts.plusJakartaSans(
                                 fontSize: 13,
                                 color: _slate600,
                               ),
@@ -220,7 +221,7 @@ class _CancelAppointmentSheetState extends State<CancelAppointmentSheet> {
                           const SizedBox(width: 8),
                           Text(
                             '${DateFormat('dd MMM yyyy').format(a.date)} • ${a.timeRange}',
-                            style: GoogleFonts.inter(
+                            style: GoogleFonts.plusJakartaSans(
                               fontSize: 13,
                               color: _slate600,
                             ),
@@ -235,7 +236,7 @@ class _CancelAppointmentSheetState extends State<CancelAppointmentSheet> {
                 // Doctor message
                 Text(
                   "Cancellation Reason *",
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 13,
                     fontWeight: FontWeight.w500,
                     color: _slate700,
@@ -248,7 +249,7 @@ class _CancelAppointmentSheetState extends State<CancelAppointmentSheet> {
                   decoration: InputDecoration(
                     hintText:
                         'Reason for cancellation (sent to patient via WhatsApp)',
-                    hintStyle: GoogleFonts.inter(
+                    hintStyle: GoogleFonts.plusJakartaSans(
                       fontSize: 13,
                       color: _slate400,
                     ),
@@ -256,15 +257,15 @@ class _CancelAppointmentSheetState extends State<CancelAppointmentSheet> {
                     fillColor: _slate50,
                     contentPadding: const EdgeInsets.all(12),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                       borderSide: BorderSide(color: _slate200),
                     ),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                       borderSide: BorderSide(color: _slate200),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                       borderSide: const BorderSide(color: _red500, width: 1.5),
                     ),
                   ),
@@ -286,7 +287,7 @@ class _CancelAppointmentSheetState extends State<CancelAppointmentSheet> {
                         ),
                         child: Text(
                           'Keep Appointment',
-                          style: GoogleFonts.inter(
+                          style: GoogleFonts.plusJakartaSans(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
                             color: _slate700,
@@ -301,7 +302,7 @@ class _CancelAppointmentSheetState extends State<CancelAppointmentSheet> {
                         icon: const Icon(Icons.cancel, size: 18),
                         label: Text(
                           'Cancel',
-                          style: GoogleFonts.inter(
+                          style: GoogleFonts.plusJakartaSans(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),

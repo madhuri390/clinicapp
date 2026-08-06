@@ -5,6 +5,9 @@ import '../models/patient_model.dart';
 import '../repositories/patient_repository.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_tokens.dart';
+import '../theme/patient_portal_theme.dart';
+import '../widgets/ui_kit.dart';
 
 /// Form screen to add a new patient with validation and scrollable layout.
 class PatientFormScreen extends StatefulWidget {
@@ -225,7 +228,7 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to save: $errorMsg'),
-          backgroundColor: Colors.red.shade600,
+          backgroundColor: AppTokens.danger,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -236,38 +239,46 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final title =
+        widget.appBarTitle ?? (_isEditing ? 'Edit patient' : 'Add patient');
+
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: Text(
-          widget.appBarTitle ??
-              (_isEditing ? 'Edit Patient' : 'Add Patient'),
-          style: const TextStyle(
-            color: Colors.black87,
-            fontWeight: FontWeight.w600,
-            fontSize: 20,
-          ),
-        ),
-        backgroundColor: Colors.white,
+        title: Text(title, style: AppTheme.textTheme.titleLarge),
         elevation: 0,
-        scrolledUnderElevation: 1,
+        scrolledUnderElevation: 0,
         centerTitle: false,
-        iconTheme: IconThemeData(color: Colors.grey.shade700),
+        iconTheme: const IconThemeData(color: AppTokens.ink),
       ),
       body: Form(
         key: _formKey,
         autovalidateMode: _autovalidateMode,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
+          physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics()),
           children: [
-            _SectionHeader(title: 'Personal Information'),
-            const SizedBox(height: 12),
+            Text(
+              _isEditing
+                  ? 'Update the record and portal access for this patient.'
+                  : 'Create a patient record and their portal login.',
+              style: PatientPortalTheme.body(context),
+            ),
+            const SizedBox(height: 22),
+            const _SectionHeader(
+              title: 'Personal information',
+              icon: Icons.person_outline_rounded,
+            ),
+            const SizedBox(height: 14),
             TextFormField(
               controller: _usernameController,
-              decoration: const InputDecoration(
-                labelText: 'Username *',
-                hintText: 'Enter unique username',
-                prefixIcon: Icon(Icons.account_circle_outlined),
+              style: _fieldTextStyle(context),
+              decoration: _decoration(
+                context,
+                label: 'Username *',
+                hint: 'Enter unique username',
+                icon: Icons.account_circle_outlined,
               ),
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9._-]')),
@@ -279,14 +290,16 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
                 return null;
               },
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             TextFormField(
               controller: _firstNameController,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                labelText: 'First Name *',
-                hintText: 'Enter first name',
-                prefixIcon: Icon(Icons.person_outline),
+              style: _fieldTextStyle(context),
+              decoration: _decoration(
+                context,
+                label: 'First name *',
+                hint: 'Enter first name',
+                icon: Icons.badge_outlined,
               ),
               validator: (v) {
                 if (v == null || v.trim().isEmpty) {
@@ -295,24 +308,28 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
                 return null;
               },
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             TextFormField(
               controller: _lastNameController,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(
-                labelText: 'Last Name',
-                hintText: 'Enter last name',
-                prefixIcon: Icon(Icons.person_outline),
+              style: _fieldTextStyle(context),
+              decoration: _decoration(
+                context,
+                label: 'Last name',
+                hint: 'Enter last name',
+                icon: Icons.badge_outlined,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             TextFormField(
               controller: _phoneController,
               keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(
-                labelText: 'Phone (Optional)',
-                hintText: 'Enter phone number',
-                prefixIcon: Icon(Icons.phone_outlined),
+              style: _fieldTextStyle(context),
+              decoration: _decoration(
+                context,
+                label: 'Phone',
+                hint: 'Optional',
+                icon: Icons.phone_outlined,
               ),
               onChanged: (v) {
                 if (_autovalidateMode == AutovalidateMode.always) return;
@@ -330,19 +347,21 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
                 return null;
               },
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             TextFormField(
               controller: _emailController,
               keyboardType: TextInputType.emailAddress,
+              style: _fieldTextStyle(context),
               onChanged: (v) {
                 if (_autovalidateMode == AutovalidateMode.always) return;
                 // Trigger validation of phone when email changes to clear/show errors
                 _formKey.currentState?.validate();
               },
-              decoration: const InputDecoration(
-                labelText: 'Email Address (Optional)',
-                hintText: 'Enter email address',
-                prefixIcon: Icon(Icons.email_outlined),
+              decoration: _decoration(
+                context,
+                label: 'Email address',
+                hint: 'Optional',
+                icon: Icons.email_outlined,
               ),
               validator: (v) {
                 final email = v?.trim() ?? '';
@@ -357,106 +376,129 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
                 return null;
               },
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             DropdownButtonFormField<String>(
               initialValue: _gender,
-              decoration: const InputDecoration(
-                labelText: 'Gender',
-                prefixIcon: Icon(Icons.wc_outlined),
+              style: _fieldTextStyle(context),
+              borderRadius: BorderRadius.circular(18),
+              icon: const Icon(Icons.expand_more_rounded,
+                  color: AppTokens.muted),
+              decoration: _decoration(
+                context,
+                label: 'Gender',
+                hint: 'Select gender',
+                icon: Icons.wc_outlined,
               ),
-              hint: const Text('Select gender'),
               items: _genders
                   .map((g) => DropdownMenuItem(value: g, child: Text(g)))
                   .toList(),
               onChanged: (v) => setState(() => _gender = v),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             InkWell(
               onTap: _pickDateOfBirth,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(20),
               child: InputDecorator(
-                decoration: const InputDecoration(
-                  labelText: 'Date of Birth',
-                  prefixIcon: Icon(Icons.calendar_today_outlined),
+                decoration: _decoration(
+                  context,
+                  label: 'Date of birth',
+                  hint: 'Select date',
+                  icon: Icons.calendar_today_outlined,
                 ),
                 child: Text(
                   _dateOfBirth == null
                       ? 'Select date'
                       : _formatDate(_dateOfBirth!),
-                  style: TextStyle(
-                    color: _dateOfBirth == null
-                        ? Colors.grey.shade600
-                        : Colors.black87,
+                  style: _fieldTextStyle(context).copyWith(
+                    color: _dateOfBirth == null ? AppTokens.muted : AppTokens.ink,
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             DropdownButtonFormField<String>(
               initialValue: _bloodGroup,
-              decoration: const InputDecoration(
-                labelText: 'Blood Group',
-                prefixIcon: Icon(Icons.bloodtype_outlined),
+              style: _fieldTextStyle(context),
+              borderRadius: BorderRadius.circular(18),
+              icon: const Icon(Icons.expand_more_rounded,
+                  color: AppTokens.muted),
+              decoration: _decoration(
+                context,
+                label: 'Blood group',
+                hint: 'Select blood group',
+                icon: Icons.bloodtype_outlined,
               ),
-              hint: const Text('Select blood group'),
               items: _bloodGroups
                   .map((b) => DropdownMenuItem(value: b, child: Text(b)))
                   .toList(),
               onChanged: (v) => setState(() => _bloodGroup = v),
             ),
-            const SizedBox(height: 24),
-            _SectionHeader(title: 'Address'),
-            const SizedBox(height: 12),
+            const SizedBox(height: 28),
+            const _SectionHeader(
+              title: 'Address',
+              icon: Icons.location_on_outlined,
+            ),
+            const SizedBox(height: 14),
             TextFormField(
               controller: _addressController,
               maxLines: 3,
               textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(
-                labelText: 'Address',
-                hintText: 'Street, city, state, zip',
+              style: _fieldTextStyle(context),
+              decoration: _decoration(
+                context,
+                label: 'Address',
+                hint: 'Street, city, state, zip',
+                icon: Icons.home_outlined,
                 alignLabelWithHint: true,
               ),
             ),
-            const SizedBox(height: 24),
-            _SectionHeader(title: 'Medical & Dental History'),
-            const SizedBox(height: 12),
+            const SizedBox(height: 28),
+            const _SectionHeader(
+              title: 'Medical & dental history',
+              icon: Icons.medical_information_outlined,
+            ),
+            const SizedBox(height: 14),
             _buildPillInput(),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             TextFormField(
               controller: _dentalHistoryController,
               maxLines: 4,
               textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(
-                labelText: 'Dental History',
-                hintText: 'Previous treatments, concerns...',
+              style: _fieldTextStyle(context),
+              decoration: _decoration(
+                context,
+                label: 'Dental history',
+                hint: 'Previous treatments, concerns…',
+                icon: Icons.notes_outlined,
                 alignLabelWithHint: true,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
             _SectionHeader(
-              title: _isEditing ? 'Portal Access' : 'Portal Access *',
-            ),
-            const SizedBox(height: 4),
-            Text(
-              _isEditing
+              title: _isEditing ? 'Portal access' : 'Portal access *',
+              icon: Icons.lock_outline_rounded,
+              subtitle: _isEditing
                   ? 'Leave blank to keep the current password.'
                   : 'Set a password so this patient can log in to the portal.',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             TextFormField(
               controller: _passwordController,
               obscureText: _obscurePassword,
-              decoration: InputDecoration(
-                labelText: _isEditing ? 'New Password' : 'Password *',
-                hintText: _isEditing ? 'Enter new password to change' : 'Min. 6 characters',
-                prefixIcon: const Icon(Icons.lock_outline),
+              style: _fieldTextStyle(context),
+              decoration: _decoration(
+                context,
+                label: _isEditing ? 'New password' : 'Password *',
+                hint: _isEditing
+                    ? 'Enter new password to change'
+                    : 'Min. 6 characters',
+                icon: Icons.lock_outline_rounded,
                 suffixIcon: IconButton(
                   icon: Icon(
                     _obscurePassword
                         ? Icons.visibility_outlined
                         : Icons.visibility_off_outlined,
-                    color: Colors.grey.shade600,
+                    color: AppTokens.muted,
                   ),
                   onPressed: () =>
                       setState(() => _obscurePassword = !_obscurePassword),
@@ -477,33 +519,53 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
                 return null;
               },
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 28),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: null,
-        onPressed: _saving ? null : _onSave,
-        backgroundColor: AppTheme.primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 4,
-        icon: _saving
-            ? const SizedBox(
-                height: 18,
-                width: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              )
-            : const Icon(Icons.save_outlined),
-        label: Text(
-          _saving
-              ? 'Saving...'
-              : (_isEditing ? 'Update Patient' : 'Save Patient'),
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
+      bottomNavigationBar: _SaveBar(
+        saving: _saving,
+        label: _isEditing ? 'Update patient' : 'Save patient',
+        onSave: _onSave,
       ),
+    );
+  }
+
+  // ── Field styling ─────────────────────────────────────────────────────────
+  // Mirrors the login form: white pill fields on the gradient canvas, border
+  // only as a hairline at rest and in brand blue on focus.
+
+  TextStyle _fieldTextStyle(BuildContext context) =>
+      PatientPortalTheme.titleMedium(context).copyWith(fontSize: 15);
+
+  InputDecoration _decoration(
+    BuildContext context, {
+    required String label,
+    required String hint,
+    required IconData icon,
+    Widget? suffixIcon,
+    bool alignLabelWithHint = false,
+  }) {
+    OutlineInputBorder border(Color c, [double w = 1.2]) => OutlineInputBorder(
+          borderRadius: BorderRadius.circular(20),
+          borderSide: BorderSide(color: c, width: w),
+        );
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      hintStyle: PatientPortalTheme.body(context),
+      alignLabelWithHint: alignLabelWithHint,
+      prefixIcon: Icon(icon, color: PatientPortalTheme.brightBlue, size: 21),
+      suffixIcon: suffixIcon,
+      filled: true,
+      fillColor: Colors.white.withValues(alpha: 0.85),
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+      border: border(Colors.transparent),
+      enabledBorder: border(AppTokens.hairline),
+      focusedBorder: border(PatientPortalTheme.brightBlue, 1.8),
+      errorBorder: border(AppTokens.danger),
+      focusedErrorBorder: border(AppTokens.danger, 1.8),
     );
   }
 
@@ -511,42 +573,44 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Medical Conditions',
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade700,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 8),
         if (_medicalConditions.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.only(bottom: 8.0),
+            padding: const EdgeInsets.only(bottom: 12),
             child: Wrap(
               spacing: 8,
               runSpacing: 8,
               children: _medicalConditions.map((condition) {
-                return Chip(
-                  label: Text(
-                    condition,
-                    style: const TextStyle(fontSize: 13),
+                return Container(
+                  padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
+                  decoration: BoxDecoration(
+                    color: AppTokens.accentSoft,
+                    borderRadius: const BorderRadius.all(
+                        Radius.circular(AppTokens.rPill)),
+                    border: Border.all(color: AppTokens.hairline),
                   ),
-                  backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.1),
-                  deleteIcon: const Icon(Icons.close, size: 14),
-                  onDeleted: () {
-                    setState(() {
-                      _medicalConditions.remove(condition);
-                    });
-                  },
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                    side: BorderSide(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.2),
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        condition,
+                        style: AppTheme.textTheme.labelLarge?.copyWith(
+                          fontSize: 13,
+                          color: AppTokens.accentDeep,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: () => setState(
+                            () => _medicalConditions.remove(condition)),
+                        child: const Padding(
+                          padding: EdgeInsets.all(2),
+                          child: Icon(Icons.close_rounded,
+                              size: 15, color: AppTokens.accentDark),
+                        ),
+                      ),
+                    ],
                   ),
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
                 );
               }).toList(),
             ),
@@ -556,28 +620,38 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
             Expanded(
               child: TextFormField(
                 controller: _conditionInputController,
-                decoration: const InputDecoration(
-                  hintText: 'Add condition (e.g. Asthma)',
-                  isDense: true,
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 12,
-                  ),
+                style: _fieldTextStyle(context),
+                decoration: _decoration(
+                  context,
+                  label: 'Medical conditions',
+                  hint: 'e.g. Asthma — then tap Add',
+                  icon: Icons.monitor_heart_outlined,
                 ),
                 onFieldSubmitted: (v) => _addCondition(),
               ),
             ),
-            const SizedBox(width: 8),
-            ElevatedButton(
-              onPressed: _addCondition,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                minimumSize: const Size(0, 44),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            const SizedBox(width: 10),
+            SizedBox(
+              height: 58,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: _addCondition,
+                  child: Ink(
+                    decoration: BoxDecoration(
+                      gradient: PatientPortalTheme.buttonGradient,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: AppTokens.accentGlow(),
+                    ),
+                    child: const SizedBox(
+                      width: 58,
+                      child: Icon(Icons.add_rounded,
+                          color: Colors.white, size: 24),
+                    ),
+                  ),
                 ),
               ),
-              child: const Text('Add'),
             ),
           ],
         ),
@@ -616,19 +690,94 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
   }
 }
 
+/// Group heading: a small gradient icon tile, the title, and optional helper
+/// copy underneath.
 class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title});
+  const _SectionHeader({
+    required this.title,
+    required this.icon,
+    this.subtitle,
+  });
 
   final String title;
+  final IconData icon;
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      title,
-      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-        color: Colors.black87,
-        fontWeight: FontWeight.w600,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            HeroIconBadge(icon: icon, size: 32, iconSize: 17),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Text(
+                title,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: AppTokens.ink,
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+            ),
+          ],
+        ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 8),
+          Text(subtitle!, style: PatientPortalTheme.body(context)),
+        ],
+      ],
+    );
+  }
+}
+
+/// Sticky footer holding the primary action, so a long form never hides it.
+class _SaveBar extends StatelessWidget {
+  const _SaveBar({
+    required this.saving,
+    required this.label,
+    required this.onSave,
+  });
+
+  final bool saving;
+  final String label;
+  final VoidCallback onSave;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        14,
+        20,
+        14 + MediaQuery.of(context).padding.bottom,
       ),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.92),
+        border: const Border(top: BorderSide(color: AppTokens.hairline)),
+      ),
+      child: saving
+          ? const SizedBox(
+              height: 54,
+              child: Center(
+                child: SizedBox(
+                  height: 24,
+                  width: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.4,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      PatientPortalTheme.brightBlue,
+                    ),
+                  ),
+                ),
+              ),
+            )
+          : GradientButton(
+              label: label,
+              icon: Icons.check_rounded,
+              onPressed: onSave,
+            ),
     );
   }
 }

@@ -1,11 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/patient_model.dart';
 import '../repositories/patient_repository.dart';
-import '../theme/app_theme.dart';
+import '../theme/patient_portal_theme.dart';
+import '../widgets/ui_kit.dart';
 import 'patient_details_screen.dart';
 import 'patient_form_screen.dart';
+import '../theme/app_tokens.dart';
 
 class PatientListScreen extends StatefulWidget {
   const PatientListScreen({super.key});
@@ -17,26 +21,41 @@ class PatientListScreen extends StatefulWidget {
 class PatientListScreenState extends State<PatientListScreen> {
   final _repo = PatientRepository();
   final _searchCtrl = TextEditingController();
+  final _scrollCtrl = ScrollController();
 
   List<Patient> _patients = [];
   bool _loading = true;
   String? _error;
+
+  Timer? _searchDebounce;
+
+  /// Bumped on every new query so a slow in-flight response cannot overwrite
+  /// the results of a newer one.
+  int _requestId = 0;
+  bool _loadingMore = false;
+  bool _hasMore = true;
 
   @override
   void initState() {
     super.initState();
     _loadPatients();
     _searchCtrl.addListener(_onSearchChanged);
+    _scrollCtrl.addListener(_onScroll);
   }
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchCtrl.removeListener(_onSearchChanged);
     _searchCtrl.dispose();
+    _scrollCtrl.removeListener(_onScroll);
+    _scrollCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _loadPatients({String query = ''}) async {
+    final requestId = ++_requestId;
+    debugPrint('[PatientList] load#$requestId start query="$query"');
     setState(() {
       _loading = true;
       _error = null;
@@ -45,13 +64,18 @@ class PatientListScreenState extends State<PatientListScreen> {
       final list = query.isEmpty
           ? await _repo.getAll()
           : await _repo.search(query);
-      if (!mounted) return;
+      debugPrint('[PatientList] load#$requestId got ${list.length} '
+          '(current=$_requestId mounted=$mounted)');
+      if (!mounted || requestId != _requestId) return;
       setState(() {
         _patients = list;
+        _hasMore = list.length == PatientRepository.pageSize;
+        _loadingMore = false;
         _loading = false;
       });
-    } catch (e) {
-      if (!mounted) return;
+    } catch (e, st) {
+      debugPrint('[PatientList] load#$requestId FAILED: $e\n$st');
+      if (!mounted || requestId != _requestId) return;
       setState(() {
         _error = e.toString();
         _loading = false;
@@ -59,30 +83,65 @@ class PatientListScreenState extends State<PatientListScreen> {
     }
   }
 
+  /// Append the next page. Bails out if the query changed while it was in
+  /// flight, so pages never get stitched onto a different result set.
+  Future<void> _loadMore() async {
+    if (_loading || _loadingMore || !_hasMore) return;
+    final requestId = _requestId;
+    final query = _searchCtrl.text.trim();
+    setState(() => _loadingMore = true);
+    try {
+      final offset = _patients.length;
+      final more = query.isEmpty
+          ? await _repo.getAll(offset: offset)
+          : await _repo.search(query, offset: offset);
+      if (!mounted || requestId != _requestId) return;
+      setState(() {
+        _patients = [..._patients, ...more];
+        _hasMore = more.length == PatientRepository.pageSize;
+        _loadingMore = false;
+      });
+    } catch (_) {
+      if (!mounted || requestId != _requestId) return;
+      setState(() {
+        _loadingMore = false;
+        _hasMore = false;
+      });
+    }
+  }
+
+  void _onScroll() {
+    if (!_scrollCtrl.hasClients) return;
+    final pos = _scrollCtrl.position;
+    if (pos.pixels >= pos.maxScrollExtent - 400) _loadMore();
+  }
+
   Future<void> refresh() => _loadPatients(query: _searchCtrl.text.trim());
 
   void _onSearchChanged() {
-    _loadPatients(query: _searchCtrl.text.trim());
+    // Every keystroke used to fire its own round trip; wait for a pause first.
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (mounted) _loadPatients(query: _searchCtrl.text.trim());
+    });
   }
 
   Future<void> _openDetails(Patient patient) async {
     final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (_) => PatientDetailsScreen(
+      FadeSlideRoute<bool>(
+        page: PatientDetailsScreen(
           patientId: patient.id,
           patientName: patient.fullName,
         ),
       ),
     );
-    
+
     if (mounted) {
-      debugPrint('[PatientList] Returned from details. Result: $result');
       if (result == true) {
-        debugPrint('[PatientList] Result is true, clearing search and reloading...');
         _searchCtrl.clear();
+        _searchDebounce?.cancel(); // clear() already queued a reload
         await _loadPatients();
       } else {
-        debugPrint('[PatientList] Result is not true, refreshing current view...');
         await refresh();
       }
     }
@@ -90,7 +149,7 @@ class PatientListScreenState extends State<PatientListScreen> {
 
   Future<void> _onAddPatient() async {
     final added = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(builder: (_) => const PatientFormScreen()),
+      FadeSlideRoute<bool>(page: const PatientFormScreen()),
     );
     if (added == true && mounted) {
       await _loadPatients(query: _searchCtrl.text.trim());
@@ -100,40 +159,72 @@ class PatientListScreenState extends State<PatientListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.lightBlueBackground,
-      appBar: AppBar(
-        title: Text(
-          'Patients',
-          style: GoogleFonts.poppins(
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
-            color: Colors.black87,
+      backgroundColor: Colors.transparent,
+      body: AppGradientBackground(
+        child: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              AnimatedEntrance(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Patients',
+                                style:
+                                    PatientPortalTheme.displayLarge(context)),
+                            const SizedBox(height: 2),
+                            Text('Manage your patient records',
+                                style: PatientPortalTheme.body(context)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              AnimatedEntrance(
+                index: 1,
+                child: _SearchBar(controller: _searchCtrl),
+              ),
+              Expanded(child: _buildBody()),
+            ],
           ),
         ),
-        backgroundColor: AppTheme.lightBlueBackground,
-        elevation: 0,
-        scrolledUnderElevation: 1,
-        centerTitle: false,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_outlined),
-            onPressed: () => _loadPatients(query: _searchCtrl.text.trim()),
-            tooltip: 'Refresh',
+      ),
+      floatingActionButton: Container(
+        decoration: BoxDecoration(
+          gradient: PatientPortalTheme.buttonGradient,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: PatientPortalTheme.glow(PatientPortalTheme.brightSky),
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: _onAddPatient,
+            borderRadius: BorderRadius.circular(30),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.person_add_alt_1_rounded,
+                      color: Colors.white, size: 20),
+                  SizedBox(width: 8),
+                  Text('Add Patient',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14)),
+                ],
+              ),
+            ),
           ),
-        ],
-      ),
-      body: Column(
-        children: [
-          _SearchBar(controller: _searchCtrl),
-          Expanded(child: _buildBody()),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        heroTag: null,
-        onPressed: _onAddPatient,
-        backgroundColor: AppTheme.primaryColor,
-        icon: const Icon(Icons.person_add_outlined, color: Colors.white),
-        label: const Text('Add Patient', style: TextStyle(color: Colors.white)),
+        ),
       ),
     );
   }
@@ -149,33 +240,29 @@ class PatientListScreenState extends State<PatientListScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.wifi_off_outlined,
-                size: 48,
-                color: Colors.grey.shade400,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Unable to load patients',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+              const HeroIconBadge(
+                icon: Icons.wifi_off_rounded,
+                size: 72,
+                iconSize: 34,
+                gradient: LinearGradient(
+                  colors: [AppTokens.danger, AppTokens.danger],
                 ),
+                glowColor: AppTokens.danger,
               ),
+              const SizedBox(height: 18),
+              Text('Unable to load patients',
+                  style: PatientPortalTheme.titleMedium(context)),
               const SizedBox(height: 6),
               Text(
                 _error!,
-                style: GoogleFonts.poppins(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                ),
+                style: PatientPortalTheme.body(context),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
+              const SizedBox(height: 18),
+              GradientButton(
+                label: 'Retry',
+                icon: Icons.refresh_rounded,
                 onPressed: () => _loadPatients(),
-                icon: const Icon(Icons.refresh),
-                label: const Text('Retry'),
               ),
             ],
           ),
@@ -187,23 +274,20 @@ class PatientListScreenState extends State<PatientListScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.people_outline, size: 56, color: Colors.grey.shade300),
-            const SizedBox(height: 12),
+            const HeroIconBadge(
+                icon: Icons.people_rounded, size: 72, iconSize: 34),
+            const SizedBox(height: 18),
             Text(
               _searchCtrl.text.isEmpty
                   ? 'No patients yet'
                   : 'No patients match your search',
-              style: GoogleFonts.poppins(fontSize: 15, color: Colors.black54),
+              style: PatientPortalTheme.titleMedium(context),
+              textAlign: TextAlign.center,
             ),
             if (_searchCtrl.text.isEmpty) ...[
               const SizedBox(height: 8),
-              Text(
-                'Tap + Add Patient to get started',
-                style: GoogleFonts.poppins(
-                  fontSize: 13,
-                  color: Colors.grey.shade500,
-                ),
-              ),
+              Text('Tap “Add Patient” to get started',
+                  style: PatientPortalTheme.body(context)),
             ],
           ],
         ),
@@ -211,14 +295,32 @@ class PatientListScreenState extends State<PatientListScreen> {
     }
     return RefreshIndicator(
       onRefresh: () => _loadPatients(query: _searchCtrl.text.trim()),
+      color: PatientPortalTheme.brightBlue,
       child: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 100),
-        itemCount: _patients.length,
+        controller: _scrollCtrl,
+        physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics()),
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 110),
+        itemCount: _patients.length + (_hasMore ? 1 : 0),
         itemBuilder: (context, i) {
+          if (i == _patients.length) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2.4),
+                ),
+              ),
+            );
+          }
           final p = _patients[i];
-          return _PatientTile(
-            patient: p,
-            onTap: () => _openDetails(p),
+          return AnimatedEntrance(
+            // Stagger only the first screenful: at 80ms per index, tile 30 was
+            // waiting 2.4s to fade in after it scrolled into view.
+            index: i < 8 ? i : 0,
+            child: _PatientTile(patient: p, onTap: () => _openDetails(p)),
           );
         },
       ),
@@ -234,33 +336,36 @@ class _SearchBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Colors.transparent,
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+    OutlineInputBorder border(Color c, [double w = 1.2]) => OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide(color: c, width: w),
+        );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
       child: TextField(
         controller: controller,
+        style: PatientPortalTheme.titleMedium(context).copyWith(fontSize: 15),
         decoration: InputDecoration(
           hintText: 'Search by name or phone',
-          prefixIcon: Icon(Icons.search, color: Colors.grey.shade500),
+          hintStyle: PatientPortalTheme.body(context),
+          prefixIcon:
+              const Icon(Icons.search_rounded, color: PatientPortalTheme.brightBlue),
           suffixIcon: ValueListenableBuilder<TextEditingValue>(
             valueListenable: controller,
             builder: (_, v, _) => v.text.isEmpty
                 ? const SizedBox.shrink()
                 : IconButton(
-                    icon: const Icon(Icons.clear, size: 18),
+                    icon: const Icon(Icons.clear_rounded, size: 18),
                     onPressed: controller.clear,
                   ),
           ),
           filled: true,
-          fillColor: Colors.grey.shade50,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 12,
-          ),
+          fillColor: Colors.white.withValues(alpha: 0.85),
+          border: border(Colors.transparent),
+          enabledBorder: border(AppTokens.hairline),
+          focusedBorder: border(PatientPortalTheme.brightBlue, 1.8),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         ),
       ),
     );
@@ -279,11 +384,9 @@ class _PatientTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      color: Colors.white,
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: PatientPortalTheme.glassDecoration(context),
       clipBehavior: Clip.antiAlias,
       child: Material(
         color: Colors.transparent,
@@ -293,75 +396,68 @@ class _PatientTile extends StatelessWidget {
             padding: const EdgeInsets.all(14),
             child: Row(
               children: [
-                CircleAvatar(
-                  radius: 22,
-                  backgroundColor: AppTheme.primaryColor.withValues(
-                    alpha: 0.12,
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    gradient: PatientPortalTheme.accentGradient,
+                    boxShadow:
+                        PatientPortalTheme.glow(PatientPortalTheme.brightSky),
                   ),
+                  alignment: Alignment.center,
                   child: Text(
                     patient.firstName.isNotEmpty
                         ? patient.firstName[0].toUpperCase()
                         : '?',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.primaryColor,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         patient.fullName,
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
+                        style: PatientPortalTheme.titleMedium(context),
                       ),
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 4),
                       Row(
                         children: [
-                          Icon(
-                            Icons.phone_outlined,
-                            size: 13,
-                            color: Colors.grey.shade500,
-                          ),
+                          const Icon(Icons.phone_outlined,
+                              size: 13, color: PatientPortalTheme.textSecondary),
                           const SizedBox(width: 4),
                           Text(
                             patient.phone,
-                            style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              color: Colors.grey.shade600,
-                            ),
+                            style: PatientPortalTheme.body(context)
+                                .copyWith(fontSize: 12),
                           ),
                           if (patient.gender != null) ...[
                             const SizedBox(width: 12),
                             Text(
                               patient.gender!,
-                              style: GoogleFonts.poppins(
-                                fontSize: 12,
-                                color: Colors.grey.shade500,
-                              ),
+                              style: PatientPortalTheme.body(context)
+                                  .copyWith(fontSize: 12),
                             ),
                           ],
-                          if (patient.age != null) ...[
+                          if (patient.age != null)
                             Text(
                               ', ${patient.age}y',
-                              style: GoogleFonts.poppins(
-                                fontSize: 12,
-                                color: Colors.grey.shade500,
-                              ),
+                              style: PatientPortalTheme.body(context)
+                                  .copyWith(fontSize: 12),
                             ),
-                          ],
                         ],
                       ),
                     ],
                   ),
                 ),
+                const Icon(Icons.chevron_right_rounded,
+                    color: PatientPortalTheme.textSecondary),
               ],
             ),
           ),

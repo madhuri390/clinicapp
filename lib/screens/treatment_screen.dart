@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
 import 'payment_screen.dart';
+import '../theme/app_tokens.dart';
 
 /// Treatment status for a plan item.
 enum TreatmentStatus { pending, inProgress, completed }
@@ -97,7 +98,7 @@ class _TreatmentScreenState extends State<TreatmentScreen> {
               Center(
                 child: Container(
                   width: 40, height: 4,
-                  decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                  decoration: BoxDecoration(color: AppTokens.hairline, borderRadius: BorderRadius.circular(2)),
                 ),
               ),
               const SizedBox(height: 16),
@@ -157,12 +158,12 @@ class _TreatmentScreenState extends State<TreatmentScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text(
           'Treatment Plan',
           style: TextStyle(
-            color: Colors.black87,
+            color: AppTokens.ink,
             fontWeight: FontWeight.w600,
             fontSize: 20,
           ),
@@ -171,7 +172,7 @@ class _TreatmentScreenState extends State<TreatmentScreen> {
         elevation: 0,
         scrolledUnderElevation: 1,
         centerTitle: false,
-        iconTheme: IconThemeData(color: Colors.grey.shade700),
+        iconTheme: IconThemeData(color: AppTokens.body),
         actions: [
           IconButton(
             icon: const Icon(Icons.payment_outlined),
@@ -239,7 +240,7 @@ class _TreatmentCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       color: Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -252,7 +253,7 @@ class _TreatmentCard extends StatelessWidget {
                   Text(
                     treatment.name,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.black87,
+                      color: AppTokens.ink,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -260,7 +261,7 @@ class _TreatmentCard extends StatelessWidget {
                   Text(
                     '₹${treatment.totalCost.toStringAsFixed(2)}',
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Colors.black87,
+                      color: AppTokens.ink,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -270,7 +271,7 @@ class _TreatmentCard extends StatelessWidget {
             _StatusChip(status: treatment.status),
             const SizedBox(width: 8),
             IconButton(
-              icon: Icon(Icons.edit_outlined, size: 18, color: Colors.grey.shade500),
+              icon: Icon(Icons.edit_outlined, size: 18, color: AppTokens.muted),
               onPressed: onEdit,
               constraints: const BoxConstraints(),
               padding: EdgeInsets.zero,
@@ -293,25 +294,25 @@ class _StatusChip extends StatelessWidget {
     final (String label, Color bg, Color fg) = switch (status) {
       TreatmentStatus.pending => (
         'Pending',
-        Colors.orange.shade50,
-        Colors.orange.shade800,
+        AppTokens.warningSoft,
+        AppTokens.warning,
       ),
       TreatmentStatus.inProgress => (
         'In Progress',
-        Colors.blue.shade50,
-        Colors.blue.shade800,
+        AppTokens.accentSoft,
+        AppTokens.accentDark,
       ),
       TreatmentStatus.completed => (
         'Completed',
-        Colors.green.shade50,
-        Colors.green.shade800,
+        AppTokens.successSoft,
+        AppTokens.success,
       ),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: fg.withValues(alpha: 0.3)),
       ),
       child: Text(
@@ -361,8 +362,8 @@ class _SummaryCard extends StatelessWidget {
               label: 'Balance',
               value: balance,
               valueColor: balance > 0
-                  ? Colors.orange.shade700
-                  : Colors.green.shade700,
+                  ? AppTokens.warning
+                  : AppTokens.success,
               bold: true,
             ),
           ],
@@ -393,14 +394,14 @@ class _SummaryRow extends StatelessWidget {
         Text(
           label,
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: Colors.black54,
+            color: AppTokens.body,
             fontWeight: bold ? FontWeight.w600 : FontWeight.normal,
           ),
         ),
         Text(
           '₹${value.toStringAsFixed(2)}',
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-            color: valueColor ?? Colors.black87,
+            color: valueColor ?? AppTokens.ink,
             fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
           ),
         ),

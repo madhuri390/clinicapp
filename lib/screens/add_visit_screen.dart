@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import '../theme/app_tokens.dart';
 
 /// Screen to add a patient visit with date, doctor, complaint, diagnosis, notes.
 class AddVisitScreen extends StatefulWidget {
@@ -76,12 +77,12 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text(
           'Add Visit',
           style: TextStyle(
-            color: Colors.black87,
+            color: AppTokens.ink,
             fontWeight: FontWeight.w600,
             fontSize: 20,
           ),
@@ -90,7 +91,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
         elevation: 0,
         scrolledUnderElevation: 1,
         centerTitle: false,
-        iconTheme: IconThemeData(color: Colors.grey.shade700),
+        iconTheme: IconThemeData(color: AppTokens.body),
       ),
       body: Form(
         key: _formKey,
@@ -101,7 +102,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
             const SizedBox(height: 12),
             InkWell(
               onTap: _pickVisitDate,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               child: InputDecorator(
                 decoration: const InputDecoration(
                   labelText: 'Visit Date *',
@@ -109,7 +110,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                 ),
                 child: Text(
                   _formatDate(_visitDate),
-                  style: const TextStyle(color: Colors.black87),
+                  style: const TextStyle(color: AppTokens.ink),
                 ),
               ),
             ),
@@ -175,7 +176,7 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
             const SizedBox(height: 12),
             InkWell(
               onTap: _pickNextVisitDate,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               child: InputDecorator(
                 decoration: const InputDecoration(
                   labelText: 'Next Visit Date',
@@ -187,8 +188,8 @@ class _AddVisitScreenState extends State<AddVisitScreen> {
                       : _formatDate(_nextVisitDate!),
                   style: TextStyle(
                     color: _nextVisitDate == null
-                        ? Colors.grey.shade600
-                        : Colors.black87,
+                        ? AppTokens.body
+                        : AppTokens.ink,
                   ),
                 ),
               ),
@@ -227,7 +228,7 @@ class _SectionHeader extends StatelessWidget {
     return Text(
       title,
       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            color: Colors.black87,
+            color: AppTokens.ink,
             fontWeight: FontWeight.w600,
           ),
     );

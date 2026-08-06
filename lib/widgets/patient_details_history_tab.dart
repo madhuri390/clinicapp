@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/visit_model.dart';
 import '../services/local_store.dart';
 import 'patient_details_consultation_card.dart';
+import '../theme/app_tokens.dart';
 
 class HistoryTabPlaceholder extends StatelessWidget {
   const HistoryTabPlaceholder({
@@ -28,7 +29,7 @@ class HistoryTabPlaceholder extends StatelessWidget {
           padding: const EdgeInsets.all(32),
           child: Text(
             'No past consultations',
-            style: GoogleFonts.poppins(color: Colors.grey),
+            style: GoogleFonts.plusJakartaSans(color: AppTokens.muted),
           ),
         ),
       );

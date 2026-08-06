@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_tokens.dart';
 
 /// Reusable email input field for login with optional validation error.
 class LoginEmailField extends StatelessWidget {
@@ -27,7 +28,7 @@ class LoginEmailField extends StatelessWidget {
       decoration: InputDecoration(
         labelText: 'Email',
         hintText: 'Enter your email',
-        prefixIcon: Icon(Icons.email_outlined, color: Colors.grey.shade600),
+        prefixIcon: Icon(Icons.email_outlined, color: AppTokens.body),
         errorText: errorText,
       ),
       validator: (value) {

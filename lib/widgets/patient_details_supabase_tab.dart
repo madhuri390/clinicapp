@@ -11,8 +11,11 @@ import '../models/treatment_template_model.dart';
 import '../models/visit_detail_model.dart';
 import '../repositories/visit_detail_repository.dart';
 import '../services/pdf_generator_service.dart';
+import '../theme/patient_portal_theme.dart';
 import '../widgets/patient_details_header.dart';
 import '../widgets/patient_details_profile_tab.dart';
+import '../widgets/ui_kit.dart';
+import '../theme/app_tokens.dart';
 
 // ── Reference design constants ──────────────────────────────────────────
 const _cardRadius   = 28.0;
@@ -20,15 +23,15 @@ const _cardPadding  = EdgeInsets.all(18);
 const _cardBorder   = kRefBorder;
 const _cardShadow   = BoxShadow(color: Color(0x05000000), blurRadius: 8, offset: Offset(0, 2));
 
-const _badgePlanBg  = Color(0xFFFFF2E0);
-const _badgePlanFg  = Color(0xFFC47B2E);
-const _badgeCompBg  = Color(0xFFE0F7EF);
-const _badgeCompFg  = Color(0xFF1E7B5C);
+const _badgePlanBg  = AppTokens.warningSoft;
+const _badgePlanFg  = AppTokens.warning;
+const _badgeCompBg  = AppTokens.successSoft;
+const _badgeCompFg  = AppTokens.success;
 
-const _sittingBg    = Color(0xFFF8FAFE);
-const _prescBg      = Color(0xFFF1F5F9);
-const _treatBg      = Color(0xFFF8FAFE);
-const _btnBorder    = Color(0xFFCBD5E1);
+const _sittingBg    = AppTokens.canvas;
+const _prescBg      = AppTokens.subtle;
+const _treatBg      = AppTokens.canvas;
+const _btnBorder    = AppTokens.hairline;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ONGOING TAB
@@ -71,14 +74,18 @@ class OngoingTab extends StatelessWidget {
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(18, 20, 18, 24),
       itemCount: visitDetails.length,
-      itemBuilder: (_, i) => _VisitCard(
-        detail: visitDetails[i],
-        patientName: patientName,
-        isOngoing: true,
-        onRefresh: onRefresh,
-        onComplete: onComplete,
-        readOnly: readOnly,
-        onEditVisit: onEditVisit != null ? () => onEditVisit!(visitDetails[i]) : null,
+      itemBuilder: (_, i) => AnimatedEntrance(
+        index: i < 6 ? i : 0,
+        child: _VisitCard(
+          detail: visitDetails[i],
+          patientName: patientName,
+          isOngoing: true,
+          onRefresh: onRefresh,
+          onComplete: onComplete,
+          readOnly: readOnly,
+          onEditVisit:
+              onEditVisit != null ? () => onEditVisit!(visitDetails[i]) : null,
+        ),
       ),
     );
   }
@@ -98,6 +105,9 @@ class HistoryTab extends StatelessWidget {
     required this.onRefresh,
     this.onEditVisit,
     this.readOnly = false,
+    this.hasMore = false,
+    this.isLoadingMore = false,
+    this.onLoadMore,
   });
 
   final String patientId;
@@ -108,6 +118,11 @@ class HistoryTab extends StatelessWidget {
   final void Function(VisitDetail)? onEditVisit;
   final bool readOnly;
 
+  /// Older consultations are left on the server until asked for.
+  final bool hasMore;
+  final bool isLoadingMore;
+  final VoidCallback? onLoadMore;
+
   @override
   Widget build(BuildContext context) {
     if (isLoading) return const Center(child: CircularProgressIndicator());
@@ -117,16 +132,66 @@ class HistoryTab extends StatelessWidget {
         message: 'No past consultations',
       );
     }
+    final showFooter = hasMore && onLoadMore != null;
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(18, 20, 18, 24),
-      itemCount: visitDetails.length,
-      itemBuilder: (_, i) => _VisitCard(
-        detail: visitDetails[i],
-        patientName: patientName,
-        isOngoing: false,
-        onRefresh: onRefresh,
-        readOnly: readOnly,
-        onEditVisit: onEditVisit != null ? () => onEditVisit!(visitDetails[i]) : null,
+      itemCount: visitDetails.length + (showFooter ? 1 : 0),
+      itemBuilder: (_, i) {
+        if (i == visitDetails.length) {
+          return _LoadMoreFooter(
+            isLoading: isLoadingMore,
+            onPressed: onLoadMore!,
+          );
+        }
+        return AnimatedEntrance(
+          // Only the first few cards stagger — at 80ms per index, a card
+          // further down the list sat blank for seconds after scrolling in.
+          index: i < 6 ? i : 0,
+          child: _VisitCard(
+            detail: visitDetails[i],
+            patientName: patientName,
+            isOngoing: false,
+            onRefresh: onRefresh,
+            readOnly: readOnly,
+            onEditVisit:
+                onEditVisit != null ? () => onEditVisit!(visitDetails[i]) : null,
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// "Load older consultations" row at the foot of the history list.
+class _LoadMoreFooter extends StatelessWidget {
+  const _LoadMoreFooter({required this.isLoading, required this.onPressed});
+
+  final bool isLoading;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 12),
+      child: Center(
+        child: isLoading
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2.4),
+              )
+            : TextButton.icon(
+                onPressed: onPressed,
+                icon: const Icon(Icons.history, size: 16),
+                label: const Text('Load older consultations'),
+                style: TextButton.styleFrom(
+                  foregroundColor: PatientPortalTheme.brightBlue,
+                  textStyle: GoogleFonts.plusJakartaSans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
       ),
     );
   }
@@ -181,7 +246,7 @@ class _VisitCard extends StatelessWidget {
                 children: [
                   Text(
                     'Started: ${ProfileTab.formatDate(detail.visit.visitDate)}',
-                    style: GoogleFonts.lato(fontSize: 12, color: kRefMuted),
+                    style: GoogleFonts.plusJakartaSans(fontSize: 12, color: kRefMuted),
                   ),
                   if (!readOnly && onEditVisit != null) ...[
                     const SizedBox(width: 6),
@@ -200,7 +265,7 @@ class _VisitCard extends StatelessWidget {
             padding: const EdgeInsets.only(top: 8, bottom: 4),
             child: Text(
               detail.visit.chiefComplaint ?? 'General Checkup',
-              style: GoogleFonts.lato(
+              style: GoogleFonts.plusJakartaSans(
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
                 color: kRefDark,
@@ -211,7 +276,7 @@ class _VisitCard extends StatelessWidget {
           // ── Row 3: doctor · diagnosis ─────────────────────────────
           Text(
             '${detail.doctorName} · ${detail.visit.diagnosis ?? 'Pending diagnosis'}',
-            style: GoogleFonts.lato(fontSize: 12, color: kRefMuted),
+            style: GoogleFonts.plusJakartaSans(fontSize: 12, color: kRefMuted),
           ),
 
           // ── Treatment sections (grouped sittings) ─────────────────
@@ -219,11 +284,17 @@ class _VisitCard extends StatelessWidget {
             const SizedBox(height: 14),
             ...detail.treatments.map(
               (t) {
-                // Treatment is paid only if there is a direct treatment-level payment
-                // (sittingId == null). Sitting-level payments must NOT affect this.
-                final treatmentPaid = detail.payments.any(
-                  (p) => p.treatmentPlanId == t.id && p.sittingId == null,
+                // A visit-level payment (treatmentPlanId == null, sittingId == null)
+                // covers all treatments — used for migrated/bulk payments.
+                // A treatment-specific payment covers only that treatment.
+                // Sitting-level payments must NOT affect this.
+                final hasVisitLevelPayment = detail.payments.any(
+                  (p) => p.treatmentPlanId == null && p.sittingId == null,
                 );
+                final treatmentPaid = hasVisitLevelPayment ||
+                    detail.payments.any(
+                      (p) => p.treatmentPlanId == t.id && p.sittingId == null,
+                    );
                 return _TreatmentSection(
                   treatment: t,
                   sittings: detail.sittingsForTreatment(t.id),
@@ -276,7 +347,7 @@ class _VisitCard extends StatelessWidget {
             ),
             child: Text(
               _buildAmountLabel(),
-              style: GoogleFonts.lato(
+              style: GoogleFonts.plusJakartaSans(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
                 color: kRefDark,
@@ -311,8 +382,11 @@ class _VisitCard extends StatelessWidget {
     final sitCost = detail.totalSittingsCost;
     final grandTotal = treatCost + sitCost;
     final paid = _effectivePaid();
-    if (grandTotal > 0) {
-      return 'Total: ₹${grandTotal.toStringAsFixed(0)} · Paid: ₹${paid.toStringAsFixed(0)}';
+    // For completed visits, payments are the source of truth for the total
+    // (invoice amounts may differ from treatment plan line-item sums).
+    final displayTotal = (!isOngoing && paid > 0) ? paid : grandTotal;
+    if (displayTotal > 0) {
+      return 'Total: ₹${displayTotal.toStringAsFixed(0)} · Paid: ₹${paid.toStringAsFixed(0)}';
     }
     if (paid > 0) {
       return 'Paid: ₹${paid.toStringAsFixed(0)}';
@@ -346,7 +420,7 @@ class _VisitCard extends StatelessWidget {
   void _showAddTreatment(BuildContext context, VisitDetailRepository repo) {
     showDialog(
       context: context,
-      barrierColor: Colors.black54,
+      barrierColor: AppTokens.body,
       builder: (_) => _ModalDialog(
         title: 'Add Treatment',
         icon: Icons.add_circle_outline,
@@ -362,7 +436,7 @@ class _VisitCard extends StatelessWidget {
   void _showAddSitting(BuildContext context, VisitDetailRepository repo) {
     showDialog(
       context: context,
-      barrierColor: Colors.black54,
+      barrierColor: AppTokens.body,
       builder: (_) => _ModalDialog(
         title: 'Add Sitting',
         icon: Icons.calendar_today_outlined,
@@ -385,7 +459,7 @@ class _VisitCard extends StatelessWidget {
     }
     showDialog(
       context: context,
-      barrierColor: Colors.black54,
+      barrierColor: AppTokens.body,
       builder: (_) => _ModalDialog(
         title: 'Add Medication',
         icon: Icons.medication_outlined,
@@ -411,7 +485,7 @@ class _VisitCard extends StatelessWidget {
       if (context.mounted) {
         showDialog(
           context: context,
-          barrierColor: Colors.black54,
+          barrierColor: AppTokens.body,
           builder: (ctx) => _ModalDialog(
             title: 'Outstanding Balance',
             icon: Icons.error_outline,
@@ -420,7 +494,7 @@ class _VisitCard extends StatelessWidget {
               children: [
                 Text(
                   'Cannot complete consultation. There is an outstanding balance of ₹${balance.toStringAsFixed(0)}. Please collect payment first.',
-                  style: GoogleFonts.lato(fontSize: 14, color: kRefMuted),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 14, color: kRefMuted),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 20),
@@ -438,7 +512,7 @@ class _VisitCard extends StatelessWidget {
 
     final ok = await showDialog<bool>(
       context: context,
-      barrierColor: Colors.black54,
+      barrierColor: AppTokens.body,
       builder: (ctx) => _ModalDialog(
         title: 'Complete Consultation?',
         icon: Icons.check_circle_outline,
@@ -447,7 +521,7 @@ class _VisitCard extends StatelessWidget {
           children: [
             Text(
               'This will mark the consultation as completed and move it to History.',
-              style: GoogleFonts.lato(fontSize: 14, color: kRefMuted),
+              style: GoogleFonts.plusJakartaSans(fontSize: 14, color: kRefMuted),
             ),
             const SizedBox(height: 20),
             Row(
@@ -478,7 +552,7 @@ class _VisitCard extends StatelessWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Consultation completed'),
-            backgroundColor: Color(0xFF1E7B5C),
+            backgroundColor: AppTokens.success,
           ),
         );
       }
@@ -496,7 +570,7 @@ class _VisitCard extends StatelessWidget {
   void _showBill(BuildContext context) {
     showDialog(
       context: context,
-      barrierColor: Colors.black54,
+      barrierColor: AppTokens.body,
       builder: (_) => _BillDialog(detail: detail, patientName: patientName),
     );
   }
@@ -538,7 +612,7 @@ class _TreatmentSection extends StatelessWidget {
       decoration: BoxDecoration(
         color: _treatBg,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFEFF3F8)),
+        border: Border.all(color: AppTokens.subtle),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -549,7 +623,7 @@ class _TreatmentSection extends StatelessWidget {
               Expanded(
                 child: Text(
                   treatment.treatmentName ?? 'Treatment',
-                  style: GoogleFonts.lato(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: kRefDark,
@@ -586,7 +660,7 @@ class _TreatmentSection extends StatelessWidget {
               hasCost
                   ? '₹${treatment.totalCost!.toStringAsFixed(0)} · ${sittings.length} sitting${sittings.length == 1 ? '' : 's'}'
                   : '${sittings.length} sitting${sittings.length == 1 ? '' : 's'}',
-              style: GoogleFonts.lato(fontSize: 11, color: kRefMuted),
+              style: GoogleFonts.plusJakartaSans(fontSize: 11, color: kRefMuted),
             ),
           ),
           if (teeth.isNotEmpty)
@@ -594,7 +668,7 @@ class _TreatmentSection extends StatelessWidget {
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 'Teeth: $teeth',
-                style: GoogleFonts.lato(fontSize: 11, color: kRefMuted),
+                style: GoogleFonts.plusJakartaSans(fontSize: 11, color: kRefMuted),
               ),
             ),
           // Sittings grouped under this treatment
@@ -673,7 +747,7 @@ class _TreatmentSection extends StatelessWidget {
   void _showEditTreatment(BuildContext context) {
     showDialog(
       context: context,
-      barrierColor: Colors.black54,
+      barrierColor: AppTokens.body,
       builder: (_) => _ModalDialog(
         title: 'Edit Treatment',
         icon: Icons.edit_outlined,
@@ -706,7 +780,7 @@ class _StatusPill extends StatelessWidget {
       ),
       child: Text(
         label[0].toUpperCase() + label.substring(1),
-        style: GoogleFonts.lato(
+        style: GoogleFonts.plusJakartaSans(
           fontSize: 10,
           fontWeight: FontWeight.w600,
           color: isComplete ? _badgeCompFg : _badgePlanFg,
@@ -739,7 +813,7 @@ class _Badge extends StatelessWidget {
         children: [
           Icon(icon, size: 12, color: fg),
           const SizedBox(width: 4),
-          Text(text, style: GoogleFonts.lato(fontSize: 11, fontWeight: FontWeight.w600, color: fg)),
+          Text(text, style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600, color: fg)),
         ],
       ),
     );
@@ -785,11 +859,11 @@ class _SittingItem extends StatelessWidget {
               children: [
                 Text(
                   sitting.notes ?? 'Sitting',
-                  style: GoogleFonts.lato(fontSize: 12, fontWeight: FontWeight.w600, color: kRefDark),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: kRefDark),
                 ),
                 Text(
                   ProfileTab.formatDate(sitting.sittingDate),
-                  style: GoogleFonts.lato(fontSize: 10, color: kRefMuted),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 10, color: kRefMuted),
                 ),
               ],
             ),
@@ -806,7 +880,7 @@ class _SittingItem extends StatelessWidget {
           if ((sitting.cost ?? 0) > 0) ...[
             Text(
               '₹${sitting.cost!.toStringAsFixed(0)}',
-              style: GoogleFonts.lato(fontSize: 12, fontWeight: FontWeight.w600, color: kRefPrimary),
+              style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: kRefPrimary),
             ),
             const SizedBox(width: 12),
           ],
@@ -865,7 +939,7 @@ class _SittingItem extends StatelessWidget {
   void _showEditSitting(BuildContext context) {
     showDialog(
       context: context,
-      barrierColor: Colors.black54,
+      barrierColor: AppTokens.body,
       builder: (_) => _ModalDialog(
         title: 'Edit Sitting',
         icon: Icons.edit_outlined,
@@ -908,7 +982,7 @@ class _StatusDropdown extends StatelessWidget {
             size: 16,
             color: isPaid ? _badgeCompFg : _badgePlanFg,
           ),
-          style: GoogleFonts.lato(
+          style: GoogleFonts.plusJakartaSans(
             fontSize: 10,
             fontWeight: FontWeight.w700,
             color: isPaid ? _badgeCompFg : _badgePlanFg,
@@ -963,7 +1037,7 @@ class _PrescriptionChip extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             display,
-            style: GoogleFonts.lato(fontSize: 11, fontWeight: FontWeight.w500, color: kRefDark),
+            style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w500, color: kRefDark),
           ),
           if (!readOnly && repo != null && onRefresh != null) ...[
             const SizedBox(width: 6),
@@ -980,7 +1054,7 @@ class _PrescriptionChip extends StatelessWidget {
   void _showEditPrescription(BuildContext context) {
     showDialog(
       context: context,
-      barrierColor: Colors.black54,
+      barrierColor: AppTokens.body,
       builder: (_) => _ModalDialog(
         title: 'Edit Medication',
         icon: Icons.medication_outlined,
@@ -1023,7 +1097,7 @@ class _BtnOutlineSm extends StatelessWidget {
             ],
             Text(
               label,
-              style: GoogleFonts.lato(fontSize: 12, fontWeight: FontWeight.w600, color: kRefDark),
+              style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: kRefDark),
             ),
           ],
         ),
@@ -1058,7 +1132,7 @@ class _BtnPrimarySm extends StatelessWidget {
             ],
             Text(
               label,
-              style: GoogleFonts.lato(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
+              style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
             ),
           ],
         ),
@@ -1099,7 +1173,7 @@ class _ModalDialog extends StatelessWidget {
                   Expanded(
                     child: Text(
                       title,
-                      style: GoogleFonts.lato(fontSize: 20, fontWeight: FontWeight.w700, color: kRefDark),
+                      style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w700, color: kRefDark),
                     ),
                   ),
                 ],
@@ -1138,22 +1212,22 @@ class _ModalField extends StatelessWidget {
         controller: controller,
         keyboardType: keyboardType,
         maxLines: maxLines,
-        style: GoogleFonts.lato(fontSize: 14, color: kRefDark),
+        style: GoogleFonts.plusJakartaSans(fontSize: 14, color: kRefDark),
         decoration: InputDecoration(
           hintText: placeholder,
-          hintStyle: GoogleFonts.lato(fontSize: 14, color: kRefMuted),
+          hintStyle: GoogleFonts.plusJakartaSans(fontSize: 14, color: kRefMuted),
           filled: false,
           contentPadding: const EdgeInsets.all(12),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
+            borderRadius: BorderRadius.circular(20),
+            borderSide: const BorderSide(color: AppTokens.hairline),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: Color(0xFFDDDDDD)),
+            borderRadius: BorderRadius.circular(20),
+            borderSide: const BorderSide(color: AppTokens.hairline),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
             borderSide: const BorderSide(color: kRefPrimary, width: 1.5),
           ),
         ),
@@ -1264,7 +1338,7 @@ class _AddTreatmentFormState extends State<_AddTreatmentForm> {
             child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
           )
         else if (_templates != null && _templates!.isNotEmpty) ...[
-          Text('Select template:', style: GoogleFonts.lato(fontSize: 12, fontWeight: FontWeight.w600, color: kRefMuted)),
+          Text('Select template:', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: kRefMuted)),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -1282,7 +1356,7 @@ class _AddTreatmentFormState extends State<_AddTreatmentForm> {
                   ),
                   child: Text(
                     t.name,
-                    style: GoogleFonts.lato(
+                    style: GoogleFonts.plusJakartaSans(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: selected ? Colors.white : kRefDark,
@@ -1293,7 +1367,7 @@ class _AddTreatmentFormState extends State<_AddTreatmentForm> {
             }).toList(),
           ),
           const SizedBox(height: 14),
-          Text('Or enter custom:', style: GoogleFonts.lato(fontSize: 12, fontWeight: FontWeight.w600, color: kRefMuted)),
+          Text('Or enter custom:', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: kRefMuted)),
           const SizedBox(height: 8),
         ],
         _ModalField(controller: _nameCtrl, placeholder: 'Treatment name *'),
@@ -1385,7 +1459,7 @@ class _AddSittingFormState extends State<_AddSittingForm> {
       children: [
         // Treatment selector
         if (widget.treatments.length > 1) ...[
-          Text('Under treatment:', style: GoogleFonts.lato(fontSize: 12, fontWeight: FontWeight.w600, color: kRefMuted)),
+          Text('Under treatment:', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: kRefMuted)),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -1403,7 +1477,7 @@ class _AddSittingFormState extends State<_AddSittingForm> {
                   ),
                   child: Text(
                     t.treatmentName ?? 'Treatment',
-                    style: GoogleFonts.lato(
+                    style: GoogleFonts.plusJakartaSans(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: selected ? Colors.white : kRefDark,
@@ -1432,8 +1506,8 @@ class _AddSittingFormState extends State<_AddSittingForm> {
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFDDDDDD)),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppTokens.hairline),
             ),
             child: Row(
               children: [
@@ -1441,7 +1515,7 @@ class _AddSittingFormState extends State<_AddSittingForm> {
                 const SizedBox(width: 8),
                 Text(
                   '${_date.day}/${_date.month}/${_date.year}',
-                  style: GoogleFonts.lato(fontSize: 14, color: kRefDark),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 14, color: kRefDark),
                 ),
               ],
             ),
@@ -1540,7 +1614,7 @@ class _AddPrescriptionFormState extends State<_AddPrescriptionForm> {
         if (widget.treatments.length > 1) ...[
           Text(
             'Under treatment:',
-            style: GoogleFonts.lato(fontSize: 12, fontWeight: FontWeight.w600, color: kRefMuted),
+            style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: kRefMuted),
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -1559,7 +1633,7 @@ class _AddPrescriptionFormState extends State<_AddPrescriptionForm> {
                   ),
                   child: Text(
                     t.treatmentName ?? 'Treatment',
-                    style: GoogleFonts.lato(
+                    style: GoogleFonts.plusJakartaSans(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: selected ? Colors.white : kRefDark,
@@ -1656,7 +1730,7 @@ class _AddPaymentFormState extends State<_AddPaymentForm> {
           keyboardType: TextInputType.number,
         ),
         // Payment mode selector
-        Text('Payment mode:', style: GoogleFonts.lato(fontSize: 12, fontWeight: FontWeight.w600, color: kRefMuted)),
+        Text('Payment mode:', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: kRefMuted)),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -1673,7 +1747,7 @@ class _AddPaymentFormState extends State<_AddPaymentForm> {
                 ),
                 child: Text(
                   mode,
-                  style: GoogleFonts.lato(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: selected ? Colors.white : kRefDark,
@@ -1723,7 +1797,7 @@ class _BillDialog extends StatelessWidget {
 
     return Dialog(
       backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 400),
         child: SizedBox(
@@ -1743,20 +1817,20 @@ class _BillDialog extends StatelessWidget {
                   width: double.infinity,
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEAF5FB),
-                    borderRadius: BorderRadius.circular(12),
+                    color: AppTokens.accentSoft,
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: Column(
                     children: [
                       Text(
                         'Prodontics Clinic',
-                        style: GoogleFonts.lato(
+                        style: GoogleFonts.plusJakartaSans(
                           fontSize: 18, fontWeight: FontWeight.w700, color: kRefPrimary,
                         ),
                       ),
                       Text(
                         'Professional Dental Care',
-                        style: GoogleFonts.lato(fontSize: 12, color: kRefPrimary),
+                        style: GoogleFonts.plusJakartaSans(fontSize: 12, color: kRefPrimary),
                       ),
                     ],
                   ),
@@ -1810,7 +1884,7 @@ class _BillDialog extends StatelessWidget {
                           padding: const EdgeInsets.only(bottom: 4),
                           child: Text(
                             t.treatmentName ?? 'Treatment',
-                            style: GoogleFonts.lato(
+                            style: GoogleFonts.plusJakartaSans(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                               color: kRefPrimary,
@@ -1837,7 +1911,7 @@ class _BillDialog extends StatelessWidget {
                                   child: Text(
                                     '${ProfileTab.formatDate(s.sittingDate)}'
                                     '${s.notes != null ? '  ·  ${s.notes}' : ''}',
-                                    style: GoogleFonts.lato(fontSize: 12, color: kRefMuted),
+                                    style: GoogleFonts.plusJakartaSans(fontSize: 12, color: kRefMuted),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
@@ -1845,7 +1919,7 @@ class _BillDialog extends StatelessWidget {
                                   (s.cost ?? 0) > 0
                                       ? '₹${s.cost!.toStringAsFixed(0)}'
                                       : '—',
-                                  style: GoogleFonts.lato(
+                                  style: GoogleFonts.plusJakartaSans(
                                     fontSize: 12,
                                     color: isPaid ? _badgeCompFg : kRefDark,
                                     fontWeight: isPaid ? FontWeight.w600 : FontWeight.w400,
@@ -1886,7 +1960,7 @@ class _BillDialog extends StatelessWidget {
                               children: [
                                 Text(
                                   name,
-                                  style: GoogleFonts.lato(
+                                  style: GoogleFonts.plusJakartaSans(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
                                     color: kRefDark,
@@ -1895,7 +1969,7 @@ class _BillDialog extends StatelessWidget {
                                 if (meta.isNotEmpty)
                                   Text(
                                     meta,
-                                    style: GoogleFonts.lato(fontSize: 11, color: kRefMuted),
+                                    style: GoogleFonts.plusJakartaSans(fontSize: 11, color: kRefMuted),
                                   ),
                               ],
                             ),
@@ -1903,7 +1977,7 @@ class _BillDialog extends StatelessWidget {
                           if ((rx.price ?? 0) > 0)
                             Text(
                               '₹${rx.price!.toStringAsFixed(0)}',
-                              style: GoogleFonts.lato(
+                              style: GoogleFonts.plusJakartaSans(
                                 fontSize: 12, fontWeight: FontWeight.w500, color: kRefDark,
                               ),
                             ),
@@ -1931,7 +2005,7 @@ class _BillDialog extends StatelessWidget {
               const Divider(height: 1),
               Material(
                 color: Colors.white,
-                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
+                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
                   child: Wrap(
@@ -2000,14 +2074,14 @@ class _BillDialog extends StatelessWidget {
       const SizedBox(width: 6),
       Text(
         title,
-        style: GoogleFonts.lato(fontSize: 13, fontWeight: FontWeight.w700, color: kRefDark),
+        style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w700, color: kRefDark),
       ),
     ],
   );
 
   Widget _emptyNote(String text) => Padding(
     padding: const EdgeInsets.only(bottom: 4),
-    child: Text(text, style: GoogleFonts.lato(fontSize: 12, color: kRefMuted)),
+    child: Text(text, style: GoogleFonts.plusJakartaSans(fontSize: 12, color: kRefMuted)),
   );
 
   Widget _subtotalRow(String label, double amount) => Padding(
@@ -2015,10 +2089,10 @@ class _BillDialog extends StatelessWidget {
     child: Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: GoogleFonts.lato(fontSize: 12, color: kRefMuted, fontStyle: FontStyle.italic)),
+        Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 12, color: kRefMuted, fontStyle: FontStyle.italic)),
         Text(
           '₹${amount.toStringAsFixed(0)}',
-          style: GoogleFonts.lato(fontSize: 12, fontWeight: FontWeight.w600, color: kRefMuted),
+          style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: kRefMuted),
         ),
       ],
     ),
@@ -2047,15 +2121,21 @@ class _BillDialog extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Flexible(child: Text(label, style: GoogleFonts.lato(fontSize: 13, color: kRefMuted))),
-          Text(
-            value,
-            style: GoogleFonts.lato(
-              fontSize: 13,
-              fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
-              color: color ?? kRefDark,
+          Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 13, color: kRefMuted)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              value,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 13,
+                fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
+                color: color ?? kRefDark,
+              ),
+              textAlign: TextAlign.end,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -2078,27 +2158,29 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 48, color: const Color(0xFFCBD5E1)),
-            const SizedBox(height: 16),
-            Text(
-              message,
-              style: GoogleFonts.lato(fontSize: 15, fontWeight: FontWeight.w600, color: kRefMuted),
-              textAlign: TextAlign.center,
-            ),
-            if (subtext != null) ...[
-              const SizedBox(height: 8),
+      child: AnimatedEntrance(
+        child: Padding(
+          padding: const EdgeInsets.all(40),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              HeroIconBadge(icon: icon, size: 72, iconSize: 36),
+              const SizedBox(height: 20),
               Text(
-                subtext!,
-                style: GoogleFonts.lato(fontSize: 13, color: const Color(0xFF94A3B8)),
+                message,
+                style: PatientPortalTheme.titleMedium(context),
                 textAlign: TextAlign.center,
               ),
+              if (subtext != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  subtext!,
+                  style: PatientPortalTheme.body(context),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -2284,8 +2366,8 @@ class _EditSittingFormState extends State<_EditSittingForm> {
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFDDDDDD)),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: AppTokens.hairline),
             ),
             child: Row(
               children: [
@@ -2293,7 +2375,7 @@ class _EditSittingFormState extends State<_EditSittingForm> {
                 const SizedBox(width: 8),
                 Text(
                   '${_date.day}/${_date.month}/${_date.year}',
-                  style: GoogleFonts.lato(fontSize: 14, color: kRefDark),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 14, color: kRefDark),
                 ),
               ],
             ),

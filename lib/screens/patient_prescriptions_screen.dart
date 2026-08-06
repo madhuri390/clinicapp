@@ -17,7 +17,7 @@ class PatientPrescriptionsScreen extends StatelessWidget {
     final patientId = PatientSession.portalPatientId;
     if (patientId == null) {
       return Scaffold(
-        backgroundColor: PatientPortalTheme.surface,
+        backgroundColor: Colors.transparent,
         appBar: AppBar(
           title: Text(
             'Prescriptions',
@@ -39,7 +39,7 @@ class PatientPrescriptionsScreen extends StatelessWidget {
     final prescriptions = store.getPrescriptionsForVisits(visitIds);
 
     return Scaffold(
-      backgroundColor: PatientPortalTheme.surface,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: PatientPortalTheme.surface,
         elevation: 0,
@@ -115,7 +115,7 @@ class PatientPrescriptionsScreen extends StatelessWidget {
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
                               gradient: PatientPortalTheme.accentGradient,
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(14),
                             ),
                             child: const Icon(
                               Icons.medication_rounded,

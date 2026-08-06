@@ -9,6 +9,7 @@ import '../services/app_role_service.dart';
 import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/role_aware_shell.dart';
+import '../theme/app_tokens.dart';
 
 class PatientSignupScreen extends StatefulWidget {
   const PatientSignupScreen({super.key});
@@ -45,7 +46,7 @@ class _PatientSignupScreenState extends State<PatientSignupScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.red.shade600,
+        backgroundColor: AppTokens.danger,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -142,17 +143,17 @@ class _PatientSignupScreenState extends State<PatientSignupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        iconTheme: IconThemeData(color: Colors.grey.shade700),
+        iconTheme: IconThemeData(color: AppTokens.body),
         title: Text(
           'Patient Registration',
-          style: GoogleFonts.poppins(
+          style: GoogleFonts.plusJakartaSans(
             fontSize: 18,
             fontWeight: FontWeight.w600,
-            color: Colors.black87,
+            color: AppTokens.ink,
           ),
         ),
       ),
@@ -179,19 +180,19 @@ class _PatientSignupScreenState extends State<PatientSignupScreen> {
                 const SizedBox(height: 24),
                 Text(
                   'Create an Account',
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 22,
                     fontWeight: FontWeight.w700,
-                    color: Colors.black87,
+                    color: AppTokens.ink,
                   ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Fill in the details below to complete your registration.',
-                  style: GoogleFonts.poppins(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 14,
-                    color: Colors.grey.shade600,
+                    color: AppTokens.body,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -261,7 +262,7 @@ class _PatientSignupScreenState extends State<PatientSignupScreen> {
                   suffixIcon: IconButton(
                     icon: Icon(
                       _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                      color: Colors.grey.shade600,
+                      color: AppTokens.body,
                     ),
                     onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                   ),
@@ -292,7 +293,7 @@ class _PatientSignupScreenState extends State<PatientSignupScreen> {
                           )
                         : Text(
                             'Sign Up Now',
-                            style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600),
+                            style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w600),
                           ),
                   ),
                 ),
@@ -320,21 +321,21 @@ class _PatientSignupScreenState extends State<PatientSignupScreen> {
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
       obscureText: obscureText,
-      style: GoogleFonts.poppins(fontSize: 15, color: const Color(0xFF263238)),
+      style: GoogleFonts.plusJakartaSans(fontSize: 15, color: AppTokens.ink),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: GoogleFonts.poppins(fontSize: 14, color: Colors.grey.shade600),
-        prefixIcon: Icon(prefixIcon, color: Colors.grey.shade500),
+        labelStyle: GoogleFonts.plusJakartaSans(fontSize: 14, color: AppTokens.body),
+        prefixIcon: Icon(prefixIcon, color: AppTokens.muted),
         suffixIcon: suffixIcon,
         filled: true,
-        fillColor: Colors.grey.shade50,
+        fillColor: AppTokens.subtle,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey.shade300),
+          borderSide: BorderSide(color: AppTokens.hairline),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey.shade300),
+          borderSide: BorderSide(color: AppTokens.hairline),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
@@ -342,7 +343,7 @@ class _PatientSignupScreenState extends State<PatientSignupScreen> {
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.red.shade300),
+          borderSide: BorderSide(color: AppTokens.danger),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),

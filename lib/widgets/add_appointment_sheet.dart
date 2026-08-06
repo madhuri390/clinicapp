@@ -10,18 +10,19 @@ import '../repositories/appointment_repository.dart';
 import '../repositories/patient_repository.dart';
 import '../services/staff_service.dart';
 import '../models/staff_model.dart';
+import '../theme/app_tokens.dart';
 
 // Colors
-const _blue600 = Color(0xFF0D8DC4);
-const _blue100 = Color(0xFFB4E0F0);
-const _slate50 = Color(0xFFF8FAFC);
-const _slate200 = Color(0xFFE2E8F0);
-const _slate300 = Color(0xFFCBD5E1);
-const _slate400 = Color(0xFF94A3B8);
-// const _slate500 = Color(0xFF64748B);
-const _slate600 = Color(0xFF475569);
-const _slate700 = Color(0xFF334155);
-const _slate900 = Color(0xFF0F172A);
+const _blue600 = AppTokens.accent;
+const _blue100 = AppTokens.accentSoft;
+const _slate50 = AppTokens.canvas;
+const _slate200 = AppTokens.hairline;
+const _slate300 = AppTokens.hairline;
+const _slate400 = AppTokens.muted;
+// const _slate500 = AppTokens.body;
+const _slate600 = AppTokens.body;
+const _slate700 = AppTokens.ink;
+const _slate900 = AppTokens.ink;
 
 /// Common dental procedure types.
 const _procedureTypes = [
@@ -227,7 +228,11 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
     }
     setState(() => _loadingDoctors = true);
     try {
-      final docs = await _staffService.getStaff();
+      // Receptionists share the `doctors` table but never treat patients, so
+      // they must not be bookable.
+      final docs = (await _staffService.getStaff())
+          .where((s) => !s.isReceptionist)
+          .toList();
       if (!mounted) return;
       setState(() {
         _doctors = docs;
@@ -443,7 +448,7 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
                         height: 34,
                         decoration: BoxDecoration(
                           color: _blue100.withValues(alpha: 0.35),
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(14),
                         ),
                         child: const Icon(
                           Icons.event_available_outlined,
@@ -454,7 +459,7 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
                       const SizedBox(width: 10),
                       Text(
                         'Schedule Appointment',
-                        style: GoogleFonts.lato(
+                        style: GoogleFonts.plusJakartaSans(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
                           color: _slate900,
@@ -490,14 +495,14 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
                           ),
                           decoration: BoxDecoration(
                             border: Border.all(color: _slate200),
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(14),
                             color: _slate50,
                           ),
                           child: Text(
                             _selectedDoctorName ??
                                 widget.prefilledDoctorName ??
                                 'Doctor',
-                            style: GoogleFonts.inter(
+                            style: GoogleFonts.plusJakartaSans(
                               fontSize: 14,
                               color: _slate700,
                             ),
@@ -525,7 +530,7 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
                                   value: d.id,
                                   child: Text(
                                     d.name,
-                                    style: GoogleFonts.inter(fontSize: 14),
+                                    style: GoogleFonts.plusJakartaSans(fontSize: 14),
                                   ),
                                 ),
                               )
@@ -593,14 +598,14 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
                                   dense: true,
                                   title: Text(
                                     name,
-                                    style: GoogleFonts.lato(
+                                    style: GoogleFonts.plusJakartaSans(
                                       fontWeight: FontWeight.w700,
                                       fontSize: 13,
                                     ),
                                   ),
                                   subtitle: Text(
                                     p.phone,
-                                    style: GoogleFonts.lato(
+                                    style: GoogleFonts.plusJakartaSans(
                                       fontSize: 12,
                                       color: _slate600,
                                     ),
@@ -626,7 +631,7 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
                           ),
                           decoration: BoxDecoration(
                             border: Border.all(color: _slate200),
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(14),
                             color: _slate50,
                           ),
                           child: Row(
@@ -639,7 +644,7 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
                               const SizedBox(width: 10),
                               Text(
                                 DateFormat('EEEE, dd MMM yyyy').format(_date),
-                                style: GoogleFonts.inter(
+                                style: GoogleFonts.plusJakartaSans(
                                   fontSize: 14,
                                   color: _slate700,
                                 ),
@@ -663,7 +668,7 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
                                 value: p,
                                 child: Text(
                                   p,
-                                  style: GoogleFonts.inter(fontSize: 14),
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 14),
                                 ),
                               ),
                             )
@@ -682,7 +687,7 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
                             label: Text(d.label),
                             selected: isSelected,
                             selectedColor: _blue100,
-                            labelStyle: GoogleFonts.inter(
+                            labelStyle: GoogleFonts.plusJakartaSans(
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
                               color: isSelected ? _blue600 : _slate600,
@@ -735,7 +740,7 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
                                     : isSelected
                                     ? _blue600
                                     : Colors.white,
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
                                   color: blocked
                                       ? _slate200
@@ -746,7 +751,7 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
                               ),
                               child: Text(
                                 Appointment.to12Hour(slot),
-                                style: GoogleFonts.inter(
+                                style: GoogleFonts.plusJakartaSans(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w500,
                                   color: blocked
@@ -781,7 +786,7 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
                           icon: const Icon(Icons.check),
                           label: Text(
                             'Schedule Appointment',
-                            style: GoogleFonts.inter(
+                            style: GoogleFonts.plusJakartaSans(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
                             ),
@@ -791,7 +796,7 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(14),
                             ),
                           ),
                         ),
@@ -813,7 +818,7 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
       padding: const EdgeInsets.only(bottom: 6),
       child: Text(
         text,
-        style: GoogleFonts.lato(
+        style: GoogleFonts.plusJakartaSans(
           fontSize: 13,
           fontWeight: FontWeight.w600,
           color: _slate700,
@@ -825,7 +830,7 @@ class _AddAppointmentSheetState extends State<AddAppointmentSheet> {
   InputDecoration _inputDecor(String hint) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: GoogleFonts.lato(fontSize: 14, color: _slate400),
+      hintStyle: GoogleFonts.plusJakartaSans(fontSize: 14, color: _slate400),
       filled: true,
       fillColor: _slate50,
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),

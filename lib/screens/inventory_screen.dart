@@ -1,22 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../theme/app_tokens.dart';
 
 // Reference colors
-const _blue600 = Color(0xFF0D8DC4);
-const _blue500 = Color(0xFF28A0D4);
-const _slate50 = Color(0xFFF8FAFC);
-const _slate100 = Color(0xFFF1F5F9);
-const _slate200 = Color(0xFFE2E8F0);
-const _slate400 = Color(0xFF94A3B8);
-const _slate500 = Color(0xFF64748B);
-const _slate600 = Color(0xFF475569);
-const _slate700 = Color(0xFF334155);
-const _slate900 = Color(0xFF0F172A);
-const _orange50 = Color(0xFFFFF7ED);
-const _orange200 = Color(0xFFFED7AA);
-const _orange600 = Color(0xFFEA580C);
-const _orange700 = Color(0xFFC2410C);
-const _orange900 = Color(0xFF7C2D12);
+const _blue600 = AppTokens.accent;
+const _blue500 = AppTokens.accent;
+const _slate100 = AppTokens.subtle;
+const _slate200 = AppTokens.hairline;
+const _slate400 = AppTokens.muted;
+const _slate500 = AppTokens.body;
+const _slate600 = AppTokens.body;
+const _slate700 = AppTokens.ink;
+const _slate900 = AppTokens.ink;
+const _orange50 = AppTokens.warningSoft;
+const _orange200 = AppTokens.warningSoft;
+const _orange600 = AppTokens.warning;
+const _orange700 = AppTokens.warning;
+const _orange900 = AppTokens.warning;
 
 class _InventoryItem {
   const _InventoryItem({
@@ -159,7 +159,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _slate50,
+      backgroundColor: Colors.transparent,
       body: Stack(
         children: [
           CustomScrollView(
@@ -184,7 +184,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       children: [
                         Text(
                           'Inventory',
-                          style: GoogleFonts.inter(
+                          style: GoogleFonts.plusJakartaSans(
                             fontSize: 20,
                             fontWeight: FontWeight.w600,
                             color: Colors.white,
@@ -195,17 +195,17 @@ class _InventoryScreenState extends State<InventoryScreen> {
                         Container(
                           decoration: BoxDecoration(
                             color: _blue500,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: TextField(
                             onChanged: (v) => setState(() => _searchQuery = v),
-                            style: GoogleFonts.inter(
+                            style: GoogleFonts.plusJakartaSans(
                               fontSize: 14,
                               color: Colors.white,
                             ),
                             decoration: InputDecoration(
                               hintText: 'Search items...',
-                              hintStyle: GoogleFonts.inter(
+                              hintStyle: GoogleFonts.plusJakartaSans(
                                 color: Colors.white.withValues(alpha: 0.7),
                               ),
                               prefixIcon: Icon(
@@ -248,7 +248,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                   child: Center(
                                     child: Text(
                                       _formatCategory(cat),
-                                      style: GoogleFonts.inter(
+                                      style: GoogleFonts.plusJakartaSans(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w500,
                                         color: isSelected
@@ -279,7 +279,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                           decoration: BoxDecoration(
                             color: _orange50,
                             border: Border.all(color: _orange200),
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -296,7 +296,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                   children: [
                                     Text(
                                       'Low Stock Alert',
-                                      style: GoogleFonts.inter(
+                                      style: GoogleFonts.plusJakartaSans(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w600,
                                         color: _orange900,
@@ -304,7 +304,7 @@ class _InventoryScreenState extends State<InventoryScreen> {
                                     ),
                                     Text(
                                       '${_lowStockItems.length} item(s) running low on stock',
-                                      style: GoogleFonts.inter(
+                                      style: GoogleFonts.plusJakartaSans(
                                         fontSize: 14,
                                         color: _orange700,
                                       ),
@@ -408,7 +408,7 @@ class _InventoryCardState extends State<_InventoryCard> {
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: isLowStock ? _orange200 : _slate200),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -424,7 +424,7 @@ class _InventoryCardState extends State<_InventoryCard> {
                       children: [
                         Text(
                           item.name,
-                          style: GoogleFonts.inter(
+                          style: GoogleFonts.plusJakartaSans(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                             color: _slate900,
@@ -442,7 +442,7 @@ class _InventoryCardState extends State<_InventoryCard> {
                     ),
                     Text(
                       _formatCategory(item.category),
-                      style: GoogleFonts.inter(fontSize: 14, color: _slate600),
+                      style: GoogleFonts.plusJakartaSans(fontSize: 14, color: _slate600),
                     ),
                   ],
                 ),
@@ -480,7 +480,7 @@ class _InventoryCardState extends State<_InventoryCard> {
             children: [
               Text(
                 'Adjust Quantity',
-                style: GoogleFonts.inter(fontSize: 14, color: _slate600),
+                style: GoogleFonts.plusJakartaSans(fontSize: 14, color: _slate600),
               ),
               Row(
                 children: [
@@ -509,7 +509,7 @@ class _InventoryCardState extends State<_InventoryCard> {
                     child: Text(
                       '$_quantity',
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(
+                      style: GoogleFonts.plusJakartaSans(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                         color: _slate900,
@@ -556,10 +556,10 @@ class _InfoBlock extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.inter(fontSize: 12, color: _slate500)),
+        Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 12, color: _slate500)),
         Text(
           value,
-          style: GoogleFonts.inter(
+          style: GoogleFonts.plusJakartaSans(
             fontSize: 14,
             fontWeight: FontWeight.w600,
             color: valueColor ?? _slate900,
@@ -578,7 +578,7 @@ class _AddItemModal extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.black54,
+      color: AppTokens.body,
       child: GestureDetector(
         onTap: onClose,
         child: Container(
@@ -591,7 +591,7 @@ class _AddItemModal extends StatelessWidget {
               ),
               decoration: const BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
               child: SingleChildScrollView(
                 child: Column(
@@ -604,7 +604,7 @@ class _AddItemModal extends StatelessWidget {
                         children: [
                           Text(
                             'Add Inventory Item',
-                            style: GoogleFonts.inter(
+                            style: GoogleFonts.plusJakartaSans(
                               fontSize: 18,
                               fontWeight: FontWeight.w600,
                               color: _slate900,
@@ -755,7 +755,7 @@ class _FormField extends StatelessWidget {
         children: [
           Text(
             label,
-            style: GoogleFonts.inter(
+            style: GoogleFonts.plusJakartaSans(
               fontSize: 14,
               fontWeight: FontWeight.w500,
               color: _slate700,
@@ -766,7 +766,7 @@ class _FormField extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               border: Border.all(color: _slate200),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: DropdownButtonHideUnderline(
               child: DropdownButton<String>(
@@ -790,7 +790,7 @@ class _FormField extends StatelessWidget {
       children: [
         Text(
           label,
-          style: GoogleFonts.inter(
+          style: GoogleFonts.plusJakartaSans(
             fontSize: 14,
             fontWeight: FontWeight.w500,
             color: _slate700,
@@ -801,7 +801,7 @@ class _FormField extends StatelessWidget {
           keyboardType: keyboardType,
           decoration: InputDecoration(
             hintText: hint,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 12,
               vertical: 10,

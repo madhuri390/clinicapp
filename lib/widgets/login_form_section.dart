@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import '../theme/app_theme.dart';
+import '../theme/patient_portal_theme.dart';
+import 'ui_kit.dart';
+import '../theme/app_tokens.dart';
 
+/// The credential fields + sign-in button, styled for the refreshed login.
 class LoginFormSection extends StatelessWidget {
   const LoginFormSection({
     super.key,
@@ -24,52 +26,94 @@ class LoginFormSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        28,
-        24,
-        28,
-        24 + MediaQuery.paddingOf(context).bottom,
-      ),
+    return Form(
+      key: formKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            isPatientPortal ? 'Patient Login' : 'Staff Login',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.poppins(
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF263238),
-            ),
+          _Field(
+            controller: emailController,
+            hint: 'Username or email',
+            icon: Icons.account_circle_outlined,
+            inputFormatters: [
+              // '@' is allowed so accounts whose auth email is not on the
+              // clinic domain can be typed in full.
+              FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9._@-]')),
+            ],
+            validator: (v) {
+              final s = v?.trim() ?? '';
+              if (s.isEmpty) return 'Enter your username';
+              return null;
+            },
           ),
+          const SizedBox(height: 14),
+          _PasswordField(controller: passwordController),
           const SizedBox(height: 24),
-
-          // ── Email/Password form ──────────────────────────────────────────
-          Form(
-            key: formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _EmailField(controller: emailController),
-                const SizedBox(height: 14),
-                _PasswordField(controller: passwordController),
-                const SizedBox(height: 24),
-                _LoginNowButton(onPressed: onSignIn, isLoading: isLoading),
-              ],
-            ),
-          ),
+          isLoading
+              ? const SizedBox(
+                  height: 54,
+                  child: Center(
+                    child: SizedBox(
+                      height: 24,
+                      width: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.4,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          PatientPortalTheme.brightBlue,
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+              : GradientButton(
+                  label: 'Sign in',
+                  icon: Icons.arrow_forward_rounded,
+                  onPressed: onSignIn,
+                ),
         ],
       ),
     );
   }
 }
 
-// ── Fields ────────────────────────────────────────────────────────────────────
+// ── Fields ──────────────────────────────────────────────────────────────────
 
-class _EmailField extends StatelessWidget {
-  const _EmailField({required this.controller});
+InputDecoration _decoration(BuildContext context, String hint, IconData icon,
+    {Widget? suffixIcon}) {
+  OutlineInputBorder border(Color c, [double w = 1.2]) => OutlineInputBorder(
+        borderRadius: BorderRadius.circular(20),
+        borderSide: BorderSide(color: c, width: w),
+      );
+  return InputDecoration(
+    hintText: hint,
+    hintStyle: PatientPortalTheme.body(context),
+    prefixIcon: Icon(icon, color: PatientPortalTheme.brightBlue),
+    suffixIcon: suffixIcon,
+    filled: true,
+    fillColor: Colors.white.withValues(alpha: 0.85),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 18),
+    border: border(Colors.transparent),
+    enabledBorder: border(AppTokens.hairline),
+    focusedBorder: border(PatientPortalTheme.brightBlue, 1.8),
+    errorBorder: border(AppTokens.danger),
+    focusedErrorBorder: border(AppTokens.danger, 1.8),
+  );
+}
+
+class _Field extends StatelessWidget {
+  const _Field({
+    required this.controller,
+    required this.hint,
+    required this.icon,
+    this.validator,
+    this.inputFormatters,
+  });
+
   final TextEditingController controller;
+  final String hint;
+  final IconData icon;
+  final String? Function(String?)? validator;
+  final List<TextInputFormatter>? inputFormatters;
 
   @override
   Widget build(BuildContext context) {
@@ -77,36 +121,10 @@ class _EmailField extends StatelessWidget {
       controller: controller,
       keyboardType: TextInputType.text,
       textInputAction: TextInputAction.next,
-      style: GoogleFonts.poppins(fontSize: 15, color: const Color(0xFF263238)),
-      decoration: InputDecoration(
-        hintText: 'Username',
-        hintStyle:
-            GoogleFonts.poppins(fontSize: 14, color: Colors.grey.shade500),
-        prefixIcon: const Icon(Icons.account_circle_outlined),
-        filled: true,
-        fillColor: Colors.grey.shade50,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
-        ),
-      ),
-      inputFormatters: [
-        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9._-]')),
-      ],
-      validator: (v) {
-        final s = v?.trim() ?? '';
-        if (s.isEmpty) return 'Enter your username';
-        return null;
-      },
+      style: PatientPortalTheme.titleMedium(context).copyWith(fontSize: 15),
+      decoration: _decoration(context, hint, icon),
+      inputFormatters: inputFormatters,
+      validator: validator,
     );
   }
 }
@@ -128,37 +146,20 @@ class _PasswordFieldState extends State<_PasswordField> {
       controller: widget.controller,
       obscureText: _obscure,
       textInputAction: TextInputAction.done,
-      style: GoogleFonts.poppins(fontSize: 15, color: const Color(0xFF263238)),
-      decoration: InputDecoration(
-        hintText: 'Password',
-        hintStyle:
-            GoogleFonts.poppins(fontSize: 14, color: Colors.grey.shade500),
-        prefixIcon: const Icon(Icons.lock_outline),
+      style: PatientPortalTheme.titleMedium(context).copyWith(fontSize: 15),
+      decoration: _decoration(
+        context,
+        'Password',
+        Icons.lock_outline_rounded,
         suffixIcon: IconButton(
           icon: Icon(
             _obscure
                 ? Icons.visibility_outlined
                 : Icons.visibility_off_outlined,
-            color: Colors.grey.shade600,
+            color: PatientPortalTheme.textSecondary,
           ),
           onPressed: () => setState(() => _obscure = !_obscure),
         ),
-        filled: true,
-        fillColor: Colors.grey.shade50,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppTheme.primaryColor, width: 2),
-        ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       ),
       validator: (v) {
         if (v == null || v.isEmpty) return 'Password is required';
@@ -167,41 +168,3 @@ class _PasswordFieldState extends State<_PasswordField> {
     );
   }
 }
-
-class _LoginNowButton extends StatelessWidget {
-  const _LoginNowButton({required this.onPressed, required this.isLoading});
-  final VoidCallback onPressed;
-  final bool isLoading;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 52,
-      child: ElevatedButton(
-        onPressed: isLoading ? null : onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppTheme.primaryColor,
-          foregroundColor: Colors.white,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          elevation: 0,
-        ),
-        child: isLoading
-            ? const SizedBox(
-                height: 22,
-                width: 22,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                ),
-              )
-            : Text(
-                'Login now',
-                style: GoogleFonts.poppins(
-                    fontSize: 16, fontWeight: FontWeight.w600),
-              ),
-      ),
-    );
-  }
-}
-

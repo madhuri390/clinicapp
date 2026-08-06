@@ -7,6 +7,7 @@ import '../models/treatment_plan_model.dart';
 import '../models/visit_model.dart';
 import '../services/local_store.dart';
 import 'patient_details_consultation_card.dart';
+import '../theme/app_tokens.dart';
 
 class OngoingTabPlaceholder extends StatelessWidget {
   const OngoingTabPlaceholder({
@@ -36,7 +37,7 @@ class OngoingTabPlaceholder extends StatelessWidget {
       return Center(
         child: Text(
           'No ongoing consultations',
-          style: GoogleFonts.poppins(color: Colors.black54),
+          style: GoogleFonts.plusJakartaSans(color: AppTokens.body),
         ),
       );
     }

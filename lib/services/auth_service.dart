@@ -152,17 +152,42 @@ class AuthService {
     print('[AuthService] adminCreateUser: Response Body: ${response.body}');
 
     if (response.statusCode != 200 && response.statusCode != 201) {
-      final decoded = jsonDecode(response.body) as Map<String, dynamic>?;
-      var msg = decoded?['msg'] ?? decoded?['message'] ?? response.body;
-      if (msg is String) {
-        msg = msg.replaceAll('Email', 'Username').replaceAll('email', 'username');
-      }
+      final msg = _authErrorMessage(response.body);
       print('[AuthService] Error in adminCreateUser: $msg');
-      throw Exception('Failed to create auth user: $msg');
+      throw Exception(msg);
     }
 
     final decoded = jsonDecode(response.body) as Map<String, dynamic>;
     return decoded['id'] as String;
+  }
+
+  // ── Admin: error formatting ──────────────────────────────────────────────
+
+  /// Turns a GoTrue error body into something a receptionist can act on.
+  /// Uniqueness failures arrive as raw Postgres constraint text, which says
+  /// nothing useful to whoever is filling in the staff form.
+  static String _authErrorMessage(String body) {
+    Map<String, dynamic>? decoded;
+    try {
+      decoded = jsonDecode(body) as Map<String, dynamic>?;
+    } catch (_) {}
+
+    var msg = decoded?['msg'] ?? decoded?['message'] ?? body;
+    if (msg is! String) return body;
+
+    final lower = msg.toLowerCase();
+    if (lower.contains('users_phone_key') ||
+        (lower.contains('phone') && lower.contains('already exists'))) {
+      return 'That phone number is already registered to another account. '
+          'Leave the phone field blank, or use a different number.';
+    }
+    if (lower.contains('users_email_key') ||
+        lower.contains('email_exists') ||
+        (lower.contains('email') && lower.contains('already'))) {
+      return 'That username is already taken. Pick a different one.';
+    }
+
+    return msg.replaceAll('Email', 'Username').replaceAll('email', 'username');
   }
 
   // ── Admin: Update User ───────────────────────────────────────────────────
@@ -199,14 +224,45 @@ class AuthService {
     print('[AuthService] adminUpdateUser: Response Body: ${response.body}');
 
     if (response.statusCode != 200 && response.statusCode != 201) {
-      final decoded = jsonDecode(response.body) as Map<String, dynamic>?;
-      var msg = decoded?['msg'] ?? decoded?['message'] ?? response.body;
-      if (msg is String) {
-        msg = msg.replaceAll('Email', 'Username').replaceAll('email', 'username');
-      }
+      final msg = _authErrorMessage(response.body);
       print('[AuthService] Error in adminUpdateUser: $msg');
-      throw Exception('Failed to update auth user: $msg');
+      throw Exception(msg);
     }
+  }
+
+  // ── Admin: Delete User ───────────────────────────────────────────────────
+
+  /// Permanently deletes an auth user by their UUID, revoking their login.
+  /// Requires SUPABASE_SERVICE_ROLE_KEY in .env.
+  ///
+  /// A missing user counts as success: this is called both to remove deleted
+  /// staff and to roll back a half-created one, and neither caller wants to
+  /// fail because the account is already gone.
+  static Future<void> adminDeleteUser(String userId) async {
+    final url = '$_supabaseUrl/auth/v1/admin/users/$userId';
+    print('[AuthService] adminDeleteUser: DELETE request to $url');
+
+    final response = await http.delete(
+      Uri.parse(url),
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': _serviceRoleKey,
+        'Authorization': 'Bearer $_serviceRoleKey',
+      },
+    );
+
+    print('[AuthService] adminDeleteUser: Response Status: ${response.statusCode}');
+    print('[AuthService] adminDeleteUser: Response Body: ${response.body}');
+
+    if (response.statusCode == 200 ||
+        response.statusCode == 204 ||
+        response.statusCode == 404) {
+      return;
+    }
+
+    final msg = _authErrorMessage(response.body);
+    print('[AuthService] Error in adminDeleteUser: $msg');
+    throw Exception('Failed to delete auth user: $msg');
   }
 
   // ── Test helper ──────────────────────────────────────────────────────────

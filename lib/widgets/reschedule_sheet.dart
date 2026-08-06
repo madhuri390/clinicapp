@@ -4,17 +4,18 @@ import 'package:intl/intl.dart';
 
 import '../models/appointment_model.dart';
 import '../repositories/appointment_repository.dart';
+import '../theme/app_tokens.dart';
 
 // Colors
-const _primaryColor = Color(0xFF0D8DC4);
-const _slate50 = Color(0xFFF8FAFC);
-const _slate200 = Color(0xFFE2E8F0);
-const _slate300 = Color(0xFFCBD5E1);
-const _slate400 = Color(0xFF94A3B8);
-const _slate500 = Color(0xFF64748B);
-const _slate600 = Color(0xFF475569);
-const _slate700 = Color(0xFF334155);
-const _slate900 = Color(0xFF0F172A);
+const _primaryColor = AppTokens.accent;
+const _slate50 = AppTokens.canvas;
+const _slate200 = AppTokens.hairline;
+const _slate300 = AppTokens.hairline;
+const _slate400 = AppTokens.muted;
+const _slate500 = AppTokens.body;
+const _slate600 = AppTokens.body;
+const _slate700 = AppTokens.ink;
+const _slate900 = AppTokens.ink;
 
 const _allTimeSlots = [
   '09:00',
@@ -274,7 +275,7 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
               children: [
                 Text(
                   'Reschedule Appointment',
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.plusJakartaSans(
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
                     color: _slate900,
@@ -299,7 +300,7 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: _slate50,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: _slate200),
                     ),
                     child: Row(
@@ -312,7 +313,7 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
                             children: [
                               Text(
                                 a.patientName,
-                                style: GoogleFonts.inter(
+                                style: GoogleFonts.plusJakartaSans(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,
                                   color: _slate900,
@@ -320,14 +321,14 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
                               ),
                               Text(
                                 '${a.type} • ${a.timeRange}',
-                                style: GoogleFonts.inter(
+                                style: GoogleFonts.plusJakartaSans(
                                   fontSize: 13,
                                   color: _slate600,
                                 ),
                               ),
                               Text(
                                 'Current: ${DateFormat('dd MMM yyyy').format(a.date)}',
-                                style: GoogleFonts.inter(
+                                style: GoogleFonts.plusJakartaSans(
                                   fontSize: 12,
                                   color: _slate500,
                                 ),
@@ -343,7 +344,7 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
                   // New date
                   Text(
                     'New Date',
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.plusJakartaSans(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                       color: _slate700,
@@ -359,7 +360,7 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
                       ),
                       decoration: BoxDecoration(
                         border: Border.all(color: _slate200),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                         color: _slate50,
                       ),
                       child: Row(
@@ -372,7 +373,7 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
                           const SizedBox(width: 10),
                           Text(
                             DateFormat('EEEE, dd MMM yyyy').format(_newDate),
-                            style: GoogleFonts.inter(
+                            style: GoogleFonts.plusJakartaSans(
                               fontSize: 14,
                               color: _slate700,
                             ),
@@ -388,7 +389,7 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
                   // New time slot
                   Text(
                     'New Time Slot',
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.plusJakartaSans(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                       color: _slate700,
@@ -430,7 +431,7 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
                                 : isSelected
                                 ? _primaryColor
                                 : Colors.white,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(10),
                             border: Border.all(
                               color: blocked
                                   ? _slate200
@@ -441,7 +442,7 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
                           ),
                           child: Text(
                             Appointment.to12Hour(slot),
-                            style: GoogleFonts.inter(
+                            style: GoogleFonts.plusJakartaSans(
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
                               color: blocked
@@ -460,7 +461,7 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
                   // Doctor message
                   Text(
                     "Doctor's Message *",
-                    style: GoogleFonts.inter(
+                    style: GoogleFonts.plusJakartaSans(
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                       color: _slate700,
@@ -473,7 +474,7 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
                     decoration: InputDecoration(
                       hintText:
                           'Reason for rescheduling (sent to patient via WhatsApp)',
-                      hintStyle: GoogleFonts.inter(
+                      hintStyle: GoogleFonts.plusJakartaSans(
                         fontSize: 13,
                         color: _slate400,
                       ),
@@ -481,15 +482,15 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
                       fillColor: _slate50,
                       contentPadding: const EdgeInsets.all(12),
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                         borderSide: BorderSide(color: _slate200),
                       ),
                       enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                         borderSide: BorderSide(color: _slate200),
                       ),
                       focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                         borderSide: const BorderSide(
                           color: _primaryColor,
                           width: 1.5,
@@ -505,7 +506,7 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
                       Expanded(
                         child: Text(
                           'This message will be sent to the patient via WhatsApp',
-                          style: GoogleFonts.inter(
+                          style: GoogleFonts.plusJakartaSans(
                             fontSize: 11,
                             color: _primaryColor,
                           ),
@@ -523,7 +524,7 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
                       icon: const Icon(Icons.schedule),
                       label: Text(
                         'Reschedule',
-                        style: GoogleFonts.inter(
+                        style: GoogleFonts.plusJakartaSans(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                         ),

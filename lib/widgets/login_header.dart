@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/app_theme.dart';
+import '../theme/app_tokens.dart';
 
 /// Large bold heading with "smiles" highlighted by a hand-drawn style oval.
 class LoginHeader extends StatelessWidget {
@@ -18,10 +19,10 @@ class LoginHeader extends StatelessWidget {
       child: Text.rich(
         span,
         textAlign: TextAlign.center,
-        style: GoogleFonts.poppins(
+        style: GoogleFonts.plusJakartaSans(
           fontSize: 26,
           fontWeight: FontWeight.w700,
-          color: const Color(0xFF37474F),
+          color: AppTokens.ink,
           height: 1.3,
         ),
       ),
@@ -29,10 +30,10 @@ class LoginHeader extends StatelessWidget {
   }
 
   InlineSpan _buildHighlightedHeading() {
-    final poppins = GoogleFonts.poppins(
+    final poppins = GoogleFonts.plusJakartaSans(
       fontSize: 26,
       fontWeight: FontWeight.w700,
-      color: const Color(0xFF37474F),
+      color: AppTokens.ink,
     );
     final parts = _heading.split(_highlightWord);
     if (parts.length != 2) {
@@ -47,7 +48,7 @@ class LoginHeader extends StatelessWidget {
           child: _HighlightOval(
             child: Text(
               _highlightWord,
-              style: poppins.copyWith(color: const Color(0xFF37474F)),
+              style: poppins.copyWith(color: AppTokens.ink),
             ),
           ),
         ),

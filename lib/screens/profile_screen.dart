@@ -8,18 +8,17 @@ import '../services/app_role_service.dart';
 import 'login_screen.dart';
 import 'main_shell.dart';
 import 'manage_staff_screen.dart';
+import '../theme/app_tokens.dart';
 
 // ── Reference design colours ──────────────────────────────────────────────
-const _primary = Color(0xFF0D8DC4);
-const _primaryDk = Color(0xFF0A719D);
-const _bg = Color(0xFFF9FAFE);
-const _muted = Color(0xFF5B6E8C);
-const _dark = Color(0xFF0F172A);
-const _slate200 = Color(0xFFE2E8F0);
-const _slate600 = Color(0xFF475569);
-const _red50 = Color(0xFFFEF2F2);
-const _red400 = Color(0xFFEF4444);
-const _red500 = Color(0xFFEF4444);
+const _primary = AppTokens.accent;
+const _primaryDk = AppTokens.accentDark;
+const _muted = AppTokens.body;
+const _dark = AppTokens.ink;
+const _slate600 = AppTokens.body;
+const _red50 = AppTokens.dangerSoft;
+const _red400 = AppTokens.danger;
+const _red500 = AppTokens.danger;
 
 
 class ProfileScreen extends StatefulWidget {
@@ -56,7 +55,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: Colors.transparent,
       body: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(child: _buildHeader(context)),
@@ -88,7 +87,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     String role = 'Clinician';
     if (_me != null) {
       final n = _me!.name.trim();
-      name = n.toLowerCase().startsWith('dr.') ? n : 'Dr. $n';
+      name = _me!.displayName;
       initials = n.isEmpty ? '?' : n.substring(0, 1).toUpperCase();
       role = _me!.role;
     }
@@ -127,7 +126,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF28A0D4), _primaryDk],
+                    colors: [AppTokens.accent, _primaryDk],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -157,7 +156,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     Text(
                       name,
-                      style: GoogleFonts.lato(
+                      style: GoogleFonts.plusJakartaSans(
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
@@ -166,7 +165,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 2),
                     Text(
                       role,
-                      style: GoogleFonts.lato(
+                      style: GoogleFonts.plusJakartaSans(
                         fontSize: 12,
                         color: Colors.white.withValues(alpha: 0.82),
                       ),
@@ -252,14 +251,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         title: Text(
           'Log Out',
-          style: GoogleFonts.inter(fontWeight: FontWeight.w600),
+          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600),
         ),
         content: Text(
           'Are you sure you want to log out?',
-          style: GoogleFonts.inter(color: _slate600),
+          style: GoogleFonts.plusJakartaSans(color: _slate600),
         ),
         actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
         actions: [
@@ -268,7 +267,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             ),
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text('Cancel', style: GoogleFonts.inter(color: _slate600)),
+            child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: _slate600)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
@@ -276,11 +275,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(10),
               ),
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text('Log Out', style: GoogleFonts.inter()),
+            child: Text('Log Out', style: GoogleFonts.plusJakartaSans()),
           ),
         ],
       ),
@@ -301,12 +300,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           Text(
             'Prodontics Dental Management',
-            style: GoogleFonts.lato(fontSize: 13, color: _muted),
+            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: _muted),
           ),
           const SizedBox(height: 4),
           Text(
             'Version 1.0.0',
-            style: GoogleFonts.lato(fontSize: 12, color: _muted),
+            style: GoogleFonts.plusJakartaSans(fontSize: 12, color: _muted),
           ),
         ],
       ),
@@ -314,7 +313,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   static Widget _divider() =>
-      Divider(height: 1, color: const Color(0xFFEFF3F8));
+      Divider(height: 1, color: AppTokens.subtle);
 }
 
 // ── Shared components ────────────────────────────────────────────────────
@@ -330,8 +329,8 @@ class _InfoCard extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFEFF3F8)),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: AppTokens.subtle),
         boxShadow: const [
           BoxShadow(
             color: Color(0x05000000),
@@ -364,7 +363,7 @@ class _SectionTitle extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             label,
-            style: GoogleFonts.lato(
+            style: GoogleFonts.plusJakartaSans(
               fontSize: 15,
               fontWeight: FontWeight.w700,
               color: _dark,
@@ -397,7 +396,7 @@ class _ContactRow extends StatelessWidget {
         Expanded(
           child: Text(
             value,
-            style: GoogleFonts.lato(
+            style: GoogleFonts.plusJakartaSans(
               fontSize: 14,
               color: muted ? _muted : _dark,
             ),
@@ -430,10 +429,10 @@ class _SettingsTile extends StatelessWidget {
 
     return Material(
       color: isDestructive ? _red50 : Colors.transparent,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 12),
           child: Row(
@@ -446,7 +445,7 @@ class _SettingsTile extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: GoogleFonts.lato(
+                      style: GoogleFonts.plusJakartaSans(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         color: isDestructive ? _red400 : _dark,
@@ -454,7 +453,7 @@ class _SettingsTile extends StatelessWidget {
                     ),
                     Text(
                       subtitle,
-                      style: GoogleFonts.lato(fontSize: 12, color: _muted),
+                      style: GoogleFonts.plusJakartaSans(fontSize: 12, color: _muted),
                     ),
                   ],
                 ),

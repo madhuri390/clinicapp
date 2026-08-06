@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_tokens.dart';
 
 /// Image configuration for the login screen.
 ///
@@ -104,7 +105,7 @@ class _StackImage extends StatelessWidget {
           errorBuilder: (_, _, _) => Container(
             width: width,
             height: height,
-            color: Colors.grey.shade300,
+            color: AppTokens.hairline,
             child: const Icon(Icons.image_not_supported_outlined),
           ),
         ),

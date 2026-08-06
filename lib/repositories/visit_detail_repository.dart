@@ -63,17 +63,30 @@ class VisitDetailRepository {
         .toList();
   }
 
-  Future<List<VisitDetail>> getHistory(String patientId) async {
+  /// Completed visits, newest first, one page at a time.
+  ///
+  /// Paged because each row carries its whole nested tree (treatment plans →
+  /// sittings, prescriptions, payments); a patient with years of migrated
+  /// history would otherwise pull all of it on open.
+  Future<List<VisitDetail>> getHistory(
+    String patientId, {
+    int offset = 0,
+    int limit = historyPageSize,
+  }) async {
     final data = await _client
         .from('visits')
         .select(_nestedSelect)
         .eq('patient_id', patientId)
         .eq('status', 'complete')
-        .order('visit_date', ascending: false);
+        .order('visit_date', ascending: false)
+        .range(offset, offset + limit - 1);
     return (data as List)
         .map((e) => VisitDetail.fromJson(e as Map<String, dynamic>))
         .toList();
   }
+
+  /// Completed visits fetched per page by [getHistory].
+  static const historyPageSize = 10;
 
   Future<VisitDetail?> getById(String visitId) async {
     final data = await _client
@@ -87,17 +100,25 @@ class VisitDetailRepository {
 
   // ── Doctor lookup ─────────────────────────────────────────────────────
 
+  // Cached per auth uid: three screens resolve this on open, and it never
+  // changes for a given session.
+  static String? _doctorIdUid;
+  static String? _doctorIdValue;
+
   /// Returns the doctor row ID for the currently authenticated user.
   /// Returns null if the user is not a doctor or not logged in.
   Future<String?> getDoctorIdForCurrentUser() async {
     final uid = _client.auth.currentUser?.id;
     if (uid == null) return null;
+    if (_doctorIdUid == uid) return _doctorIdValue;
     final row = await _client
         .from('doctors')
         .select('id')
         .eq('auth_user_id', uid)
         .maybeSingle();
-    return row?['id'] as String?;
+    _doctorIdUid = uid;
+    _doctorIdValue = row?['id'] as String?;
+    return _doctorIdValue;
   }
 
   // ── Visit mutations ───────────────────────────────────────────────────

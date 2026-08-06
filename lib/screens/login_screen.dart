@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/auth_service.dart';
-import '../theme/app_theme.dart';
+import '../theme/patient_portal_theme.dart';
 import '../widgets/login_form_section.dart';
 import '../services/app_role_service.dart';
 import '../widgets/patient_portal_logo.dart';
 import '../widgets/role_aware_shell.dart';
+import '../widgets/ui_kit.dart';
+import '../theme/app_tokens.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -30,7 +31,7 @@ class _LoginScreenState extends State<LoginScreen> {
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
+        statusBarIconBrightness: Brightness.dark,
       ),
     );
     // Listen for auth state changes (e.g. OAuth redirect coming back)
@@ -71,11 +72,15 @@ class _LoginScreenState extends State<LoginScreen> {
     final password = _passwordController.text;
 
     setState(() => _isLoading = true);
-    
+
     try {
-      final dummyEmail = '$input@prodontics.local';
-      await AuthService.signInWithEmail(email: dummyEmail, password: password);
-      
+      // Bare usernames get the clinic domain; a full address is passed through.
+      // Appending unconditionally made every account whose auth email uses
+      // another domain impossible to reach from this screen.
+      final email =
+          input.contains('@') ? input : '$input@prodontics.local';
+      await AuthService.signInWithEmail(email: email, password: password);
+
       await AppRoleService.setRole(_selectedRole);
       if (!mounted) return;
       _navigateToShell();
@@ -90,12 +95,11 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),
-        backgroundColor: Colors.red.shade600,
+        backgroundColor: AppTokens.danger,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -103,135 +107,188 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isPatient = _selectedRole == AppRole.patient;
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: Column(
-        children: [
-          _BlueHeader(isPatientPortal: _selectedRole == AppRole.patient),
-          Expanded(
+      backgroundColor: Colors.transparent,
+      resizeToAvoidBottomInset: true,
+      body: AppGradientBackground(
+        child: SafeArea(
+          child: Align(
+            alignment: const Alignment(0, -0.45),
             child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(28, 16, 28, 0),
-                    child: SegmentedButton<AppRole>(
-                      segments: const [
-                        ButtonSegment<AppRole>(
-                          value: AppRole.staff,
-                          label: Text('Staff'),
-                          icon: Icon(Icons.medical_services_outlined, size: 18),
-                        ),
-                        ButtonSegment<AppRole>(
-                          value: AppRole.patient,
-                          label: Text('Patient'),
-                          icon: Icon(Icons.person_outline, size: 18),
-                        ),
-                      ],
-                      selected: {_selectedRole},
-                      onSelectionChanged: (s) {
-                        _formKey.currentState?.reset();
-                        setState(() => _selectedRole = s.first);
-                      },
+                  const AnimatedEntrance(child: _LogoBlock()),
+                  const SizedBox(height: AppTokens.s32),
+                  AnimatedEntrance(
+                    index: 1,
+                    child: Container(
+                      decoration: PatientPortalTheme.glassDecoration(context),
+                      padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              Text('Welcome ',
+                                  style:
+                                      PatientPortalTheme.displayLarge(context)),
+                              Text(
+                                'back',
+                                style: PatientPortalTheme.displayLarge(context)
+                                    .copyWith(color: AppTokens.accent),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: AppTokens.s8),
+                          Text(
+                            isPatient
+                                ? 'Sign in to your patient portal'
+                                : 'Sign in to your clinic workspace',
+                            style: PatientPortalTheme.body(context),
+                          ),
+                          const SizedBox(height: AppTokens.s24),
+                          _RoleToggle(
+                            selected: _selectedRole,
+                            onChanged: (r) {
+                              _formKey.currentState?.reset();
+                              setState(() => _selectedRole = r);
+                            },
+                          ),
+                          const SizedBox(height: AppTokens.s24),
+                          LoginFormSection(
+                            formKey: _formKey,
+                            emailController: _emailController,
+                            passwordController: _passwordController,
+                            onSignIn: _onSignIn,
+                            isLoading: _isLoading,
+                            isPatientPortal: isPatient,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  LoginFormSection(
-                    formKey: _formKey,
-                    emailController: _emailController,
-                    passwordController: _passwordController,
-                    onSignIn: _onSignIn,
-                    isLoading: _isLoading,
-                    isPatientPortal: _selectedRole == AppRole.patient,
                   ),
                 ],
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BlueHeader extends StatelessWidget {
-  const _BlueHeader({this.isPatientPortal = false});
-  final bool isPatientPortal;
-
-  @override
-  Widget build(BuildContext context) {
-    final topPadding = MediaQuery.paddingOf(context).top;
-    return ClipPath(
-      clipper: _ArchClipper(),
-      child: Container(
-        width: double.infinity,
-        color: AppTheme.primaryColor,
-        padding: EdgeInsets.only(top: topPadding + 32, bottom: 64),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 72,
-              height: 72,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.18),
-                    blurRadius: 16,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: const Center(
-                child: ClipOval(
-                  child: PatientPortalLogo(height: 50, width: 50),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              'Prodontics',
-              style: GoogleFonts.poppins(
-                fontSize: 26,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-                letterSpacing: 0.4,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              'Kokapet',
-              style: GoogleFonts.poppins(
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                color: Colors.white70,
-                letterSpacing: 1.2,
-              ),
-            ),
-          ],
         ),
       ),
     );
   }
 }
 
-class _ArchClipper extends CustomClipper<Path> {
-  @override
-  Path getClip(Size size) {
-    final path = Path()
-      ..lineTo(0, size.height - 40)
-      ..quadraticBezierTo(
-        size.width * 0.5,
-        size.height + 32,
-        size.width,
-        size.height - 40,
-      )
-      ..lineTo(size.width, 0)
-      ..close();
-    return path;
-  }
+/// Logo badge + wordmark above the card.
+class _LogoBlock extends StatelessWidget {
+  const _LogoBlock();
 
   @override
-  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 88,
+          height: 88,
+          decoration: BoxDecoration(
+            color: AppTokens.surface,
+            shape: BoxShape.circle,
+            border: Border.all(color: AppTokens.hairline),
+            boxShadow: AppTokens.shadowMd,
+          ),
+          child: const Center(
+            child: ClipOval(child: PatientPortalLogo(height: 58, width: 58)),
+          ),
+        ),
+        const SizedBox(height: AppTokens.s20),
+        Text(
+          'Prodontics',
+          style: PatientPortalTheme.displayLarge(context),
+        ),
+        const SizedBox(height: AppTokens.s4),
+        Text(
+          'KOKAPET',
+          style: PatientPortalTheme.label(context).copyWith(
+            letterSpacing: 3.2,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: AppTokens.muted,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Sleek pill segmented control for Staff / Patient.
+class _RoleToggle extends StatelessWidget {
+  const _RoleToggle({required this.selected, required this.onChanged});
+
+  final AppRole selected;
+  final ValueChanged<AppRole> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: const BoxDecoration(
+        color: AppTokens.subtle,
+        borderRadius: AppTokens.brLg,
+      ),
+      child: Row(
+        children: [
+          _segment('Staff', AppRole.staff, Icons.medical_services_rounded),
+          _segment('Patient', AppRole.patient, Icons.person_rounded),
+        ],
+      ),
+    );
+  }
+
+  Widget _segment(String label, AppRole role, IconData icon) {
+    return Expanded(
+      child: Builder(
+        builder: (context) {
+          final active = selected == role;
+          return GestureDetector(
+            onTap: () => onChanged(role),
+            // Raised white pill on a recessed track — the segmented-control
+            // idiom. A solid blue fill here would compete with the sign-in CTA
+            // directly below it.
+            child: AnimatedContainer(
+              duration: AppTokens.medium,
+              curve: AppTokens.ease,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: active ? AppTokens.surface : null,
+                borderRadius: AppTokens.brMd,
+                boxShadow: active ? AppTokens.shadowSm : null,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    icon,
+                    size: 18,
+                    color: active ? AppTokens.accent : AppTokens.muted,
+                  ),
+                  const SizedBox(width: AppTokens.s8),
+                  Text(
+                    label,
+                    style: PatientPortalTheme.titleMedium(context).copyWith(
+                      fontSize: 14,
+                      color: active ? AppTokens.ink : AppTokens.muted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
 }

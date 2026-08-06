@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/app_tokens.dart';
 
 /// Reusable password input field for login with visibility toggle.
 class LoginPasswordField extends StatefulWidget {
@@ -33,11 +34,11 @@ class _LoginPasswordFieldState extends State<LoginPasswordField> {
       decoration: InputDecoration(
         labelText: 'Password',
         hintText: 'Enter your password',
-        prefixIcon: Icon(Icons.lock_outline, color: Colors.grey.shade600),
+        prefixIcon: Icon(Icons.lock_outline, color: AppTokens.body),
         suffixIcon: IconButton(
           icon: Icon(
             _obscureText ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-            color: Colors.grey.shade600,
+            color: AppTokens.body,
           ),
           onPressed: () => setState(() => _obscureText = !_obscureText),
         ),

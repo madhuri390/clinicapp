@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/pdf_generator_service.dart';
 import '../theme/app_theme.dart';
+import '../theme/app_tokens.dart';
 
 /// Mock medicine item in a prescription.
 class _Medicine {
@@ -96,7 +97,7 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
               Center(
                 child: Container(
                   width: 40, height: 4,
-                  decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                  decoration: BoxDecoration(color: AppTokens.hairline, borderRadius: BorderRadius.circular(2)),
                 ),
               ),
               const SizedBox(height: 16),
@@ -192,12 +193,12 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text(
           'Prescription',
           style: TextStyle(
-            color: Colors.black87,
+            color: AppTokens.ink,
             fontWeight: FontWeight.w600,
             fontSize: 20,
           ),
@@ -206,7 +207,7 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
         elevation: 0,
         scrolledUnderElevation: 1,
         centerTitle: false,
-        iconTheme: IconThemeData(color: Colors.grey.shade700),
+        iconTheme: IconThemeData(color: AppTokens.body),
       ),
       body: Column(
         children: [
@@ -247,7 +248,7 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
           ),
           Material(
             elevation: 8,
-            color: Colors.grey.shade50,
+            color: AppTokens.subtle,
             child: SafeArea(
               top: false,
               child: Padding(
@@ -261,7 +262,7 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> {
                     side: const BorderSide(color: AppTheme.primaryColor),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(14),
                     ),
                   ),
                 ),
@@ -284,7 +285,7 @@ class _SectionHeader extends StatelessWidget {
     return Text(
       title,
       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-            color: Colors.black87,
+            color: AppTokens.ink,
             fontWeight: FontWeight.w600,
           ),
     );
@@ -298,7 +299,7 @@ class _EmptyMedicinesCard extends StatelessWidget {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -311,7 +312,7 @@ class _EmptyMedicinesCard extends StatelessWidget {
         child: Text(
           'No medicines added yet. Use the form below to add.',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.black54,
+                color: AppTokens.body,
               ),
         ),
       ),
@@ -331,7 +332,7 @@ class _MedicineCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.06),
@@ -350,7 +351,7 @@ class _MedicineCard extends StatelessWidget {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: AppTheme.primaryColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
                   Icons.medication_outlined,
@@ -369,13 +370,13 @@ class _MedicineCard extends StatelessWidget {
                           child: Text(
                             medicine.name,
                             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                  color: Colors.black87,
+                                  color: AppTokens.ink,
                                   fontWeight: FontWeight.w600,
                                 ),
                           ),
                         ),
                         IconButton(
-                          icon: Icon(Icons.edit_outlined, size: 18, color: Colors.grey.shade500),
+                          icon: Icon(Icons.edit_outlined, size: 18, color: AppTokens.muted),
                           onPressed: onEdit,
                           constraints: const BoxConstraints(),
                           padding: EdgeInsets.zero,
@@ -411,13 +412,13 @@ class _DetailRow extends StatelessWidget {
       child: RichText(
         text: TextSpan(
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.black87,
+                color: AppTokens.ink,
               ),
           children: [
             TextSpan(
               text: '$label: ',
               style: TextStyle(
-                color: Colors.grey.shade700,
+                color: AppTokens.body,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -452,7 +453,7 @@ class _AddMedicineFormCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.06),
