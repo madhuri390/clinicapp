@@ -29,6 +29,7 @@ class NewConsultationSheet extends StatefulWidget {
 class _NewConsultationSheetState extends State<NewConsultationSheet> {
   final _complaintCtrl = TextEditingController();
   final _diagnosisCtrl = TextEditingController();
+  final _advisedCtrl   = TextEditingController();
   final _notesCtrl     = TextEditingController();
   DateTime _visitDate  = DateTime.now();
   bool _saving         = false;
@@ -41,6 +42,7 @@ class _NewConsultationSheetState extends State<NewConsultationSheet> {
     if (e != null) {
       _complaintCtrl.text = e.chiefComplaint ?? '';
       _diagnosisCtrl.text = e.diagnosis ?? '';
+      _advisedCtrl.text   = e.treatmentAdvised ?? '';
       _notesCtrl.text     = e.notes ?? '';
       _visitDate          = e.visitDate;
     }
@@ -50,6 +52,7 @@ class _NewConsultationSheetState extends State<NewConsultationSheet> {
   void dispose() {
     _complaintCtrl.dispose();
     _diagnosisCtrl.dispose();
+    _advisedCtrl.dispose();
     _notesCtrl.dispose();
     super.dispose();
   }
@@ -74,6 +77,9 @@ class _NewConsultationSheetState extends State<NewConsultationSheet> {
       diagnosis: _diagnosisCtrl.text.trim().isEmpty
           ? null
           : _diagnosisCtrl.text.trim(),
+      treatmentAdvised: _advisedCtrl.text.trim().isEmpty
+          ? null
+          : _advisedCtrl.text.trim(),
       notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
       nextVisitDate: widget.existingVisit?.nextVisitDate,
       createdAt: widget.existingVisit?.createdAt,
@@ -140,6 +146,11 @@ class _NewConsultationSheetState extends State<NewConsultationSheet> {
               _ModalInput(
                 controller: _diagnosisCtrl,
                 placeholder: 'Diagnosis (optional)',
+              ),
+              _ModalInput(
+                controller: _advisedCtrl,
+                placeholder: 'Treatment advised / planned (optional)',
+                maxLines: 2,
               ),
               _ModalInput(
                 controller: _notesCtrl,

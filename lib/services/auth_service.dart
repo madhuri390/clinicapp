@@ -4,6 +4,20 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+/// Thrown when an admin call targets an auth user that no longer exists.
+///
+/// `patients.auth_user_id` is only a pointer, and the data migration filled it
+/// with each patient's own row id — pointing at accounts that were never
+/// created. Callers must be able to tell "this pointer is stale" apart from a
+/// real failure, so they can repair the row instead of aborting the save.
+class AuthUserNotFoundException implements Exception {
+  const AuthUserNotFoundException(this.userId);
+  final String userId;
+
+  @override
+  String toString() => 'Auth user $userId does not exist';
+}
+
 /// Single source of truth for all authentication operations.
 class AuthService {
   static final _client = Supabase.instance.client;
@@ -222,6 +236,12 @@ class AuthService {
 
     print('[AuthService] adminUpdateUser: Response Status: ${response.statusCode}');
     print('[AuthService] adminUpdateUser: Response Body: ${response.body}');
+
+    if (response.statusCode == 404 ||
+        response.body.contains('user_not_found')) {
+      print('[AuthService] adminUpdateUser: user $userId not found (stale link)');
+      throw AuthUserNotFoundException(userId);
+    }
 
     if (response.statusCode != 200 && response.statusCode != 201) {
       final msg = _authErrorMessage(response.body);

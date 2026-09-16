@@ -90,7 +90,49 @@ class PatientRepository {
         .order('created_at', ascending: false)
         .range(offset, offset + limit - 1);
     debugPrint('[PatientRepo] ← patients rows=${data.length}');
-    return data.map(Patient.fromJson).toList();
+    final patients = data.map(Patient.fromJson).toList();
+
+    final advised = await _latestTreatmentAdvised(
+      patients.map((p) => p.id).toList(),
+    );
+    return [
+      for (final p in patients) p.withLatestTreatmentAdvised(advised[p.id]),
+    ];
+  }
+
+  /// Most recent non-empty `visits.treatment_advised` per patient, for the
+  /// patient list column.
+  ///
+  /// One extra query per page rather than one per patient: the page is at most
+  /// [pageSize] rows, and rows arrive newest-first so the first hit for a
+  /// patient is their latest.
+  Future<Map<String, String>> _latestTreatmentAdvised(
+    List<String> patientIds,
+  ) async {
+    if (patientIds.isEmpty) return const {};
+    try {
+      final rows = await _supabase
+          .from('visits')
+          .select('patient_id, treatment_advised, visit_date')
+          .inFilter('patient_id', patientIds)
+          .not('treatment_advised', 'is', null)
+          .order('visit_date', ascending: false);
+
+      final out = <String, String>{};
+      for (final r in rows) {
+        final id = r['patient_id'] as String?;
+        final advised = (r['treatment_advised'] as String?)?.trim();
+        if (id == null || advised == null || advised.isEmpty) continue;
+        out.putIfAbsent(id, () => advised);
+      }
+      debugPrint('[PatientRepo] advised for ${out.length}/${patientIds.length}');
+      return out;
+    } catch (e) {
+      // The column ships in a migration that may not have been applied yet;
+      // the patient list is more important than this one line of it.
+      debugPrint('[PatientRepo] treatment_advised lookup skipped: $e');
+      return const {};
+    }
   }
 
   /// Patients [doctorId] must not see: they have visit history, but none of it

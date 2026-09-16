@@ -15,9 +15,23 @@ class VisitDetailRepository {
 
   // ── Nested select (single round-trip, no N+1) ─────────────────────────
 
-  static const _nestedSelect = '''
+  /// Whether `visits.treatment_advised` exists yet.
+  ///
+  /// The column arrives in supabase_add_treatment_advised.sql. If the app is
+  /// deployed before that migration runs, selecting it would 400 and take the
+  /// Ongoing and History tabs down with it — so the first such failure flips
+  /// this flag and the query is retried without the column. A clinic losing
+  /// the visit tabs is far worse than losing one line of one of them.
+  static bool _hasTreatmentAdvised = true;
+
+  /// Whether `visits.receipt_number` exists yet.
+  /// Same guarded-retry story as [_hasTreatmentAdvised]: added in
+  /// supabase_add_receipt_number.sql, which may not have run yet everywhere.
+  static bool _hasReceiptNumber = true;
+
+  static String get _nestedSelect => '''
     id, patient_id, doctor_id, visit_date, chief_complaint,
-    diagnosis, notes, next_visit_date, status, created_at,
+    diagnosis,${_hasTreatmentAdvised ? ' treatment_advised,' : ''} notes, next_visit_date, status, created_at,${_hasReceiptNumber ? ' receipt_number,' : ''}
     doctors ( id, first_name, last_name ),
     patients ( id, first_name, last_name ),
     treatment_plans (
@@ -38,26 +52,44 @@ class VisitDetailRepository {
     )
   ''';
 
+  /// Runs a nested-select query, retrying once without `treatment_advised` if
+  /// the column is not in the database yet.
+  Future<T> _nested<T>(Future<T> Function(String select) run) async {
+    try {
+      return await run(_nestedSelect);
+    } on PostgrestException catch (e) {
+      if (e.code != '42703') rethrow;
+      if (_hasTreatmentAdvised && e.message.contains('treatment_advised')) {
+        _hasTreatmentAdvised = false;
+      } else if (_hasReceiptNumber && e.message.contains('receipt_number')) {
+        _hasReceiptNumber = false;
+      } else {
+        rethrow;
+      }
+      return run(_nestedSelect);
+    }
+  }
+
   // ── Reads ─────────────────────────────────────────────────────────────
 
   Future<List<VisitDetail>> getOngoing(String patientId) async {
-    final data = await _client
+    final data = await _nested((sel) => _client
         .from('visits')
-        .select(_nestedSelect)
+        .select(sel)
         .eq('patient_id', patientId)
         .eq('status', 'ongoing')
-        .order('visit_date', ascending: false);
+        .order('visit_date', ascending: false));
     return (data as List)
         .map((e) => VisitDetail.fromJson(e as Map<String, dynamic>))
         .toList();
   }
 
   Future<List<VisitDetail>> getAllOngoing() async {
-    final data = await _client
+    final data = await _nested((sel) => _client
         .from('visits')
-        .select(_nestedSelect)
+        .select(sel)
         .eq('status', 'ongoing')
-        .order('visit_date', ascending: false);
+        .order('visit_date', ascending: false));
     return (data as List)
         .map((e) => VisitDetail.fromJson(e as Map<String, dynamic>))
         .toList();
@@ -73,13 +105,13 @@ class VisitDetailRepository {
     int offset = 0,
     int limit = historyPageSize,
   }) async {
-    final data = await _client
+    final data = await _nested((sel) => _client
         .from('visits')
-        .select(_nestedSelect)
+        .select(sel)
         .eq('patient_id', patientId)
         .eq('status', 'complete')
         .order('visit_date', ascending: false)
-        .range(offset, offset + limit - 1);
+        .range(offset, offset + limit - 1));
     return (data as List)
         .map((e) => VisitDetail.fromJson(e as Map<String, dynamic>))
         .toList();
@@ -89,11 +121,11 @@ class VisitDetailRepository {
   static const historyPageSize = 10;
 
   Future<VisitDetail?> getById(String visitId) async {
-    final data = await _client
+    final data = await _nested((sel) => _client
         .from('visits')
-        .select(_nestedSelect)
+        .select(sel)
         .eq('id', visitId)
-        .maybeSingle();
+        .maybeSingle());
     if (data == null) return null;
     return VisitDetail.fromJson(data);
   }
@@ -135,8 +167,10 @@ class VisitDetailRepository {
   Future<void> updateVisit(String visitId, Map<String, dynamic> changes) =>
       _client.from('visits').update(changes).eq('id', visitId);
 
-  Future<void> completeVisit(String visitId) =>
-      updateVisit(visitId, {'status': 'complete'});
+  Future<void> completeVisit(String visitId) async {
+    await updateVisit(visitId, {'status': 'complete'});
+    await _maybeAssignReceiptNumber(visitId);
+  }
 
   Future<void> deleteVisit(String visitId) =>
       _client.from('visits').delete().eq('id', visitId);
@@ -212,5 +246,47 @@ class VisitDetailRepository {
         .select()
         .single();
     return Payment.fromJson(result);
+  }
+
+  /// Stamps `visits.receipt_number` when a visit is marked complete.
+  /// Assigned once — a visit that already has a number is left alone, so
+  /// reprinting a bill never changes it. The UI only allows completing a
+  /// visit once its balance is 0, so no balance check is needed here.
+  Future<void> _maybeAssignReceiptNumber(String visitId) async {
+    if (!_hasReceiptNumber) return;
+    try {
+      final visitRow = await _client
+          .from('visits')
+          .select('receipt_number')
+          .eq('id', visitId)
+          .single();
+      if (visitRow['receipt_number'] != null) return;
+
+      await _client
+          .from('visits')
+          .update({'receipt_number': await _nextReceiptNumber()})
+          .eq('id', visitId);
+    } on PostgrestException catch (e) {
+      if (e.code == '42703' && e.message.contains('receipt_number')) {
+        _hasReceiptNumber = false;
+        return;
+      }
+      rethrow;
+    }
+  }
+
+  /// Next `YYYYMMDD-NN` number for today, NN being how many visits have
+  /// already been stamped for the same day.
+  Future<String> _nextReceiptNumber() async {
+    final now = DateTime.now();
+    final datePart = '${now.year.toString().padLeft(4, '0')}'
+        '${now.month.toString().padLeft(2, '0')}'
+        '${now.day.toString().padLeft(2, '0')}';
+    final existing = await _client
+        .from('visits')
+        .select('id')
+        .like('receipt_number', '$datePart-%');
+    final seq = ((existing as List).length + 1).toString().padLeft(2, '0');
+    return '$datePart-$seq';
   }
 }

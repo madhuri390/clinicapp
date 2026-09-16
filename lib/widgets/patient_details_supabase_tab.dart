@@ -2041,6 +2041,7 @@ class _BillDialog extends StatelessWidget {
                             totalAmount: grandTotal,
                             paidAmount: paid,
                             balance: balance,
+                            receiptNumber: detail.visit.receiptNumber,
                           );
                         },
                       ),

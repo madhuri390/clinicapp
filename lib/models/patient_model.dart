@@ -15,6 +15,7 @@ class Patient {
     /// Same as [id] when this row is the logged-in auth user (patient portal).
     this.authUserId,
     this.username,
+    this.latestTreatmentAdvised,
   });
 
   final String id;
@@ -34,6 +35,31 @@ class Patient {
   final String? authUserId;
 
   final String? username;
+
+  /// Treatment advised at this patient's most recent visit that recorded one.
+  ///
+  /// Not a `patients` column — [PatientRepository] fills it in for list rows so
+  /// the patient list can show it without opening each record. Never written
+  /// back: [toInsertJson] deliberately omits it.
+  final String? latestTreatmentAdvised;
+
+  Patient withLatestTreatmentAdvised(String? advised) => Patient(
+    id: id,
+    firstName: firstName,
+    lastName: lastName,
+    phone: phone,
+    email: email,
+    gender: gender,
+    dateOfBirth: dateOfBirth,
+    bloodGroup: bloodGroup,
+    address: address,
+    medicalHistory: medicalHistory,
+    dentalHistory: dentalHistory,
+    createdAt: createdAt,
+    authUserId: authUserId,
+    username: username,
+    latestTreatmentAdvised: advised,
+  );
 
   String get fullName =>
       [firstName, lastName].where((s) => s != null && s.isNotEmpty).join(' ');

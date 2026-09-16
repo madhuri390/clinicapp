@@ -6,10 +6,12 @@ class Visit {
     required this.visitDate,
     this.chiefComplaint,
     this.diagnosis,
+    this.treatmentAdvised,
     this.notes,
     this.nextVisitDate,
     this.status = 'ongoing',
     this.createdAt,
+    this.receiptNumber,
   });
 
   final String id;
@@ -18,10 +20,18 @@ class Visit {
   final DateTime visitDate;
   final String? chiefComplaint;
   final String? diagnosis;
+
+  /// What the doctor recommended during this consultation, in their own words.
+  /// Separate from the costed [TreatmentPlan] rows added afterwards.
+  final String? treatmentAdvised;
   final String? notes;
   final DateTime? nextVisitDate;
   final String status;
   final DateTime? createdAt;
+
+  /// Bill/receipt number, assigned once the visit is marked complete.
+  /// Format YYYYMMDD-NN. Null until then.
+  final String? receiptNumber;
 
   factory Visit.fromJson(Map<String, dynamic> json) => Visit(
     id: json['id'] as String,
@@ -30,6 +40,7 @@ class Visit {
     visitDate: DateTime.parse(json['visit_date'] as String),
     chiefComplaint: json['chief_complaint'] as String?,
     diagnosis: json['diagnosis'] as String?,
+    treatmentAdvised: json['treatment_advised'] as String?,
     notes: json['notes'] as String?,
     nextVisitDate: json['next_visit_date'] == null
         ? null
@@ -38,6 +49,7 @@ class Visit {
     createdAt: json['created_at'] == null
         ? null
         : DateTime.tryParse(json['created_at'] as String),
+    receiptNumber: json['receipt_number'] as String?,
   );
 
   Map<String, dynamic> toInsertJson() => {
@@ -46,6 +58,7 @@ class Visit {
     'visit_date': visitDate.toIso8601String(),
     if (chiefComplaint != null) 'chief_complaint': chiefComplaint,
     if (diagnosis != null) 'diagnosis': diagnosis,
+    if (treatmentAdvised != null) 'treatment_advised': treatmentAdvised,
     if (notes != null) 'notes': notes,
     if (nextVisitDate != null)
       'next_visit_date': nextVisitDate!.toIso8601String(),
@@ -56,6 +69,7 @@ class Visit {
     'visit_date': visitDate.toIso8601String(),
     'chief_complaint': chiefComplaint,
     'diagnosis': diagnosis,
+    'treatment_advised': treatmentAdvised,
     'notes': notes,
     'next_visit_date': nextVisitDate?.toIso8601String(),
     'status': status,
@@ -68,6 +82,7 @@ class Visit {
     DateTime? visitDate,
     String? chiefComplaint,
     String? diagnosis,
+    String? treatmentAdvised,
     String? notes,
     DateTime? nextVisitDate,
     String? status,
@@ -80,6 +95,7 @@ class Visit {
       visitDate: visitDate ?? this.visitDate,
       chiefComplaint: chiefComplaint ?? this.chiefComplaint,
       diagnosis: diagnosis ?? this.diagnosis,
+      treatmentAdvised: treatmentAdvised ?? this.treatmentAdvised,
       notes: notes ?? this.notes,
       nextVisitDate: nextVisitDate ?? this.nextVisitDate,
       status: status ?? this.status,

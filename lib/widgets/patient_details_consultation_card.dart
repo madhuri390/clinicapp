@@ -169,6 +169,52 @@ class ConsultationCard extends StatelessWidget {
                     ],
                   ),
                 ),
+                // Treatment advised at consultation time — shown here rather
+                // than only inside the treatment accordions so it is legible
+                // without expanding the visit.
+                if ((visit.treatmentAdvised ?? '').trim().isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTokens.subtle,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppTokens.hairline),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.assignment_outlined,
+                              size: 13,
+                              color: AppTokens.muted,
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              'Treatment advised / planned',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: AppTokens.muted,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          visit.treatmentAdvised!.trim(),
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 14,
+                            color: AppTokens.ink,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

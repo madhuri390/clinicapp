@@ -453,6 +453,31 @@ class _PatientTile extends StatelessWidget {
                             ),
                         ],
                       ),
+                      // Latest treatment advised, so staff can see what a
+                      // patient is due for without opening the record.
+                      if ((patient.latestTreatmentAdvised ?? '').isNotEmpty) ...[
+                        const SizedBox(height: 5),
+                        Row(
+                          children: [
+                            const Icon(Icons.assignment_outlined,
+                                size: 13,
+                                color: PatientPortalTheme.textSecondary),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                patient.latestTreatmentAdvised!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: PatientPortalTheme.body(context)
+                                    .copyWith(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ],
                   ),
                 ),

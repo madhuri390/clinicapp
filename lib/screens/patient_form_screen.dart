@@ -45,7 +45,19 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
   bool _saving = false;
   AutovalidateMode _autovalidateMode = AutovalidateMode.disabled;
 
+  /// Whether this patient should have a portal login.
+  ///
+  /// Off by default: a clinic needs a *record* for everyone who walks in, and a
+  /// *login* only for the few who use the portal. Welding the two together is
+  /// what made a name correction impossible and blocked two family members from
+  /// sharing one phone number.
+  bool _portalEnabled = false;
+
   bool get _isEditing => widget.initialPatient != null;
+
+  /// Whether this patient already has a portal login to update, as opposed to
+  /// one that still has to be created. Drives whether the password is required.
+  bool get _hasExistingLogin => widget.initialPatient?.authUserId != null;
 
   final _repo = PatientRepository();
 
@@ -65,6 +77,7 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
       _gender = p.gender;
       _dateOfBirth = p.dateOfBirth;
       _bloodGroup = p.bloodGroup;
+      _portalEnabled = p.authUserId != null;
 
       if (p.medicalHistory != null && p.medicalHistory!.isNotEmpty) {
         _medicalConditions = p.medicalHistory!
@@ -135,50 +148,22 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
     }
     setState(() => _saving = true);
 
+    final username = _usernameController.text.trim();
+    final email = _emailController.text.trim();
+    final phone = _phoneController.text.trim();
+    final password = _passwordController.text;
+
     try {
-      String patientId = _isEditing ? widget.initialPatient!.id : '';
-      String? authUserId = _isEditing ? widget.initialPatient!.authUserId : null;
-
-      final username = _usernameController.text.trim();
-      final email = _emailController.text.trim();
-      final phone = _phoneController.text.trim();
-      final password = _passwordController.text;
-
-      final authEmail = email.isNotEmpty ? email : '$username@prodontics.local';
-
-      // ── Step 1: Handle Auth (Create or Update) ───────────────────────────
-      // We do this BEFORE the SQL update so that if email is taken, 
-      // we don't save inconsistent data to our patients table.
-      
-      if (!_isEditing || authUserId == null) {
-        // CASE A: NEW PATIENT OR UPGRADING EXISTING PATIENT TO PORTAL
-        // Create the auth user first
-        final newAuthId = await AuthService.adminCreateUser(
-          email: authEmail,
-          phone: phone.isNotEmpty ? phone : null,
-          password: password,
-        );
-        authUserId = newAuthId;
-        // If it was a new patient, the SQL ID will also be this.
-        // If it was an edit of an existing patient who lacked an ID, 
-        // we keep the patientId as is but update the authUserId field.
-        if (!_isEditing) {
-          patientId = newAuthId;
-        }
-      } else {
-        // CASE B: UPDATING EXISTING PATIENT WHO ALREADY HAS AUTH
-        await AuthService.adminUpdateUser(
-          userId: authUserId,
-          email: authEmail,
-          phone: phone.isNotEmpty ? phone : null,
-          password: password.isEmpty ? null : password,
-        );
-      }
-
-      // ── Step 2: Build and Save SQL Record ─────────────────────────────────
+      // ── Step 1: Save the patient record ────────────────────────────────
+      //
+      // This runs FIRST and on its own. A name correction is a change to a
+      // dental record; it must never be gated on an identity provider being
+      // reachable or its pointer being valid. The previous order called Auth
+      // first, so a stale auth_user_id (404) threw before the record was ever
+      // written and the edit was silently lost.
       final patient = Patient(
-        id: patientId,
-        username: username,
+        id: _isEditing ? widget.initialPatient!.id : '',
+        username: _portalEnabled && username.isNotEmpty ? username : null,
         firstName: _firstNameController.text.trim(),
         lastName: _lastNameController.text.trim().isEmpty
             ? null
@@ -198,36 +183,88 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
             ? null
             : _dentalHistoryController.text.trim(),
         createdAt: _isEditing ? widget.initialPatient!.createdAt : null,
-        authUserId: authUserId,
+        authUserId: _isEditing ? widget.initialPatient!.authUserId : null,
       );
 
-      if (_isEditing) {
-        await _repo.update(widget.initialPatient!.id, patient.toUpdateJson());
-      } else {
-        // Use upsert for new patients so ID matches Auth
-        await _repo.upsert(patient);
+      final saved = _isEditing
+          ? await _repo.update(widget.initialPatient!.id, patient.toUpdateJson())
+          : await _repo.create(patient);
+
+      // ── Step 2: Portal login, only if asked for ────────────────────────
+      //
+      // Everything below is optional. If it fails the record is already safe,
+      // so we report the credential problem without losing the demographics.
+      String? portalWarning;
+      if (_portalEnabled) {
+        final authEmail =
+            email.isNotEmpty ? email : '$username@prodontics.local';
+        try {
+          final existingAuthId = saved.authUserId;
+          var linkedId = existingAuthId;
+
+          if (existingAuthId != null) {
+            try {
+              await AuthService.adminUpdateUser(
+                userId: existingAuthId,
+                email: authEmail,
+                password: password.isEmpty ? null : password,
+              );
+            } on AuthUserNotFoundException {
+              // The pointer is stale — the migration wrote each patient's own
+              // row id into auth_user_id, naming accounts that never existed.
+              // Treat it as "no login yet" and mint a real one.
+              linkedId = null;
+            }
+          }
+
+          if (linkedId == null) {
+            if (password.isEmpty) {
+              portalWarning = 'Patient saved, but portal access needs a '
+                  'password. Re-open the record and set one.';
+            } else {
+              // Phone is deliberately NOT sent to Auth: auth.users enforces a
+              // unique phone, which is what stopped a second family member on
+              // a shared number. The number lives on the patients row, which
+              // has no such constraint.
+              linkedId = await AuthService.adminCreateUser(
+                email: authEmail,
+                password: password,
+              );
+            }
+          }
+
+          if (linkedId != null && linkedId != existingAuthId) {
+            await _repo.update(saved.id, {'auth_user_id': linkedId});
+          }
+        } catch (e) {
+          portalWarning = 'Patient saved, but portal login failed: '
+              '${_cleanError(e)}';
+        }
+      } else if (saved.authUserId != null) {
+        // Portal switched off: drop the link so the record stops claiming a
+        // login it does not have.
+        await _repo.update(saved.id, {'auth_user_id': null});
       }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Patient ${patient.fullName} ${_isEditing ? 'updated' : 'saved'} successfully',
+            portalWarning ??
+                'Patient ${patient.fullName} '
+                    '${_isEditing ? 'updated' : 'saved'} successfully',
           ),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: AppTheme.primaryColor,
+          backgroundColor:
+              portalWarning != null ? AppTokens.warning : AppTheme.primaryColor,
         ),
       );
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
-      String errorMsg = e.toString();
-      if (errorMsg.startsWith('Exception: ')) {
-        errorMsg = errorMsg.replaceFirst('Exception: ', '');
-      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to save: $errorMsg'),
+          content: Text('Failed to save: ${_cleanError(e)}'),
           backgroundColor: AppTokens.danger,
           behavior: SnackBarBehavior.floating,
         ),
@@ -235,6 +272,13 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  String _cleanError(Object e) {
+    final msg = e.toString();
+    return msg.startsWith('Exception: ')
+        ? msg.replaceFirst('Exception: ', '')
+        : msg;
   }
 
   @override
@@ -269,26 +313,6 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
             const _SectionHeader(
               title: 'Personal information',
               icon: Icons.person_outline_rounded,
-            ),
-            const SizedBox(height: 14),
-            TextFormField(
-              controller: _usernameController,
-              style: _fieldTextStyle(context),
-              decoration: _decoration(
-                context,
-                label: 'Username *',
-                hint: 'Enter unique username',
-                icon: Icons.account_circle_outlined,
-              ),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9._-]')),
-              ],
-              validator: (v) {
-                if (v == null || v.trim().isEmpty) {
-                  return 'Username is required';
-                }
-                return null;
-              },
             ),
             const SizedBox(height: 14),
             TextFormField(
@@ -474,51 +498,93 @@ class _PatientFormScreenState extends State<PatientFormScreen> {
               ),
             ),
             const SizedBox(height: 28),
-            _SectionHeader(
-              title: _isEditing ? 'Portal access' : 'Portal access *',
+            const _SectionHeader(
+              title: 'Portal access',
               icon: Icons.lock_outline_rounded,
-              subtitle: _isEditing
-                  ? 'Leave blank to keep the current password.'
-                  : 'Set a password so this patient can log in to the portal.',
+              subtitle: 'Optional. Only needed if this patient will sign in to '
+                  'the portal themselves.',
             ),
-            const SizedBox(height: 14),
-            TextFormField(
-              controller: _passwordController,
-              obscureText: _obscurePassword,
-              style: _fieldTextStyle(context),
-              decoration: _decoration(
-                context,
-                label: _isEditing ? 'New password' : 'Password *',
-                hint: _isEditing
-                    ? 'Enter new password to change'
-                    : 'Min. 6 characters',
-                icon: Icons.lock_outline_rounded,
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscurePassword
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
-                    color: AppTokens.muted,
-                  ),
-                  onPressed: () =>
-                      setState(() => _obscurePassword = !_obscurePassword),
-                ),
-              ),
-              validator: (v) {
-                final val = v?.trim() ?? '';
-                final currentAuthId = widget.initialPatient?.authUserId;
-                
-                // Password is required if this is a new patient OR 
-                // if it's an existing patient who doesn't have an Auth record yet.
-                if (currentAuthId == null && val.isEmpty) {
-                  return 'Password is required to create portal access';
-                }
-                if (val.isNotEmpty && val.length < 6) {
-                  return 'Password must be at least 6 characters';
-                }
-                return null;
+            const SizedBox(height: 6),
+            SwitchListTile.adaptive(
+              value: _portalEnabled,
+              onChanged: (v) {
+                setState(() => _portalEnabled = v);
+                _formKey.currentState?.validate();
               },
+              contentPadding: EdgeInsets.zero,
+              activeThumbColor: AppTheme.primaryColor,
+              title: Text(
+                'Allow this patient to log in',
+                style: _fieldTextStyle(context),
+              ),
+              subtitle: Text(
+                _portalEnabled
+                    ? 'A login will be created for this patient.'
+                    : 'No login. The patient record saves on its own.',
+                style: PatientPortalTheme.body(context).copyWith(fontSize: 12),
+              ),
             ),
+            const SizedBox(height: 8),
+            // Credentials only exist when the patient actually has a login, so
+            // they only appear — and are only required — when the switch is on.
+            if (_portalEnabled) ...[
+              TextFormField(
+                controller: _usernameController,
+                style: _fieldTextStyle(context),
+                decoration: _decoration(
+                  context,
+                  label: 'Login ID *',
+                  hint: 'What the patient types to sign in',
+                  icon: Icons.account_circle_outlined,
+                ),
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9._-]')),
+                ],
+                validator: (v) {
+                  if (!_portalEnabled) return null;
+                  if ((v ?? '').trim().isEmpty) {
+                    return 'Login ID is required for portal access';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 14),
+              TextFormField(
+                controller: _passwordController,
+                obscureText: _obscurePassword,
+                style: _fieldTextStyle(context),
+                decoration: _decoration(
+                  context,
+                  label: _hasExistingLogin ? 'New password' : 'Password *',
+                  hint: _hasExistingLogin
+                      ? 'Leave blank to keep the current password'
+                      : 'Min. 6 characters',
+                  icon: Icons.lock_outline_rounded,
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                      color: AppTokens.muted,
+                    ),
+                    onPressed: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
+                  ),
+                ),
+                validator: (v) {
+                  if (!_portalEnabled) return null;
+                  final val = v?.trim() ?? '';
+                  // Only an account that already exists can keep its password.
+                  if (!_hasExistingLogin && val.isEmpty) {
+                    return 'Password is required to create portal access';
+                  }
+                  if (val.isNotEmpty && val.length < 6) {
+                    return 'Password must be at least 6 characters';
+                  }
+                  return null;
+                },
+              ),
+            ],
             const SizedBox(height: 28),
           ],
         ),

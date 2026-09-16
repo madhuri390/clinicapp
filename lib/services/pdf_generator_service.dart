@@ -30,6 +30,7 @@ class PdfGeneratorService {
     required double totalAmount,
     required double paidAmount,
     required double balance,
+    String? receiptNumber,
   }) async {
     final pdf = pw.Document();
 
@@ -63,7 +64,13 @@ class PdfGeneratorService {
             bold: boldFont,
           ),
           pw.SizedBox(height: 12),
-          _buildInvoiceHeader(patientName, visitDate, boldFont, regularFont),
+          _buildInvoiceHeader(
+            patientName,
+            visitDate,
+            receiptNumber,
+            boldFont,
+            regularFont,
+          ),
           pw.SizedBox(height: 12),
           _buildInvoiceTable(treatments, boldFont, regularFont),
           pw.SizedBox(height: 14),
@@ -307,6 +314,7 @@ class PdfGeneratorService {
   static pw.Widget _buildInvoiceHeader(
     String patientName,
     DateTime visitDate,
+    String? receiptNumber,
     pw.Font boldFont,
     pw.Font regularFont,
   ) {
@@ -346,6 +354,13 @@ class PdfGeneratorService {
               'Date: ${DateFormat('dd MMM yyyy').format(visitDate)}',
               style: pw.TextStyle(font: regularFont, fontSize: 12),
             ),
+            if (receiptNumber != null) ...[
+              pw.SizedBox(height: 4),
+              pw.Text(
+                'Receipt No: $receiptNumber',
+                style: pw.TextStyle(font: boldFont, fontSize: 12),
+              ),
+            ],
           ],
         ),
       ],
