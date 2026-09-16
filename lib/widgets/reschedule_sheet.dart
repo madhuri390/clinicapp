@@ -95,8 +95,9 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
     for (final a in _doctorDayAppts) {
       if (a.id == widget.appointment.id) continue;
       if (a.status == AppointmentStatus.cancelled ||
-          a.status == AppointmentStatus.rescheduled)
+          a.status == AppointmentStatus.rescheduled) {
         continue;
+      }
       final parts = a.timeSlot.split(':');
       var h = int.parse(parts[0]);
       var m = int.parse(parts[1]);
@@ -134,8 +135,9 @@ class _RescheduleSheetState extends State<RescheduleSheet> {
       setState(() {
         _doctorDayAppts = day;
         _loadingSlots = false;
-        if (_newSlot != null && _bookedSlots.contains(_newSlot))
+        if (_newSlot != null && _bookedSlots.contains(_newSlot)) {
           _newSlot = null;
+        }
       });
     } catch (_) {
       if (!mounted) return;
