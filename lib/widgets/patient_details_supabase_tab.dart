@@ -104,6 +104,7 @@ class HistoryTab extends StatelessWidget {
     required this.isLoading,
     required this.onRefresh,
     this.onEditVisit,
+    this.onReopen,
     this.readOnly = false,
     this.hasMore = false,
     this.isLoadingMore = false,
@@ -116,6 +117,7 @@ class HistoryTab extends StatelessWidget {
   final bool isLoading;
   final VoidCallback onRefresh;
   final void Function(VisitDetail)? onEditVisit;
+  final VoidCallback? onReopen;
   final bool readOnly;
 
   /// Older consultations are left on the server until asked for.
@@ -152,9 +154,9 @@ class HistoryTab extends StatelessWidget {
             patientName: patientName,
             isOngoing: false,
             onRefresh: onRefresh,
+            onReopen: onReopen,
             readOnly: readOnly,
-            onEditVisit:
-                onEditVisit != null ? () => onEditVisit!(visitDetails[i]) : null,
+            onEditVisit: null,
           ),
         );
       },
@@ -208,6 +210,7 @@ class _VisitCard extends StatelessWidget {
     required this.isOngoing,
     required this.onRefresh,
     this.onComplete,
+    this.onReopen,
     this.onEditVisit,
     this.readOnly = false,
   });
@@ -217,6 +220,7 @@ class _VisitCard extends StatelessWidget {
   final bool isOngoing;
   final VoidCallback onRefresh;
   final VoidCallback? onComplete;
+  final VoidCallback? onReopen;
   final VoidCallback? onEditVisit;
   final bool readOnly;
 
@@ -248,7 +252,7 @@ class _VisitCard extends StatelessWidget {
                     'Started: ${ProfileTab.formatDate(detail.visit.visitDate)}',
                     style: GoogleFonts.plusJakartaSans(fontSize: 12, color: kRefMuted),
                   ),
-                  if (!readOnly && onEditVisit != null) ...[
+                  if (isOngoing && !readOnly && onEditVisit != null) ...[
                     const SizedBox(width: 6),
                     GestureDetector(
                       onTap: onEditVisit,
@@ -291,10 +295,12 @@ class _VisitCard extends StatelessWidget {
                 final hasVisitLevelPayment = detail.payments.any(
                   (p) => p.treatmentPlanId == null && p.sittingId == null,
                 );
+                final treatmentPaidForPlan = detail.payments
+                    .where((p) => p.treatmentPlanId == t.id && p.sittingId == null)
+                    .fold(0.0, (s, p) => s + p.amountPaid);
+                final tCost = t.totalCost ?? 0;
                 final treatmentPaid = hasVisitLevelPayment ||
-                    detail.payments.any(
-                      (p) => p.treatmentPlanId == t.id && p.sittingId == null,
-                    );
+                    (tCost > 0 && treatmentPaidForPlan >= tCost - 0.01 && treatmentPaidForPlan > 0);
                 return _TreatmentSection(
                   treatment: t,
                   sittings: detail.sittingsForTreatment(t.id),
@@ -303,7 +309,7 @@ class _VisitCard extends StatelessWidget {
                   isPaid: treatmentPaid,
                   repo: repo,
                   onRefresh: onRefresh,
-                  readOnly: readOnly,
+                  readOnly: readOnly || !isOngoing,
                 );
               },
             ),
@@ -365,10 +371,22 @@ class _VisitCard extends StatelessWidget {
                       label: 'Complete Treatment',
                       onTap: () => _onComplete(context, repo),
                     )
-                  : _BtnPrimarySm(
-                      icon: Icons.receipt_long_outlined,
-                      label: 'View Bill',
-                      onTap: () => _showBill(context),
+                  : Wrap(
+                      alignment: WrapAlignment.end,
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _BtnOutlineSm(
+                          icon: Icons.replay_rounded,
+                          label: 'Move to Ongoing',
+                          onTap: () => _onReopen(context, repo),
+                        ),
+                        _BtnPrimarySm(
+                          icon: Icons.receipt_long_outlined,
+                          label: 'View Bill',
+                          onTap: () => _showBill(context),
+                        ),
+                      ],
                     ),
             ),
           ],
@@ -567,6 +585,65 @@ class _VisitCard extends StatelessWidget {
     }
   }
 
+  Future<void> _onReopen(BuildContext context, VisitDetailRepository repo) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      barrierColor: AppTokens.body,
+      builder: (ctx) => _ModalDialog(
+        title: 'Move to Ongoing?',
+        icon: Icons.replay_rounded,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'This will move this consultation back to the Ongoing tab so you can modify treatments, sittings, or add notes.\n\nAll existing dates, treatments, and payments will be preserved.',
+              style: GoogleFonts.plusJakartaSans(fontSize: 14, color: kRefMuted),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: _BtnOutlineSm(
+                    label: 'Cancel',
+                    onTap: () => Navigator.pop(ctx, false),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _BtnPrimarySm(
+                    icon: Icons.replay_rounded,
+                    label: 'Move to Ongoing',
+                    onTap: () => Navigator.pop(ctx, true),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await repo.reopenVisit(detail.visit.id);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Consultation moved to ongoing'),
+            backgroundColor: AppTokens.success,
+          ),
+        );
+      }
+      onRefresh();
+      onReopen?.call();
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   void _showBill(BuildContext context) {
     showDialog(
       context: context,
@@ -644,10 +721,14 @@ class _TreatmentSection extends StatelessWidget {
                 const SizedBox(width: 8),
                 _StatusDropdown(
                   value: isPaid ? 'Paid' : 'Pending',
-                  enabled: !readOnly && !isPaid,
+                  enabled: !readOnly,
                   onChanged: (v) {
                     if (v == null) return;
-                    if (v == 'Paid') _togglePayment(context);
+                    if (v == 'Paid' && !isPaid) {
+                      _togglePayment(context);
+                    } else if (v == 'Pending' && isPaid) {
+                      _markPending(context);
+                    }
                   },
                 ),
               ],
@@ -732,6 +813,28 @@ class _TreatmentSection extends StatelessWidget {
           SnackBar(
             content: const Text('Paid'),
             backgroundColor: _badgeCompFg,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _markPending(BuildContext context) async {
+    try {
+      await repo.deletePaymentsForTreatment(treatment.id);
+      await repo.updateTreatmentStatus(treatment.id, 'planned');
+      onRefresh();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${treatment.treatmentName ?? 'Treatment'} marked as Pending'),
+            backgroundColor: _badgePlanFg,
           ),
         );
       }
@@ -886,7 +989,7 @@ class _SittingItem extends StatelessWidget {
           ],
           _StatusDropdown(
             value: current,
-            enabled: !readOnly && !isPaid,
+            enabled: !readOnly,
             onChanged: (v) {
               if (v == null) return;
               if (v == current) return;
@@ -916,6 +1019,8 @@ class _SittingItem extends StatelessWidget {
           paymentDate: DateTime.now(),
         );
         await repo.addPayment(payment);
+      } else if (newValue == 'Pending') {
+        await repo.deletePaymentsForSitting(sitting.id);
       }
 
       onRefresh();
@@ -2217,12 +2322,24 @@ class _EditTreatmentFormState extends State<_EditTreatmentForm> {
     if (name.isEmpty) return;
     setState(() => _saving = true);
     try {
-      await widget.repo.updateTreatment(widget.treatment.id, {
+      final newCost = double.tryParse(_costCtrl.text.trim()) ?? 0;
+      final oldCost = widget.treatment.totalCost ?? 0;
+      final costChanged = (newCost - oldCost).abs() > 0.01;
+
+      final updates = <String, dynamic>{
         'treatment_name': name,
         'teeth': _teethCtrl.text.trim().isEmpty ? null : _teethCtrl.text.trim(),
         'description': _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
-        'total_cost': double.tryParse(_costCtrl.text.trim()) ?? 0,
-      });
+        'total_cost': newCost,
+      };
+
+      if (costChanged) {
+        // Any cost change moves the status back to pending / planned
+        updates['status'] = 'planned';
+        await widget.repo.deletePaymentsForTreatment(widget.treatment.id);
+      }
+
+      await widget.repo.updateTreatment(widget.treatment.id, updates);
       if (mounted) Navigator.pop(context);
       widget.onSaved();
     } catch (e) {
@@ -2306,11 +2423,23 @@ class _EditSittingFormState extends State<_EditSittingForm> {
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
-      await widget.repo.updateSitting(widget.sitting.id, {
+      final newCost = double.tryParse(_costCtrl.text.trim());
+      final oldCost = widget.sitting.cost;
+      final costChanged = (newCost ?? 0) != (oldCost ?? 0);
+
+      final updates = <String, dynamic>{
         'notes': _nameCtrl.text.trim().isEmpty ? null : _nameCtrl.text.trim(),
-        'cost': double.tryParse(_costCtrl.text.trim()),
+        'cost': newCost,
         'sitting_date': _date.toIso8601String(),
-      });
+      };
+
+      if (costChanged) {
+        // Any cost change in sitting moves sitting status back to Scheduled (Pending)
+        updates['status'] = 'Scheduled';
+        await widget.repo.deletePaymentsForSitting(widget.sitting.id);
+      }
+
+      await widget.repo.updateSitting(widget.sitting.id, updates);
       if (mounted) Navigator.pop(context);
       widget.onSaved();
     } catch (e) {

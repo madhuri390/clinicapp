@@ -172,6 +172,9 @@ class VisitDetailRepository {
     await _maybeAssignReceiptNumber(visitId);
   }
 
+  Future<void> reopenVisit(String visitId) =>
+      updateVisit(visitId, {'status': 'ongoing'});
+
   Future<void> deleteVisit(String visitId) =>
       _client.from('visits').delete().eq('id', visitId);
 
@@ -247,6 +250,19 @@ class VisitDetailRepository {
         .single();
     return Payment.fromJson(result);
   }
+
+  Future<void> deletePaymentsForTreatment(String treatmentPlanId) =>
+      _client
+          .from('payments')
+          .delete()
+          .eq('treatment_plan_id', treatmentPlanId)
+          .filter('sitting_id', 'is', null);
+
+  Future<void> deletePaymentsForSitting(String sittingId) =>
+      _client
+          .from('payments')
+          .delete()
+          .eq('sitting_id', sittingId);
 
   /// Stamps `visits.receipt_number` when a visit is marked complete.
   /// Assigned once — a visit that already has a number is left alone, so

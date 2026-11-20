@@ -495,9 +495,14 @@ class _PatientDetailsScreenState extends State<PatientDetailsScreen>
                       hasMore: _historyHasMore,
                       isLoadingMore: _loadingMoreHistory,
                       onLoadMore: _loadMoreHistory,
-                      onEditVisit: widget.patientPortalMode
+                      onEditVisit: null,
+                      onReopen: widget.patientPortalMode
                           ? null
-                          : _showEditConsultationModal,
+                          : () {
+                              _loadOngoing();
+                              _loadHistory();
+                              _tabController.animateTo(1);
+                            },
                       readOnly: widget.patientPortalMode,
                     ),
                   ],
