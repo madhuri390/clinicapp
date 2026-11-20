@@ -2017,31 +2017,9 @@ class _BillDialog extends StatelessWidget {
                         icon: Icons.picture_as_pdf_outlined,
                         label: 'Bill PDF',
                         onTap: () async {
-                          final lineItems = <Map<String, dynamic>>[];
-                          for (final t in detail.treatments) {
-                            if ((t.totalCost ?? 0) > 0) {
-                              lineItems.add({'name': t.treatmentName ?? 'Treatment', 'amount': t.totalCost!});
-                            }
-                          }
-                          for (final s in detail.sittings) {
-                            if ((s.cost ?? 0) > 0) {
-                              lineItems.add({'name': 'Sitting: ${s.notes ?? 'Follow-up'}', 'amount': s.cost!});
-                            }
-                          }
-                          for (final rx in detail.prescriptions) {
-                            if ((rx.price ?? 0) > 0) {
-                              lineItems.add({'name': 'Rx: ${rx.medicineName ?? 'Medicine'}', 'amount': rx.price!});
-                            }
-                          }
-
-                          await PdfGeneratorService.generateInvoicePdf(
-                            patientName: patientName,
-                            visitDate: detail.visit.visitDate,
-                            treatments: lineItems,
-                            totalAmount: grandTotal,
+                          await PdfGeneratorService.generateInvoicePdfForVisit(
+                            detail: detail,
                             paidAmount: paid,
-                            balance: balance,
-                            receiptNumber: detail.visit.receiptNumber,
                           );
                         },
                       ),
